@@ -46,3 +46,4 @@ next-env.d.ts
 
 # build info
 tsconfig.tsbuildinfo
+_to_delete/
