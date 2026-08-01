@@ -1,0 +1,1700 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rooftop — dealer demo · Cascade Motors</title>
+<meta name="description" content="Rooftop Auto — inventory, merchandising, syndication, website and reporting for independent used car lots.">
+<style>/* ===== Rooftop design tokens =====
+   Charcoal + indigo. Deliberately outside the aging color ramp
+   (green -> cyan -> amber -> orange -> red) so brand never
+   competes with the thing dealers are supposed to read first. */
+:root{
+  --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
+  --line:#e3e7ec; --line2:#eef1f4;
+  --bg:#f1f3f6; --card:#fff; --card2:#f8fAfc;
+  --brand:#4f46e5; --brand2:#6d64f0; --brand-dk:#3b32c9; --brand-wash:#eef0fe;
+
+  --b0:#15a34a; --b0w:#e6f6ec;   /* 0-15  fresh air   */
+  --b1:#0e8fa8; --b1w:#e3f4f8;   /* 16-30             */
+  --b2:#c9760a; --b2w:#fdf1e0;   /* 31-45  at-risk    */
+  --b3:#e2560d; --b3w:#fdece2;   /* 46-60  at-risk    */
+  --b4:#cf2b26; --b4w:#fce8e7;   /* 61+    aged unit  */
+
+  --ok:#15a34a; --warn:#c9760a; --err:#cf2b26;
+  --r:10px; --r2:14px;
+  --sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);
+  --sh2:0 4px 16px rgba(16,24,40,.09),0 1px 3px rgba(16,24,40,.06);
+  --ff:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --fm:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--ff);background:var(--bg);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--fm)}
+
+/* ===== chrome ===== */
+.topbar{position:sticky;top:0;z-index:60;height:58px;background:var(--ink);
+  display:flex;align-items:center;gap:8px;padding:0 18px;color:#fff}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.3px;font-size:16.5px;margin-right:14px}
+.brandmark{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk));
+  display:grid;place-items:center;flex:0 0 auto}
+.brandmark svg{width:15px;height:15px}
+.brand small{font-weight:600;font-size:10px;letter-spacing:1.6px;color:#8e97a6;
+  border-left:1px solid #303a47;padding-left:9px;margin-left:2px}
+.nav{display:flex;gap:2px}
+.nav a{padding:8px 13px;border-radius:8px;font-weight:600;font-size:13.5px;color:#b6bec9}
+.nav a:hover{background:#1d2632;color:#fff}
+.nav a.on{background:#273140;color:#fff}
+.spacer{flex:1}
+.rtpick{display:flex;align-items:center;gap:7px;background:#1c2531;border:1px solid #2c3745;
+  border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:600;color:#d6dbe2}
+.rtpick select{background:none;border:0;color:#fff;font-weight:700;font-size:12.5px;outline:none}
+.rtpick select option{color:#000}
+.iconbtn{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#b6bec9;position:relative}
+.iconbtn:hover{background:#1d2632;color:#fff}
+.dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f0563c;border:2px solid var(--ink)}
+.me{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff}
+
+.wrap{max-width:1340px;margin:0 auto;padding:18px}
+.cols{display:grid;grid-template-columns:212px minmax(0,1fr) 316px;gap:18px;align-items:start}
+@media(max-width:1180px){.cols{grid-template-columns:minmax(0,1fr) 316px}.railL{display:none}}
+@media(max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}.railR{display:none}}
+.sticky{position:sticky;top:76px}
+
+/* ===== primitives ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--sh)}
+.pad{padding:16px}
+.hd{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line2)}
+.hd h3{margin:0;font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink2)}
+.muted{color:var(--ink3)}
+.tiny{font-size:11.5px}
+.sm{font-size:12.5px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;font-weight:700;font-size:13px;
+  background:var(--brand);color:#fff;box-shadow:var(--sh);white-space:nowrap}
+.btn:hover{background:var(--brand-dk)}
+.btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--card2);color:var(--ink)}
+.btn.dark{background:var(--ink)}.btn.dark:hover{background:#1e2734}
+.btn.sm{padding:6px 11px;font-size:12px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+  font-size:11.5px;font-weight:800;letter-spacing:.2px;background:var(--line2);color:var(--ink2);white-space:nowrap}
+.chip.b0{background:var(--b0w);color:var(--b0)}.chip.b1{background:var(--b1w);color:var(--b1)}
+.chip.b2{background:var(--b2w);color:var(--b2)}.chip.b3{background:var(--b3w);color:var(--b3)}
+.chip.b4{background:var(--b4w);color:var(--b4)}
+.chip.brand{background:var(--brand-wash);color:var(--brand-dk)}
+.chip.ok{background:var(--b0w);color:var(--b0)}
+.chip.err{background:var(--b4w);color:var(--b4)}
+.chip.warn{background:var(--b2w);color:var(--b2)}
+.pill{display:inline-block;width:8px;height:8px;border-radius:50%}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+hr.sep{border:0;border-top:1px solid var(--line2);margin:0}
+
+/* ===== metrics strip ===== */
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;box-shadow:var(--sh)}
+@media(max-width:820px){.metrics{grid-template-columns:repeat(3,1fr)}}
+.metric{padding:13px 15px;border-right:1px solid var(--line2)}
+.metric:last-child{border-right:0}
+.metric .k{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink3)}
+.metric .v{font-size:25px;font-weight:800;letter-spacing:-1px;margin-top:3px;line-height:1.1}
+.metric .n{font-size:11.5px;font-weight:600;color:var(--ink3);margin-top:1px}
+.metric .n b{font-weight:800}
+.up{color:var(--ok)}.down{color:var(--err)}
+
+/* ===== left rail ===== */
+.railL .lnk{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-weight:650;font-size:13.5px;color:var(--ink2)}
+.railL .lnk:hover{background:#e7eaef}
+.railL .lnk.on{background:var(--brand-wash);color:var(--brand-dk);font-weight:800}
+.railL .lnk .ic{width:26px;height:26px;border-radius:7px;background:var(--card);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+.railL .lnk.on .ic{background:var(--brand);border-color:var(--brand);color:#fff}
+.railL .grp{font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink4);padding:14px 11px 6px}
+
+/* ===== feed ===== */
+.composer{display:flex;gap:11px;align-items:center;padding:13px 15px}
+.composer input{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:10px 16px;
+  font-size:13.5px;outline:none}
+.composer input:focus{border-color:var(--brand);background:#fff}
+.quick{display:flex;gap:6px;padding:0 15px 13px;flex-wrap:wrap}
+.quick button{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;
+  background:var(--card2);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink2)}
+.quick button:hover{background:#eef1f5}
+
+.post{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--sh);overflow:hidden}
+.post .top{display:flex;gap:11px;padding:14px 16px 10px}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12.5px;color:#fff;flex:0 0 auto}
+.av.sys{border-radius:10px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk))}
+.av.sys svg{width:19px;height:19px}
+.post .who{font-weight:800;font-size:14px}
+.post .when{font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:5px;margin-top:1px}
+.post .body{padding:0 16px 12px}
+.post h4{margin:0 0 4px;font-size:16.5px;font-weight:800;letter-spacing:-.35px;line-height:1.28}
+.post p{margin:0;color:var(--ink2);font-size:13.5px}
+.postmedia{display:block;width:100%;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+.postmedia img{display:block;width:100%;aspect-ratio:760/428;object-fit:cover}
+.stats{display:flex;gap:0;border-top:1px solid var(--line2)}
+.stat{flex:1;padding:10px 14px;border-right:1px solid var(--line2)}
+.stat:last-child{border-right:0}
+.stat .k{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3)}
+.stat .v{font-size:16px;font-weight:800;letter-spacing:-.4px;margin-top:1px}
+.react{display:flex;align-items:center;gap:4px;padding:7px 10px;border-top:1px solid var(--line2)}
+.rbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:700;color:var(--ink3)}
+.rbtn:hover{background:var(--card2)}
+.rbtn.on{color:var(--brand-dk);background:var(--brand-wash)}
+.cmts{border-top:1px solid var(--line2);background:var(--card2);padding:11px 15px;display:flex;flex-direction:column;gap:10px}
+.cmt{display:flex;gap:9px}
+.cmt .av{width:28px;height:28px;font-size:10.5px}
+.bub{background:#fff;border:1px solid var(--line);border-radius:12px;padding:7px 11px;font-size:13px}
+.bub b{display:block;font-size:12px;margin-bottom:1px}
+.cmtin{display:flex;gap:9px;align-items:center}
+.cmtin input{flex:1;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:12.5px;outline:none}
+.cmtin input:focus{border-color:var(--brand)}
+
+/* ===== right rail ===== */
+.rrow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line2)}
+.rrow:last-child{border-bottom:0}
+.rrow:hover{background:var(--card2)}
+.thumb{width:52px;height:34px;border-radius:6px;object-fit:cover;flex:0 0 auto;background:var(--line2)}
+.board{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line2)}
+.board div{background:#fff;padding:12px 14px}
+.board .k{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3)}
+.board .v{font-size:21px;font-weight:800;letter-spacing:-.7px;margin-top:2px}
+
+/* ===== tables ===== */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink3);padding:9px 12px;border-bottom:1px solid var(--line);background:var(--card2);white-space:nowrap;position:sticky;top:0;z-index:5}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.tbl tr:hover td{background:#fafbfd;cursor:pointer}
+.tbl .r{text-align:right}
+.tbl .agebar{width:4px;height:30px;border-radius:2px;display:inline-block;vertical-align:middle}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line2)}
+.fchip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;
+  font-size:12px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.fchip:hover{border-color:var(--ink4)}
+.fchip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.fchip.on.b0{background:var(--b0);border-color:var(--b0)}.fchip.on.b1{background:var(--b1);border-color:var(--b1)}
+.fchip.on.b2{background:var(--b2);border-color:var(--b2)}.fchip.on.b3{background:var(--b3);border-color:var(--b3)}
+.fchip.on.b4{background:var(--b4);border-color:var(--b4)}
+.search{flex:1;min-width:180px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:8px 13px;outline:none;font-size:13px}
+.search:focus{border-color:var(--brand);background:#fff}
+select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12.5px;font-weight:650;outline:none}
+
+/* ===== vehicle profile ===== */
+.vhero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+@media(max-width:980px){.vhero{grid-template-columns:minmax(0,1fr)}}
+.gal img.main{width:100%;aspect-ratio:760/428;object-fit:cover;display:block;border-radius:12px 12px 0 0}
+.gstrip{display:flex;gap:6px;padding:9px;overflow-x:auto}
+.gstrip img{width:74px;height:48px;object-fit:cover;border-radius:6px;flex:0 0 auto;border:2px solid transparent;cursor:pointer}
+.gstrip img.on{border-color:var(--brand)}
+.gstrip .add{width:74px;height:48px;border-radius:6px;border:1.5px dashed var(--line);display:grid;place-items:center;
+  color:var(--ink4);font-size:18px;flex:0 0 auto}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line2);font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--ink3);font-weight:600}
+.kv .v{font-weight:750;text-align:right}
+.money{background:linear-gradient(180deg,#fff,var(--card2))}
+.money .kv .v{font-family:var(--fm);font-size:13px}
+.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line)}
+.tabs button{padding:11px 14px;font-size:13px;font-weight:750;color:var(--ink3);border-bottom:2.5px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--brand-dk);border-bottom-color:var(--brand)}
+.tabs button:hover{color:var(--ink)}
+
+/* wall */
+.wall{position:relative;padding:4px 0}
+.wall:before{content:"";position:absolute;left:33px;top:14px;bottom:14px;width:2px;background:var(--line)}
+.wev{display:flex;gap:14px;padding:10px 16px;position:relative}
+.wdot{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:14px;flex:0 0 auto;
+  background:#fff;border:2px solid var(--line);z-index:1}
+.wev .t{font-size:11.5px;color:var(--ink3);font-weight:650}
+.wev .h{font-weight:750;font-size:13.5px}
+
+/* forms */
+.fld{padding:12px 16px;border-bottom:1px solid var(--line2)}
+.fld label{display:block;font-size:10.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
+.fld input,.fld textarea,.fld select{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:9px;
+  padding:9px 12px;font-size:13.5px;outline:none;resize:vertical}
+.fld input:focus,.fld textarea:focus{border-color:var(--brand);background:#fff}
+.fld .hint{font-size:11.5px;color:var(--ink3);margin-top:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.grid2>.fld{border-right:1px solid var(--line2)}
+.grid2>.fld:nth-child(2n){border-right:0}
+
+/* ===== syndication ===== */
+.chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px}
+.ch{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--sh)}
+.ch .n{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13.5px}
+.chlogo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-weight:900;font-size:12px;color:#fff;flex:0 0 auto}
+.ch .meta{font-size:11.5px;color:var(--ink3);margin-top:9px;line-height:1.6}
+.ch .bar{height:4px;border-radius:2px;background:var(--line2);margin-top:10px;overflow:hidden}
+.ch .bar i{display:block;height:100%;background:var(--ok);transition:width .5s ease}
+
+.matrix{width:100%;border-collapse:collapse;font-size:12.5px}
+.matrix th{position:sticky;top:0;background:var(--card2);z-index:5;padding:8px 6px;border-bottom:1px solid var(--line);
+  font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3)}
+.matrix th.v{writing-mode:vertical-rl;transform:rotate(180deg);height:96px;white-space:nowrap;padding:8px 2px}
+.matrix td{padding:7px 6px;border-bottom:1px solid var(--line2);text-align:center}
+.matrix td.l{text-align:left}
+.matrix tr:hover td{background:#fafbfd}
+.sdot{width:15px;height:15px;border-radius:50%;display:inline-grid;place-items:center;font-size:9px;color:#fff;font-weight:900}
+.s-live{background:var(--ok)} .s-queued{background:var(--ink4)} .s-syncing{background:var(--brand)}
+.s-error{background:var(--err)} .s-off{background:#dfe3e9}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.s-syncing,.s-queued{animation:pulse 1s ease-in-out infinite}
+
+.demobar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:14px 16px;background:linear-gradient(100deg,var(--brand-wash),#fff);
+  border-bottom:1px solid var(--line)}
+.demobar .fld{padding:0;border:0;flex:0 0 auto}
+.demobar input{width:132px;background:#fff}
+.log{background:#0f1620;color:#c8d0da;font-family:var(--fm);font-size:11.5px;padding:12px 14px;
+  border-radius:10px;height:200px;overflow:auto;line-height:1.75}
+.log .ok{color:#5fd894}.log .er{color:#ff7f70}.log .dim{color:#6d7886}.log .br{color:#a99cff}
+
+/* ===== storefront ===== */
+.store{background:#fff}
+.sthead{background:#0f1620;color:#fff;padding:0}
+.sthead .in{max-width:1280px;margin:0 auto;padding:15px 20px;display:flex;align-items:center;gap:16px}
+.stlogo{font-size:19px;font-weight:900;letter-spacing:-.6px}
+.stnav{display:flex;gap:18px;font-size:13.5px;font-weight:650;color:#b6bec9}
+.stbar{background:#1b2432;color:#cfd6de;font-size:12px}
+.stbar .in{max-width:1280px;margin:0 auto;padding:7px 20px;display:flex;gap:18px;align-items:center}
+.stwrap{max-width:1280px;margin:0 auto;padding:20px}
+.stgrid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:900px){.stgrid{grid-template-columns:minmax(0,1fr)}}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:16px}
+.vcard{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--sh);transition:.15s;cursor:pointer}
+.vcard:hover{box-shadow:var(--sh2);transform:translateY(-2px)}
+.vcard img{width:100%;aspect-ratio:760/428;object-fit:cover;display:block}
+.vcard .b{padding:12px 13px}
+.vcard .ttl{font-weight:800;font-size:14px;letter-spacing:-.25px;line-height:1.3}
+.vcard .sub{font-size:12px;color:var(--ink3);margin-top:2px}
+.vcard .pr{font-size:20px;font-weight:900;letter-spacing:-.7px;margin-top:8px}
+.badge{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:900;
+  letter-spacing:.7px;text-transform:uppercase;color:#fff;background:rgba(15,22,32,.82);backdrop-filter:blur(4px)}
+.rel{position:relative}
+.frange{display:flex;gap:8px;align-items:center}
+.frange input{width:100%}
+.fgroup{border-bottom:1px solid var(--line2);padding:13px 0}
+.fgroup:last-child{border-bottom:0}
+.fgroup h4{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--ink3)}
+.cbx{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;cursor:pointer}
+.cbx input{accent-color:var(--brand)}
+
+/* VDP */
+.vdp{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:24px;align-items:start}
+@media(max-width:900px){.vdp{grid-template-columns:minmax(0,1fr)}}
+.vdpgal img.main{width:100%;aspect-ratio:760/428;object-fit:cover;border-radius:14px;display:block}
+.vdpstrip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:8px}
+.vdpstrip img{width:100%;aspect-ratio:760/428;object-fit:cover;border-radius:7px;cursor:pointer;border:2px solid transparent}
+.vdpstrip img.on{border-color:var(--ink)}
+.specs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line2);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+@media(max-width:620px){.specs{grid-template-columns:repeat(2,1fr)}}
+.specs div{background:#fff;padding:13px 14px}
+.specs .k{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--ink3)}
+.specs .v{font-weight:750;margin-top:3px;font-size:13.5px}
+.feats{display:flex;flex-wrap:wrap;gap:7px}
+.feat{padding:6px 12px;border-radius:8px;background:var(--card2);border:1px solid var(--line);font-size:12.5px;font-weight:650}
+.pbox{border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--sh2);background:#fff}
+.pbox .top{padding:16px;border-bottom:1px solid var(--line2)}
+.pbox .price{font-size:34px;font-weight:900;letter-spacing:-1.6px;line-height:1}
+.pay{display:flex;align-items:baseline;gap:6px;margin-top:9px;font-size:13px;color:var(--ink2)}
+.pay b{font-size:19px;font-weight:900;letter-spacing:-.6px;color:var(--ink)}
+
+/* charts */
+.bars{display:flex;align-items:flex-end;gap:10px;height:170px;padding:0 4px}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.bars .bar{width:100%;border-radius:7px 7px 0 0;min-height:4px;transition:height .4s ease}
+.bars .lb{font-size:11px;font-weight:750;color:var(--ink3);text-align:center}
+.bars .vl{font-size:15px;font-weight:800}
+.dnut{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.leg{display:flex;flex-direction:column;gap:7px;font-size:12.5px}
+.leg div{display:flex;align-items:center;gap:8px}
+.leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.spark{width:100%;height:78px;display:block}
+
+/* ===== demo ribbon (only present in the hosted demo build) ===== */
+.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#4f46e5;color:#fff;
+  padding:7px 18px;font-size:12px;font-weight:600;letter-spacing:.1px}
+.rb-back{font-weight:800;padding:3px 10px;border-radius:7px;background:rgba(255,255,255,.16);white-space:nowrap}
+.rb-back:hover{background:rgba(255,255,255,.28)}
+.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#3b32c9}
+.rb-txt{color:#dcdafc}
+@media(max-width:640px){.rb-txt{display:none}}
+
+/* ===== narrow screens =====
+   The demo is a desktop tool and the dense tables stay dense — they scroll
+   inside their own containers. What must not happen is the whole page
+   sliding sideways, which is what the top bar was causing. */
+@media(max-width:760px){
+  .topbar{height:auto;flex-wrap:wrap;padding:8px 12px;gap:7px;row-gap:4px}
+  .brand{margin-right:4px;font-size:15px}
+  .brand small{display:none}
+  .nav{order:5;width:100%;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .nav::-webkit-scrollbar{display:none}
+  .nav a{white-space:nowrap;font-size:13px;padding:6px 10px}
+  .topbar .spacer{flex:1 1 auto}
+  .rtpick{padding:5px 8px;max-width:170px}
+  .rtpick select{max-width:118px;text-overflow:ellipsis}
+  .iconbtn{width:30px;height:30px}
+  .topbar button.iconbtn{display:none}   /* bell is decorative; keep the storefront link */
+  .wrap{padding:12px}
+  .sthead .in,.stbar .in{flex-wrap:wrap;gap:10px;padding:12px 14px}
+  .stnav{gap:14px;font-size:13px}
+  .stwrap{padding:14px}
+  .vdpstrip{grid-template-columns:repeat(4,1fr)}
+  .specs{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head><body>
+<script>
+const SEED = {"generated":"2026-08-01","rooftops":[{"id":"rt_fourthplain","name":"Cascade Motors — Fourth Plain","short":"Fourth Plain","city":"Vancouver","state":"WA","address":"7412 NE Fourth Plain Blvd","phone":"(360) 555-0142","type":"physical"},{"id":"rt_orchards","name":"Cascade Motors — Orchards","short":"Orchards","city":"Vancouver","state":"WA","address":"11205 NE 117th Ave","phone":"(360) 555-0188","type":"physical"}],"virtualRooftop":{"id":"rt_cascade_online","name":"Cascade Motors","type":"virtual","consolidates":["rt_fourthplain","rt_orchards"],"domain":"cascademotorswa.com"},"people":[{"id":"u_ray","name":"Ray Kessler","role":"Dealer Principal","initials":"RK","color":"#1f4e8c","rooftop":"rt_fourthplain"},{"id":"u_mike","name":"Mike Ruiz","role":"Sales","initials":"MR","color":"#9c2b23","rooftop":"rt_fourthplain"},{"id":"u_tina","name":"Tina Alvarez","role":"Sales","initials":"TA","color":"#2f6f4f","rooftop":"rt_orchards"},{"id":"u_rob","name":"Rob Chen","role":"Recon & Detail","initials":"RC","color":"#6b4c9a","rooftop":"rt_fourthplain"},{"id":"u_tim","name":"Tim Boyd","role":"Sales","initials":"TB","color":"#b5721c","rooftop":"rt_orchards"}],"vehicles":[{"id":"v1","vin":"1FT1REC01HF470210","stock":"4491","year":2017,"make":"Ford","model":"F-150","trim":"King Ranch","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"3.5L V6 EcoBoost","exteriorColor":"Silver Ice","colorHex":"#b9bdc2","interiorColor":"Tan Leather","mileage":92470,"cost":25625,"pack":795,"reconCost":550,"totalCost":26970,"market":30250,"price":29495,"daysInStock":3,"acquired":"2026-07-29","source":"Trade-in","reconStatus":"in_recon","reconDays":3,"reconNote":"Timing service, brake flush, detail","photoCount":3,"frontLineReady":false,"isWater":false,"vdpViews7":0,"vdpViewsTotal":0,"leads":0,"rooftop":"rt_fourthplain","features":["4WD","Bluetooth","Apple CarPlay","Backup Camera","Bed Liner","Heated Seats"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v2","vin":"1C64XKH5XMS766621","stock":"4267","year":2021,"make":"Ram","model":"1500","trim":"Tradesman","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"5.7L HEMI V8","exteriorColor":"Sandstone","colorHex":"#b3a289","interiorColor":"Black Cloth","mileage":66800,"cost":25950,"pack":795,"reconCost":850,"totalCost":27595,"market":30750,"price":31495,"daysInStock":5,"acquired":"2026-07-27","source":"Auction — ADESA Seattle","reconStatus":"in_recon","reconDays":5,"reconNote":"Battery, cabin filter, full detail","photoCount":1,"frontLineReady":false,"isWater":false,"vdpViews7":0,"vdpViewsTotal":0,"leads":0,"rooftop":"rt_fourthplain","features":["4WD","Remote Start","Trailer Brake Controller","Heated Seats","Apple CarPlay","Backup Camera","Tow Package"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v3","vin":"1GC8HR078HG576080","stock":"4644","year":2017,"make":"Chevrolet","model":"Silverado 1500","trim":"RST","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"5.3L V8","exteriorColor":"Barcelona Red","colorHex":"#9c2b23","interiorColor":"Gray Cloth","mileage":78690,"cost":23675,"pack":795,"reconCost":700,"totalCost":25170,"market":27600,"price":27995,"daysInStock":7,"acquired":"2026-07-25","source":"Street purchase","reconStatus":"complete","reconDays":7,"reconNote":"Battery, cabin filter, full detail","photoCount":26,"frontLineReady":true,"isWater":false,"vdpViews7":104,"vdpViewsTotal":120,"leads":4,"rooftop":"rt_orchards","features":["4WD","Bluetooth","Backup Camera","Bed Liner","Apple CarPlay","Tow Package","Heated Seats","Remote Start"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v4","vin":"1GTSKPM89KG217956","stock":"4374","year":2019,"make":"GMC","model":"Sierra 1500","trim":"SLE","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"5.3L V8","exteriorColor":"Silver Ice","colorHex":"#b9bdc2","interiorColor":"Ebony Leatherette","mileage":95700,"cost":21225,"pack":795,"reconCost":975,"totalCost":22995,"market":25650,"price":25995,"daysInStock":9,"acquired":"2026-07-23","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":7,"reconNote":"Windshield replacement, detail","photoCount":30,"frontLineReady":true,"isWater":false,"vdpViews7":42,"vdpViewsTotal":83,"leads":2,"rooftop":"rt_fourthplain","features":["4WD","Running Boards","Tow Package","Heated Seats","Backup Camera"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v5","vin":"3TM673467HM756035","stock":"4157","year":2017,"make":"Toyota","model":"Tacoma","trim":"TRD Sport","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"3.5L V6","exteriorColor":"Army Green","colorHex":"#4a5240","interiorColor":"Charcoal Cloth","mileage":108730,"cost":16525,"pack":795,"reconCost":1150,"totalCost":18470,"market":21600,"price":21995,"daysInStock":11,"acquired":"2026-07-21","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":6,"reconNote":"Full detail, headlight restoration","photoCount":19,"frontLineReady":true,"isWater":false,"vdpViews7":37,"vdpViewsTotal":85,"leads":1,"rooftop":"rt_fourthplain","features":["4WD","Backup Camera","Trailer Brake Controller","Tow Package","Remote Start"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v6","vin":"5TFY0LT64HY361474","stock":"4251","year":2017,"make":"Toyota","model":"Tundra","trim":"SR5","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"5.7L V8","exteriorColor":"Storm Gray","colorHex":"#4b5158","interiorColor":"Black Cloth","mileage":119310,"cost":14725,"pack":795,"reconCost":1650,"totalCost":17170,"market":20750,"price":20495,"daysInStock":13,"acquired":"2026-07-19","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":8,"reconNote":"Two tires, oil service, safety inspection","photoCount":15,"frontLineReady":true,"isWater":false,"vdpViews7":110,"vdpViewsTotal":169,"leads":5,"rooftop":"rt_orchards","features":["4WD","Bed Liner","Heated Seats","Trailer Brake Controller","Tow Package","Backup Camera"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v7","vin":"4S47VNJ97HB908113","stock":"4154","year":2017,"make":"Subaru","model":"Outback","trim":"Premium","body":"Wagon","drivetrain":"AWD","transmission":"Automatic","engine":"2.5L Boxer 4","exteriorColor":"Army Green","colorHex":"#4a5240","interiorColor":"Black Leather","mileage":127210,"cost":7600,"pack":795,"reconCost":1575,"totalCost":9970,"market":12700,"price":12995,"daysInStock":17,"acquired":"2026-07-15","source":"Auction — ADESA Seattle","reconStatus":"complete","reconDays":6,"reconNote":"Full detail, headlight restoration","photoCount":29,"frontLineReady":true,"isWater":false,"vdpViews7":41,"vdpViewsTotal":124,"leads":4,"rooftop":"rt_fourthplain","features":["AWD","Roof Rails","EyeSight Driver Assist","AWD","Power Liftgate"],"titleStatus":"In hand","carfax":"1 Owner"},{"id":"v8","vin":"JF2LKRK55KH870109","stock":"4770","year":2019,"make":"Subaru","model":"Forester","trim":"Limited","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"2.5L Boxer 4","exteriorColor":"Oxford White","colorHex":"#eef0f2","interiorColor":"Tan Leather","mileage":103500,"cost":11100,"pack":795,"reconCost":1900,"totalCost":13795,"market":17700,"price":17495,"daysInStock":20,"acquired":"2026-07-12","source":"Street purchase","reconStatus":"complete","reconDays":9,"reconNote":"Full detail, headlight restoration","photoCount":15,"frontLineReady":true,"isWater":false,"vdpViews7":41,"vdpViewsTotal":146,"leads":3,"rooftop":"rt_fourthplain","features":["AWD","Roof Rails","Panoramic Roof","Power Liftgate","Backup Camera","Heated Seats","Apple CarPlay","Blind Spot Monitor"],"titleStatus":"In hand","carfax":"1 Owner"},{"id":"v9","vin":"JF228KU36PH511257","stock":"4430","year":2023,"make":"Subaru","model":"Crosstrek","trim":"Limited","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"2.0L Boxer 4","exteriorColor":"Army Green","colorHex":"#4a5240","interiorColor":"Ebony Leatherette","mileage":46780,"cost":18200,"pack":795,"reconCost":1150,"totalCost":20145,"market":23150,"price":22995,"daysInStock":23,"acquired":"2026-07-09","source":"Street purchase","reconStatus":"complete","reconDays":5,"reconNote":"Front pads + rotors, alignment","photoCount":20,"frontLineReady":true,"isWater":false,"vdpViews7":54,"vdpViewsTotal":151,"leads":4,"rooftop":"rt_orchards","features":["AWD","Panoramic Roof","Power Liftgate","Remote Start","Third Row","Roof Rails","Apple CarPlay"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v10","vin":"5J68U7YW7MH109808","stock":"4477","year":2021,"make":"Honda","model":"CR-V","trim":"EX-L","body":"SUV","drivetrain":"FWD","transmission":"Automatic","engine":"1.5L Turbo 4","exteriorColor":"Barcelona Red","colorHex":"#9c2b23","interiorColor":"Charcoal Cloth","mileage":43520,"cost":19175,"pack":795,"reconCost":1700,"totalCost":21670,"market":24100,"price":24995,"daysInStock":26,"acquired":"2026-07-06","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":6,"reconNote":"Timing service, brake flush, detail","photoCount":32,"frontLineReady":true,"isWater":false,"vdpViews7":29,"vdpViewsTotal":106,"leads":3,"rooftop":"rt_fourthplain","features":["Backup Camera","Third Row","Heated Seats","Power Liftgate","Remote Start","Roof Rails","Adaptive Cruise"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v11","vin":"1HGZK7VD6KA622560","stock":"4823","year":2019,"make":"Honda","model":"Accord","trim":"Touring","body":"Sedan","drivetrain":"FWD","transmission":"Automatic","engine":"1.5L Turbo 4","exteriorColor":"Summit White","colorHex":"#f2f3f4","interiorColor":"Charcoal Cloth","mileage":61160,"cost":15275,"pack":795,"reconCost":1300,"totalCost":17370,"market":19950,"price":19995,"daysInStock":29,"acquired":"2026-07-03","source":"Street purchase","reconStatus":"complete","reconDays":5,"reconNote":"Front pads + rotors, alignment","photoCount":20,"frontLineReady":true,"isWater":false,"vdpViews7":56,"vdpViewsTotal":278,"leads":10,"rooftop":"rt_fourthplain","features":["Blind Spot Monitor","Backup Camera","Sunroof","Keyless Entry"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v12","vin":"5FNC78S46GL798680","stock":"4629","year":2016,"make":"Honda","model":"Pilot","trim":"Touring","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"3.5L V6","exteriorColor":"Rapid Red","colorHex":"#8a1d24","interiorColor":"Charcoal Cloth","mileage":122790,"cost":10575,"pack":795,"reconCost":675,"totalCost":12045,"market":15200,"price":14995,"daysInStock":32,"acquired":"2026-06-30","source":"Auction — ADESA Seattle","reconStatus":"complete","reconDays":10,"reconNote":"Timing service, brake flush, detail","photoCount":25,"frontLineReady":true,"isWater":false,"vdpViews7":52,"vdpViewsTotal":285,"leads":8,"rooftop":"rt_orchards","features":["AWD","Backup Camera","Adaptive Cruise","Heated Seats","Blind Spot Monitor","Remote Start","Panoramic Roof"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v13","vin":"2T33B20Z1KW613373","stock":"4308","year":2019,"make":"Toyota","model":"RAV4","trim":"Limited","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"2.5L 4-Cyl","exteriorColor":"Cement","colorHex":"#8d8a80","interiorColor":"Charcoal Cloth","mileage":94480,"cost":13800,"pack":795,"reconCost":2350,"totalCost":16945,"market":20200,"price":20495,"daysInStock":35,"acquired":"2026-06-27","source":"Auction — ADESA Seattle","reconStatus":"complete","reconDays":10,"reconNote":"Bumper respray, wheel refinish","photoCount":20,"frontLineReady":true,"isWater":false,"vdpViews7":23,"vdpViewsTotal":123,"leads":3,"rooftop":"rt_fourthplain","features":["AWD","Roof Rails","Heated Seats","Remote Start","Adaptive Cruise","Panoramic Roof","Third Row"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v14","vin":"JTEPHGH24HU611445","stock":"4710","year":2017,"make":"Toyota","model":"4Runner","trim":"Limited","body":"SUV","drivetrain":"4WD","transmission":"Automatic","engine":"4.0L V6","exteriorColor":"Ingot Silver","colorHex":"#a7abb0","interiorColor":"Charcoal Cloth","mileage":113760,"cost":18500,"pack":795,"reconCost":1300,"totalCost":20595,"market":25700,"price":24995,"daysInStock":38,"acquired":"2026-06-24","source":"Street purchase","reconStatus":"complete","reconDays":7,"reconNote":"Front pads + rotors, alignment","photoCount":20,"frontLineReady":true,"isWater":false,"vdpViews7":43,"vdpViewsTotal":217,"leads":5,"rooftop":"rt_fourthplain","features":["4WD","Heated Seats","Roof Rails","Backup Camera","Adaptive Cruise","Power Liftgate"],"titleStatus":"Pending","carfax":"Clean"},{"id":"v15","vin":"4T1ME3N94JK490620","stock":"4183","year":2018,"make":"Toyota","model":"Camry","trim":"SE","body":"Sedan","drivetrain":"FWD","transmission":"Automatic","engine":"2.5L 4-Cyl","exteriorColor":"Oxford White","colorHex":"#eef0f2","interiorColor":"Gray Cloth","mileage":80470,"cost":9875,"pack":795,"reconCost":550,"totalCost":11220,"market":15150,"price":14995,"daysInStock":41,"acquired":"2026-06-21","source":"Trade-in","reconStatus":"complete","reconDays":4,"reconNote":"Battery, cabin filter, full detail","photoCount":29,"frontLineReady":true,"isWater":false,"vdpViews7":41,"vdpViewsTotal":234,"leads":4,"rooftop":"rt_orchards","features":["Lane Keep Assist","Sunroof","Adaptive Cruise","Backup Camera","Blind Spot Monitor","Keyless Entry","Heated Seats"],"titleStatus":"In hand","carfax":"1 Owner"},{"id":"v16","vin":"1C4882Z22JC242817","stock":"4134","year":2018,"make":"Jeep","model":"Grand Cherokee","trim":"Laredo","body":"SUV","drivetrain":"4WD","transmission":"Automatic","engine":"3.6L V6","exteriorColor":"Cement","colorHex":"#8d8a80","interiorColor":"Gray Cloth","mileage":90520,"cost":10450,"pack":795,"reconCost":1575,"totalCost":12820,"market":16600,"price":16995,"daysInStock":44,"acquired":"2026-06-18","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":11,"reconNote":"Full detail, headlight restoration","photoCount":22,"frontLineReady":true,"isWater":false,"vdpViews7":57,"vdpViewsTotal":320,"leads":5,"rooftop":"rt_fourthplain","features":["4WD","Adaptive Cruise","Blind Spot Monitor","Third Row","Remote Start"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v17","vin":"1C49YJ466KW296629","stock":"4536","year":2019,"make":"Jeep","model":"Wrangler Unlimited","trim":"Sahara","body":"SUV","drivetrain":"4WD","transmission":"Automatic","engine":"3.6L V6","exteriorColor":"Ingot Silver","colorHex":"#a7abb0","interiorColor":"Gray Cloth","mileage":73270,"cost":21200,"pack":795,"reconCost":2225,"totalCost":24220,"market":26200,"price":26995,"daysInStock":48,"acquired":"2026-06-14","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":10,"reconNote":"Bumper respray, wheel refinish","photoCount":18,"frontLineReady":true,"isWater":false,"vdpViews7":31,"vdpViewsTotal":239,"leads":5,"rooftop":"rt_fourthplain","features":["4WD","Roof Rails","Remote Start","Adaptive Cruise","Apple CarPlay","Panoramic Roof","Third Row"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v18","vin":"5N1UX1JY4LC637902","stock":"4827","year":2020,"make":"Nissan","model":"Rogue","trim":"SV","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"2.5L 4-Cyl","exteriorColor":"Ingot Silver","colorHex":"#a7abb0","interiorColor":"Ebony Leatherette","mileage":53520,"cost":12750,"pack":795,"reconCost":1300,"totalCost":14845,"market":16300,"price":16995,"daysInStock":52,"acquired":"2026-06-10","source":"Trade-in","reconStatus":"complete","reconDays":5,"reconNote":"Full detail, headlight restoration","photoCount":16,"frontLineReady":true,"isWater":false,"vdpViews7":16,"vdpViewsTotal":119,"leads":3,"rooftop":"rt_orchards","features":["AWD","Roof Rails","Adaptive Cruise","Backup Camera","Blind Spot Monitor","Apple CarPlay","Remote Start","Heated Seats"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v19","vin":"1N6472M99MN940756","stock":"4402","year":2021,"make":"Nissan","model":"Frontier","trim":"PRO-4X","body":"Pickup","drivetrain":"4WD","transmission":"Automatic","engine":"3.8L V6","exteriorColor":"Storm Gray","colorHex":"#4b5158","interiorColor":"Charcoal Cloth","mileage":74720,"cost":19675,"pack":795,"reconCost":2275,"totalCost":22745,"market":25600,"price":24995,"daysInStock":56,"acquired":"2026-06-06","source":"Trade-in","reconStatus":"complete","reconDays":10,"reconNote":"Bumper respray, wheel refinish","photoCount":14,"frontLineReady":true,"isWater":false,"vdpViews7":44,"vdpViewsTotal":294,"leads":7,"rooftop":"rt_fourthplain","features":["4WD","Backup Camera","Bed Liner","Trailer Brake Controller","Remote Start","Apple CarPlay"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v20","vin":"5NME77AN8JH698654","stock":"4413","year":2018,"make":"Hyundai","model":"Santa Fe","trim":"SEL","body":"SUV","drivetrain":"FWD","transmission":"Automatic","engine":"2.4L 4-Cyl","exteriorColor":"Cement","colorHex":"#8d8a80","interiorColor":"Black Leather","mileage":125230,"cost":7025,"pack":795,"reconCost":1725,"totalCost":9545,"market":11500,"price":11995,"daysInStock":59,"acquired":"2026-06-03","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":7,"reconNote":"Full detail, headlight restoration","photoCount":27,"frontLineReady":true,"isWater":false,"vdpViews7":53,"vdpViewsTotal":461,"leads":7,"rooftop":"rt_fourthplain","features":["Apple CarPlay","Third Row","Remote Start","Power Liftgate"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v21","vin":"5XYSX6A79MG578875","stock":"4191","year":2021,"make":"Kia","model":"Telluride","trim":"S","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"3.8L V6","exteriorColor":"Silver Ice","colorHex":"#b9bdc2","interiorColor":"Ebony Leatherette","mileage":74050,"cost":24050,"pack":795,"reconCost":1425,"totalCost":26270,"market":25750,"price":26495,"daysInStock":67,"acquired":"2026-05-26","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":5,"reconNote":"Battery, cabin filter, full detail","photoCount":19,"frontLineReady":true,"isWater":true,"vdpViews7":21,"vdpViewsTotal":195,"leads":4,"rooftop":"rt_orchards","features":["AWD","Power Liftgate","Blind Spot Monitor","Roof Rails","Heated Seats"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v22","vin":"1FMFHDYA9HC936807","stock":"4141","year":2017,"make":"Ford","model":"Explorer","trim":"Limited","body":"SUV","drivetrain":"4WD","transmission":"Automatic","engine":"2.3L EcoBoost","exteriorColor":"Deep Sea Blue","colorHex":"#22405e","interiorColor":"Gray Cloth","mileage":116870,"cost":11925,"pack":795,"reconCost":2325,"totalCost":15045,"market":15400,"price":15995,"daysInStock":74,"acquired":"2026-05-19","source":"Street purchase","reconStatus":"complete","reconDays":11,"reconNote":"Full detail, headlight restoration","photoCount":14,"frontLineReady":true,"isWater":false,"vdpViews7":29,"vdpViewsTotal":365,"leads":12,"rooftop":"rt_fourthplain","features":["4WD","Adaptive Cruise","Backup Camera","Third Row","Roof Rails"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v23","vin":"1FMDA2E8XMU571074","stock":"4335","year":2021,"make":"Ford","model":"Escape","trim":"Titanium","body":"SUV","drivetrain":"FWD","transmission":"Automatic","engine":"1.5L EcoBoost","exteriorColor":"Magnetic Gray","colorHex":"#5c6066","interiorColor":"Tan Leather","mileage":65930,"cost":14675,"pack":795,"reconCost":2225,"totalCost":17695,"market":18800,"price":18995,"daysInStock":88,"acquired":"2026-05-05","source":"Trade-in","reconStatus":"complete","reconDays":4,"reconNote":"Front pads + rotors, alignment","photoCount":17,"frontLineReady":true,"isWater":false,"vdpViews7":16,"vdpViewsTotal":230,"leads":4,"rooftop":"rt_fourthplain","features":["Apple CarPlay","Heated Seats","Adaptive Cruise","Backup Camera","Power Liftgate","Blind Spot Monitor","Panoramic Roof"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v24","vin":"2GNZP1542KL522006","stock":"4575","year":2019,"make":"Chevrolet","model":"Equinox","trim":"LT","body":"SUV","drivetrain":"AWD","transmission":"Automatic","engine":"1.5L Turbo 4","exteriorColor":"Storm Gray","colorHex":"#4b5158","interiorColor":"Black Cloth","mileage":78430,"cost":11150,"pack":795,"reconCost":2325,"totalCost":14270,"market":12800,"price":12995,"daysInStock":103,"acquired":"2026-04-20","source":"Trade-in","reconStatus":"complete","reconDays":8,"reconNote":"Full detail, headlight restoration","photoCount":22,"frontLineReady":true,"isWater":true,"vdpViews7":12,"vdpViewsTotal":177,"leads":3,"rooftop":"rt_orchards","features":["AWD","Apple CarPlay","Third Row","Heated Seats","Remote Start"],"titleStatus":"In hand","carfax":"Clean"},{"id":"v25","vin":"3VWZV2FE4MM257461","stock":"4576","year":2021,"make":"Volkswagen","model":"Jetta","trim":"SEL","body":"Sedan","drivetrain":"FWD","transmission":"Automatic","engine":"1.4L TSI","exteriorColor":"Deep Sea Blue","colorHex":"#22405e","interiorColor":"Ebony Leatherette","mileage":75360,"cost":15125,"pack":795,"reconCost":1175,"totalCost":17095,"market":15950,"price":16495,"daysInStock":121,"acquired":"2026-04-02","source":"Auction — Manheim Portland","reconStatus":"complete","reconDays":8,"reconNote":"Timing service, brake flush, detail","photoCount":28,"frontLineReady":true,"isWater":true,"vdpViews7":14,"vdpViewsTotal":236,"leads":4,"rooftop":"rt_fourthplain","features":["Blind Spot Monitor","Adaptive Cruise","Lane Keep Assist","Heated Seats","Backup Camera","Keyless Entry"],"titleStatus":"In hand","carfax":"Clean"}]};
+/* ============================================================
+   Rooftop — vehicle imagery
+   The demo ships no external images. Each "photo" is a generated
+   placeholder tile keyed to the unit's real paint color and body
+   type, so a gallery still reads as "silver crew cab" vs "green
+   wagon" without pretending to be photography it isn't.
+   Real dealer photos drop straight into photoSet().
+   ============================================================ */
+
+/* icon-scale body glyphs, viewBox 0 0 120 44 */
+const GLYPH = {
+  Sedan: {
+    hull: 'M4,30 Q4,25 9,24 L34,21 L48,10 Q51,7 57,7 L80,7 Q86,7 90,10 L104,21 L112,23 Q116,24 116,29 L116,33 Q116,35 113,35 L7,35 Q4,35 4,32 Z',
+    wheels: [[30, 34, 8], [92, 34, 8]],
+  },
+  Wagon: {
+    hull: 'M4,30 Q4,25 9,24 L33,20 L45,8 Q48,5 54,5 L92,5 Q97,5 100,8 L110,20 L114,23 Q117,25 117,29 L117,33 Q117,35 114,35 L7,35 Q4,35 4,32 Z',
+    wheels: [[30, 34, 8], [94, 34, 8]],
+  },
+  SUV: {
+    hull: 'M4,30 Q4,24 9,23 L32,19 L44,7 Q47,4 53,4 L88,4 Q94,4 97,7 L108,20 L113,23 Q116,25 116,29 L116,33 Q116,35 113,35 L7,35 Q4,35 4,32 Z',
+    wheels: [[30, 34, 8.5], [92, 34, 8.5]],
+  },
+  Pickup: {
+    hull: 'M4,30 Q4,24 9,23 L32,19 L44,7 Q47,4 53,4 L76,4 Q81,4 82,8 L84,20 L114,20 Q117,20 117,23 L117,33 Q117,35 114,35 L7,35 Q4,35 4,32 Z',
+    wheels: [[30, 34, 8.5], [98, 34, 8.5]],
+  },
+};
+const glyphFor = (v) => GLYPH[v.body] || GLYPH.SUV;
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v =>
+    Math.max(0, Math.min(255, Math.round(amt > 0 ? v + (255 - v) * amt : v * (1 + amt))))
+  );
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function isLight(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 168;
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+/* A paint-swatch tile: the unit's real color, its body glyph, and honest labelling. */
+function tileSVG(v, label, idx, total) {
+  const uid = 't' + v.id + idx;
+  const paint = v.colorHex;
+  const light = isLight(paint);
+  const a = shade(paint, light ? -0.06 : 0.30);
+  const b = shade(paint, light ? -0.34 : -0.30);
+  const ink = light ? '#12161c' : '#ffffff';
+  const g = glyphFor(v);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 428" width="760" height="428" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+<defs>
+  <linearGradient id="bg${uid}" x1="0" y1="0" x2=".65" y2="1">
+    <stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/>
+  </linearGradient>
+  <pattern id="hx${uid}" width="14" height="14" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+    <line x1="0" y1="0" x2="0" y2="14" stroke="${ink}" stroke-opacity=".05" stroke-width="7"/>
+  </pattern>
+  <radialGradient id="vg${uid}" cx=".5" cy=".38" r=".78">
+    <stop offset="0" stop-color="#fff" stop-opacity="${light ? .55 : .16}"/>
+    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+
+<rect width="760" height="428" fill="url(#bg${uid})"/>
+<rect width="760" height="428" fill="url(#hx${uid})"/>
+<rect width="760" height="428" fill="url(#vg${uid})"/>
+
+<g transform="translate(148,150) scale(3.9)" fill="${ink}" opacity=".17">
+  <path d="${g.hull}"/>
+  ${g.wheels.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${ink}" opacity=".55"/>`).join('')}
+</g>
+
+<g fill="${ink}">
+  <text x="40" y="62" font-size="15" font-weight="700" letter-spacing="2.4" opacity=".55">${esc(v.year)} ${esc(v.make).toUpperCase()}</text>
+  <text x="40" y="98" font-size="30" font-weight="800" letter-spacing="-.4">${esc(v.model)} ${esc(v.trim)}</text>
+  <text x="40" y="392" font-size="14" font-weight="700" letter-spacing="1.6" opacity=".62">STK ${esc(v.stock)} · ${esc(v.exteriorColor).toUpperCase()}</text>
+  <text x="720" y="392" font-size="14" font-weight="700" letter-spacing="1.6" text-anchor="end" opacity=".62">${esc(label).toUpperCase()}</text>
+</g>
+
+<g opacity=".9">
+  <rect x="646" y="36" width="76" height="30" rx="15" fill="${ink}" opacity=".14"/>
+  <text x="684" y="56" text-anchor="middle" font-size="14" font-weight="800" fill="${ink}" letter-spacing="1" opacity=".8">${idx + 1} / ${total}</text>
+</g>
+</svg>`;
+}
+
+function odoSVG(v) {
+  const uid = 'o' + v.id;
+  const tick = (cx, n) => Array.from({ length: n }, (_, i) => {
+    const ang = (-212 + i * (250 / (n - 1))) * Math.PI / 180;
+    return `<line x1="${cx + Math.cos(ang) * 84}" y1="${196 + Math.sin(ang) * 84}" x2="${cx + Math.cos(ang) * 96}" y2="${196 + Math.sin(ang) * 96}" stroke="#cdd5de" stroke-width="3"/>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 428" width="760" height="428">
+<defs><radialGradient id="og${uid}" cx=".5" cy=".44" r=".74"><stop offset="0" stop-color="#242b34"/><stop offset="1" stop-color="#0b0f13"/></radialGradient></defs>
+<rect width="760" height="428" fill="url(#og${uid})"/>
+<circle cx="232" cy="196" r="104" fill="none" stroke="#39424e" stroke-width="8"/>
+<circle cx="528" cy="196" r="104" fill="none" stroke="#39424e" stroke-width="8"/>
+${tick(232, 11)}${tick(528, 9)}
+<line x1="232" y1="196" x2="152" y2="254" stroke="#df453c" stroke-width="6" stroke-linecap="round"/>
+<line x1="528" y1="196" x2="448" y2="254" stroke="#df453c" stroke-width="6" stroke-linecap="round"/>
+<circle cx="232" cy="196" r="10" fill="#cdd5de"/><circle cx="528" cy="196" r="10" fill="#cdd5de"/>
+<rect x="268" y="290" width="224" height="56" rx="8" fill="#05080b" stroke="#39424e" stroke-width="2"/>
+<text x="380" y="330" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="34" font-weight="700" fill="#6fdd9e" letter-spacing="4">${v.mileage.toLocaleString()}</text>
+<text x="380" y="374" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#8b95a1" letter-spacing="3">MILES · STK ${v.stock}</text>
+</svg>`;
+}
+
+const enc = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+const SHOT_LABELS = ['Driver side', 'Front 3/4', 'Rear 3/4', 'Interior', 'Engine bay', 'Wheels', 'Rear seat', 'Cargo'];
+
+function photoSet(v) {
+  const n = Math.max(1, Math.min(8, Math.round(v.photoCount / 4)));
+  const shots = [];
+  for (let i = 0; i < n; i++) {
+    shots.push({ label: SHOT_LABELS[i % SHOT_LABELS.length], src: enc(tileSVG(v, SHOT_LABELS[i % SHOT_LABELS.length], i, n + 1)) });
+  }
+  shots.push({ label: 'Odometer', src: enc(odoSVG(v)) });
+  return shots;
+}
+const heroPhoto = (v) => enc(tileSVG(v, 'Driver side', 0, Math.max(2, Math.round(v.photoCount / 4) + 1)));
+
+/* ============================================================
+   Rooftop — derived demo state
+   SEED is inlined at build time. Everything below is derived so
+   the same shapes map onto real Postgres tables later:
+   rooftop, vehicle, vehicle_photo, channel, channel_listing,
+   sync_job, feed_event, feed_reaction, feed_comment.
+   ============================================================ */
+
+const TODAY = new Date('2026-08-01T09:20:00');
+
+/* ---------- aging ---------- */
+const BUCKETS = [
+  { id: 'b0', label: '0–15',  name: 'Fresh air',   min: 0,  max: 15,       cls: 'b0' },
+  { id: 'b1', label: '16–30', name: '16–30 days',  min: 16, max: 30,       cls: 'b1' },
+  { id: 'b2', label: '31–45', name: 'At risk',     min: 31, max: 45,       cls: 'b2' },
+  { id: 'b3', label: '46–60', name: 'At risk',     min: 46, max: 60,       cls: 'b3' },
+  { id: 'b4', label: '61+',   name: 'Aged unit',   min: 61, max: 1e9,      cls: 'b4' },
+];
+const bucketOf = (d) => BUCKETS.find(b => d >= b.min && d <= b.max);
+const isAtRisk = (v) => v.daysInStock >= 30 && v.daysInStock <= 45;   // David's definition
+const isWatch  = (v) => v.daysInStock >= 46 && v.daysInStock <= 60;
+const isAged   = (v) => v.daysInStock >= 61;
+const isFresh  = (v) => v.daysInStock <= 15;
+
+/* ---------- channels ----------
+   `cadence` is the honest real-world behaviour we will implement
+   for real later; the demo only compresses the clock. */
+const CHANNELS = [
+  { id:'site',   name:'Cascade Motors website', short:'Website',    logo:'CM', color:'#0f1620', kind:'Owned site',
+    cadence:'Instant — writes straight to the site database',           demoMs:[350,650],   realNote:'instant' },
+  { id:'meta',   name:'Meta Catalog',           short:'Meta',       logo:'M',  color:'#1877f2', kind:'Ads',
+    cadence:'Catalog push, then Meta re-crawls — usually under 15 min', demoMs:[1100,1700], realNote:'~15 min' },
+  { id:'mkt',    name:'Facebook Marketplace',   short:'Marketplace',logo:'FB', color:'#0866ff', kind:'Marketplace',
+    cadence:'Partner listing feed, refreshed hourly',                   demoMs:[1500,2200], realNote:'~1 hr' },
+  { id:'gva',    name:'Google Vehicle Ads',     short:'Google VA',  logo:'G',  color:'#ea4335', kind:'Ads',
+    cadence:'Vehicle feed to Merchant Center, re-fetched up to 4× a day',demoMs:[2000,2900], realNote:'up to 4 hrs' },
+  { id:'cars',   name:'Cars.com',               short:'Cars.com',   logo:'C',  color:'#7b1fa2', kind:'Aggregator',
+    cadence:'Nightly inventory feed, 2:00 AM PT',                       demoMs:[1800,2600], realNote:'next 2:00 AM' },
+  { id:'atc',    name:'Autotrader',             short:'Autotrader', logo:'AT', color:'#c8102e', kind:'Aggregator',
+    cadence:'Nightly inventory feed, 1:00 AM PT',                       demoMs:[1900,2700], realNote:'next 1:00 AM' },
+  { id:'cg',     name:'CarGurus',               short:'CarGurus',   logo:'CG', color:'#00a4a6', kind:'Aggregator',
+    cadence:'Feed pickup every 6 hrs',                                  demoMs:[1700,2500], realNote:'~6 hrs' },
+];
+
+/* ---------- recent sales (drives turn rate, days supply, the board) ---------- */
+const SALES = [
+  { id:'s1', when:-0, who:'u_mike', year:2019, make:'Ford',      model:'F-150',    trim:'XLT',       stock:'3902', gross:3150, dis:22, price:32995 },
+  { id:'s2', when:-0, who:'u_tina', year:2020, make:'Subaru',    model:'Forester', trim:'Premium',   stock:'3877', gross:2480, dis:16, price:23495 },
+  { id:'s3', when:-1, who:'u_mike', year:2018, make:'Toyota',    model:'RAV4',     trim:'XLE',       stock:'3861', gross:2890, dis:41, price:21995 },
+  { id:'s4', when:-2, who:'u_tina', year:2017, make:'Chevrolet', model:'Equinox',  trim:'LT',        stock:'3844', gross:1620, dis:63, price:14995 },
+  { id:'s5', when:-3, who:'u_mike', year:2021, make:'Ram',       model:'1500',     trim:'Big Horn',  stock:'3890', gross:4110, dis:12, price:36995 },
+  { id:'s6', when:-4, who:'u_tina', year:2019, make:'Honda',     model:'CR-V',     trim:'EX',        stock:'3818', gross:2240, dis:34, price:23495 },
+];
+const SALES_30D = 19;                     // trailing 30 days, all rooftops
+const SALES_12M = [14,16,13,18,21,19,17,15,20,22,18,19];   // trailing 12 months
+
+/* ---------- monthly VDP trend ---------- */
+const VDP_TREND = [2180,2340,2110,2620,2880,3050,2740,3210,3480,3320,3610,3890];
+
+/* ---------- state ---------- */
+const state = {
+  route: '#/lotwalk',
+  rooftop: 'all',
+  vehicles: SEED.vehicles.map(v => ({
+    ...v,
+    photos: photoSet(v),
+    hero: heroPhoto(v),
+    headline: '',
+    blurb: '',
+    listings: Object.fromEntries(CHANNELS.map(c => [c.id, {
+      status: v.frontLineReady ? 'live' : 'off',
+      price: v.price,
+      pushedAt: v.frontLineReady ? `${v.daysInStock > 2 ? 2 : 0}d ago` : '—',
+      error: null,
+    }])),
+  })),
+  reactions: {},     // eventId -> {thumb:bool, fire:bool}
+  extraComments: {}, // eventId -> [{who,text}]
+  log: [],
+  me: 'u_ray',
+};
+
+/* two honest failure states — a demo with everything green is a lie */
+(() => {
+  const noPhotos = state.vehicles.find(v => !v.frontLineReady);
+  if (noPhotos) CHANNELS.forEach(c => { if (c.id !== 'site') noPhotos.listings[c.id] = { status:'off', price:noPhotos.price, pushedAt:'—', error:'Held — needs 8+ photos' }; });
+  const water = state.vehicles.find(v => v.isWater);
+  if (water) water.listings.meta = { status:'error', price:water.price, pushedAt:'6h ago',
+    error:'Meta rejected: primary image below 500×500' };
+  const aged = state.vehicles.filter(isAged)[1];
+  if (aged) aged.listings.gva = { status:'error', price:aged.price, pushedAt:'1d ago',
+    error:'Google: missing "condition" attribute' };
+})();
+
+const byId = (id) => state.vehicles.find(v => v.id === id);
+const person = (id) => SEED.people.find(p => p.id === id);
+const rooftopName = (id) => (SEED.rooftops.find(r => r.id === id) || {}).short || 'All rooftops';
+
+function scoped() {
+  return state.rooftop === 'all' ? state.vehicles : state.vehicles.filter(v => v.rooftop === state.rooftop);
+}
+
+/* ---------- metrics ---------- */
+function metrics() {
+  const inv = scoped();
+  const n = inv.length;
+  const share = state.rooftop === 'all' ? 1 : n / state.vehicles.length;
+  const sales30 = Math.max(1, Math.round(SALES_30D * share));
+  const avgDis = n ? inv.reduce((a, v) => a + v.daysInStock, 0) / n : 0;
+  return {
+    units: n,
+    daysSupply: Math.round(n / (sales30 / 30)),
+    turn: +(365 / Math.max(1, avgDis)).toFixed(1),
+    avgDis: Math.round(avgDis),
+    fresh: inv.filter(isFresh).length,
+    atRisk: inv.filter(isAtRisk).length,
+    aged: inv.filter(isAged).length,
+    frontLine: inv.filter(v => v.frontLineReady).length,
+    inRecon: inv.filter(v => v.reconStatus === 'in_recon').length,
+    water: inv.filter(v => v.isWater).length,
+    vdp7: inv.reduce((a, v) => a + v.vdpViews7, 0),
+    leads7: inv.reduce((a, v) => a + leads7(v), 0),
+    watch: inv.filter(isWatch).length,
+    sales30,
+    grossMTD: Math.round(sales30 * (SALES.reduce((a, s) => a + s.gross, 0) / SALES.length)),
+    invValue: inv.reduce((a, v) => a + v.totalCost, 0),
+  };
+}
+
+/* ---------- the Lot Walk feed ----------
+   Authored mostly by the system, on behalf of the inventory.
+   Human posts are the minority — that is the whole point. */
+const leads7 = (v) => Math.round(v.vdpViews7 / 38);
+const ago = (h) => h < 1 ? 'Just now' : h < 24 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`;
+
+function buildFeed() {
+  const inv = scoped();
+  const ev = [];
+  const push = (e) => ev.push({ id: e.id, hours: e.hours, ...e });
+
+  // -- scripted human + system moments at the top of the day --
+  const atRisk = inv.filter(isAtRisk).sort((a, b) => b.daysInStock - a.daysInStock);
+  if (atRisk.length) push({
+    id: 'e_atrisk', hours: 1.5, kind: 'at_risk', actor: 'system', icon: '⚠︎',
+    title: `${atRisk.length} units are on the at-risk list this morning`,
+    text: 'Between 30 and 45 days. This is the window where a price move still works — past 60 you are wholesaling it.',
+    units: atRisk.slice(0, 4),
+    stats: [
+      { k: 'At risk', v: atRisk.length },
+      { k: 'Tied up', v: '$' + atRisk.reduce((a, v) => a + v.totalCost, 0).toLocaleString() },
+      { k: 'Avg days', v: Math.round(atRisk.reduce((a, v) => a + v.daysInStock, 0) / atRisk.length) },
+    ],
+    comments: [{ who: 'u_ray', text: 'Tina — get me a price recommendation on the top two before noon.' }],
+  });
+
+  SALES.filter(s => s.when === 0).forEach((s, i) => push({
+    id: 'e_sold' + s.id, hours: 2.5 + i * 1.4, kind: 'sold', actor: 'system', icon: '🔔',
+    title: `${person(s.who).name.split(' ')[0]} sold the ${s.year} ${s.make} ${s.model} ${s.trim}`,
+    text: `Stock #${s.stock} · retailed at $${s.price.toLocaleString()} after ${s.dis} days on the lot.`,
+    stats: [
+      { k: 'Front gross', v: '$' + s.gross.toLocaleString(), good: true },
+      { k: 'Days to turn', v: s.dis + 'd' },
+      { k: 'Sold price', v: '$' + s.price.toLocaleString() },
+    ],
+    comments: i === 0
+      ? [{ who: 'u_ray', text: 'That is the third F-150 this month. Buy more trucks.' },
+         { who: 'u_tina', text: 'Way to go 👏' }]
+      : [],
+    react: { thumb: 4, fire: 2 },
+  }));
+
+  push({
+    id: 'e_tim', hours: 5, kind: 'team', actor: 'u_ray', icon: '👋',
+    title: 'Meet Tim Boyd — starting Monday at Orchards',
+    text: 'Tim comes over from a franchise store with ten years in. Knows trucks cold and has done his own desking. He is on the Orchards side but will float. Say hi when you see him.',
+    person: 'u_tim',
+    comments: [{ who: 'u_mike', text: 'Welcome aboard Tim.' }],
+    react: { thumb: 6, fire: 1 },
+  });
+
+  const recon = inv.filter(v => v.reconStatus === 'in_recon');
+  if (recon.length) push({
+    id: 'e_rob', hours: 7, kind: 'note', actor: 'u_rob', icon: '🔧',
+    title: 'Detail bay is down until Thursday — buffer is out for service',
+    text: 'Anything that needs paint correction, flag it on the unit and I will batch them Friday morning. Wash and vac are unaffected.',
+    comments: [],
+  });
+
+  // -- system posts derived straight from inventory state --
+  const fresh = inv.filter(isFresh).sort((a, b) => a.daysInStock - b.daysInStock);
+  fresh.slice(0, 3).forEach((v, i) => {
+    if (v.frontLineReady) push({
+      id: 'e_fl' + v.id, hours: 9 + i * 6, kind: 'front_line', actor: 'system', icon: '✅',
+      title: `${v.year} ${v.make} ${v.model} ${v.trim} is front-line ready`,
+      text: `Recon closed in ${v.reconDays} days, ${v.photoCount} photos up, merchandising complete. It went live on all ${CHANNELS.length} channels.`,
+      vehicle: v,
+      stats: [
+        { k: 'Recon time', v: v.reconDays + 'd', good: v.reconDays <= 7 },
+        { k: 'Photos', v: v.photoCount },
+        { k: 'Priced at', v: '$' + v.price.toLocaleString() },
+      ],
+      comments: i === 0 ? [{ who: 'u_mike', text: 'Already have someone coming to look at this Saturday.' }] : [],
+      react: { thumb: 3, fire: i === 0 ? 2 : 0 },
+    });
+    else push({
+      id: 'e_acq' + v.id, hours: 9 + i * 6, kind: 'acquired', actor: 'system', icon: '🚚',
+      title: `${v.year} ${v.make} ${v.model} ${v.trim} landed on the lot`,
+      text: `${v.source} · ${v.mileage.toLocaleString()} miles · in recon now. Not syndicated until photos are up.`,
+      vehicle: v,
+      stats: [
+        { k: 'Days in recon', v: v.reconDays + 'd', bad: v.reconDays > 7 },
+        { k: 'Photos', v: `${v.photoCount} / 8`, bad: v.photoCount < 8 },
+        { k: 'Total cost', v: '$' + v.totalCost.toLocaleString() },
+      ],
+      comments: [{ who: 'u_rob', text: v.reconNote + ' — should be out of the bay tomorrow.' }],
+    });
+  });
+
+  const water = inv.filter(v => v.isWater)[0];
+  if (water) push({
+    id: 'e_water' + water.id, hours: 20, kind: 'water', actor: 'system', icon: '🌊',
+    title: `${water.year} ${water.make} ${water.model} is a water unit`,
+    text: `Total cost is now above what the market says it is worth. It has been on the ground ${water.daysInStock} days.`,
+    vehicle: water,
+    stats: [
+      { k: 'Total cost', v: '$' + water.totalCost.toLocaleString() },
+      { k: 'Market', v: '$' + water.market.toLocaleString() },
+      { k: 'Underwater', v: '−$' + (water.totalCost - water.market).toLocaleString(), bad: true },
+    ],
+    comments: [{ who: 'u_ray', text: 'We are upside down. Run it through the sale Thursday, take the hit and move on.' }],
+  });
+
+  const topVdp = [...inv].filter(v => v.frontLineReady).sort((a, b) => b.vdpViews7 - a.vdpViews7)[0];
+  if (topVdp) push({
+    id: 'e_vdp' + topVdp.id, hours: 26, kind: 'vdp', actor: 'system', icon: '📈',
+    title: `${topVdp.year} ${topVdp.make} ${topVdp.model} led the lot in VDP views last week`,
+    text: `${topVdp.vdpViews7} views across all channels in 7 days and ${leads7(topVdp)} lead${leads7(topVdp) === 1 ? '' : 's'}. Interest is there — this one should be closing.`,
+    vehicle: topVdp,
+    stats: [
+      { k: 'VDP views 7d', v: topVdp.vdpViews7, good: true },
+      { k: 'Leads this week', v: leads7(topVdp) },
+      { k: 'Days on lot', v: topVdp.daysInStock + 'd' },
+    ],
+    comments: [{ who: 'u_tina', text: 'Two of those leads are the same guy. He is grinding me on the trade.' }],
+    react: { thumb: 2, fire: 3 },
+  });
+
+  const oldest = [...inv].sort((a, b) => b.daysInStock - a.daysInStock)[0];
+  if (oldest && isAged(oldest)) push({
+    id: 'e_aged' + oldest.id, hours: 33, kind: 'aged', actor: 'system', icon: '🕒',
+    title: `${oldest.year} ${oldest.make} ${oldest.model} just crossed ${oldest.daysInStock} days`,
+    text: `Oldest unit on the ground. It has had ${oldest.vdpViewsTotal} VDP views total and ${oldest.leads} lead${oldest.leads === 1 ? '' : 's'} — this is a price problem, not a traffic problem.`,
+    vehicle: oldest,
+    stats: [
+      { k: 'Days in stock', v: oldest.daysInStock + 'd', bad: true },
+      { k: 'Asking', v: '$' + oldest.price.toLocaleString() },
+      { k: 'Market', v: '$' + oldest.market.toLocaleString() },
+    ],
+    comments: [{ who: 'u_mike', text: 'Nobody is calling on it at this money.' }],
+  });
+
+  const errUnit = inv.find(v => Object.values(v.listings).some(l => l.status === 'error'));
+  if (errUnit) {
+    const bad = Object.entries(errUnit.listings).find(([, l]) => l.status === 'error');
+    const ch = CHANNELS.find(c => c.id === bad[0]);
+    push({
+      id: 'e_err' + errUnit.id, hours: 12, kind: 'sync_error', actor: 'system', icon: '⛔',
+      title: `${ch.name} rejected stock #${errUnit.stock}`,
+      text: `${bad[1].error}. The unit is live everywhere else — it is only dark on ${ch.short}.`,
+      vehicle: errUnit,
+      stats: [
+        { k: 'Channel', v: ch.short, bad: true },
+        { k: 'Live on', v: `${Object.values(errUnit.listings).filter(l => l.status === 'live').length} of ${CHANNELS.length}` },
+        { k: 'Dark for', v: bad[1].pushedAt },
+      ],
+      comments: [],
+      fix: true,
+    });
+  }
+
+  return ev.sort((a, b) => a.hours - b.hours);
+}
+
+/* ============================================================
+   Rooftop — demo application
+   Single-page, hash routed, no build step. Every screen renders
+   from `state`; mutations call render(). Fine for a demo, and it
+   maps 1:1 onto the Next.js App Router pages we build next.
+   ============================================================ */
+
+const $ = (s, r = document) => r.querySelector(s);
+const money = (n) => '$' + Math.round(n).toLocaleString();
+const vname = (v) => `${v.year} ${v.make} ${v.model}`;
+const vfull = (v) => `${v.year} ${v.make} ${v.model} ${v.trim}`;
+
+state.ui = { tab: 'wall', shot: 0, synVeh: null, synPrice: null, busy: false,
+             stFilters: { makes: [], body: [], q: '', maxPrice: 60000, maxMiles: 200000 }, stShot: 0 };
+
+const MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>';
+
+/* ============================ chrome ============================ */
+function topbar() {
+  const me = person(state.me);
+  const r = state.route;
+  const on = (p) => r.startsWith(p) ? 'on' : '';
+  return `<div class="topbar">
+    <div class="brand"><span class="brandmark">${MARK}</span>Rooftop<small>AUTO</small></div>
+    <nav class="nav">
+      <a href="#/lotwalk" class="${on('#/lotwalk')}">Lot Walk</a>
+      <a href="#/inventory" class="${on('#/inventory')}">Inventory</a>
+      <a href="#/syndication" class="${on('#/syndication')}">Syndication</a>
+      <a href="#/reporting" class="${on('#/reporting')}">Reporting</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="rtpick">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>
+      <select data-act="rooftop">
+        <option value="all" ${state.rooftop === 'all' ? 'selected' : ''}>All rooftops (2)</option>
+        ${SEED.rooftops.map(rt => `<option value="${rt.id}" ${state.rooftop === rt.id ? 'selected' : ''}>${esc(rt.short)}</option>`).join('')}
+      </select>
+    </div>
+    <a class="iconbtn" href="#/store" title="View the storefront">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></a>
+    <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+    <div class="me" style="background:${me.color}">${me.initials}</div>
+  </div>`;
+}
+
+function railL() {
+  const m = metrics();
+  const lnk = (href, ic, label, badge) =>
+    `<a class="lnk ${state.route.startsWith(href) ? 'on' : ''}" href="${href}">
+       <span class="ic">${ic}</span><span class="grow">${label}</span>
+       ${badge != null ? `<span class="chip ${badge.cls || ''}">${badge.v}</span>` : ''}</a>`;
+  return `<div class="railL sticky">
+    ${lnk('#/lotwalk', '🏠', 'Lot Walk')}
+    ${lnk('#/inventory', '🚗', 'Inventory', { v: m.units })}
+    ${lnk('#/syndication', '📡', 'Syndication')}
+    ${lnk('#/reporting', '📊', 'Reporting')}
+    <div class="grp">Work lists</div>
+    ${lnk('#/inventory?f=b2', '⚠︎', 'At-risk list', { v: m.atRisk, cls: 'b2' })}
+    ${lnk('#/inventory?f=b4', '🕒', 'Aged units', { v: m.aged, cls: 'b4' })}
+    ${lnk('#/inventory?f=recon', '🔧', 'In recon', { v: m.inRecon })}
+    ${lnk('#/inventory?f=water', '🌊', 'Water units', { v: m.water, cls: 'b4' })}
+    <div class="grp">Rooftops</div>
+    ${SEED.rooftops.map(rt => `<a class="lnk" href="#" data-act="rooftop-set" data-id="${rt.id}">
+        <span class="ic">📍</span><span class="grow">${esc(rt.short)}</span>
+        <span class="chip">${state.vehicles.filter(v => v.rooftop === rt.id).length}</span></a>`).join('')}
+    <a class="lnk" href="#/store"><span class="ic">🌐</span><span class="grow">${esc(SEED.virtualRooftop.name)}</span>
+      <span class="chip brand">Online</span></a>
+  </div>`;
+}
+
+function metricStrip() {
+  const m = metrics();
+  const tile = (k, v, n) => `<div class="metric"><div class="k">${k}</div><div class="v num">${v}</div><div class="n">${n}</div></div>`;
+  return `<div class="metrics">
+    ${tile('Days supply', m.daysSupply, `${m.units} units · ${m.sales30} sold / 30d`)}
+    ${tile('Turn rate', m.turn + '×', `<b class="${m.turn >= 12 ? 'up' : 'down'}">${m.turn >= 12 ? 'strong' : 'below 12×'}</b> · avg ${m.avgDis}d`)}
+    ${tile('Fresh air', m.fresh, 'under 15 days')}
+    ${tile('At risk', `<span style="color:var(--b2)">${m.atRisk}</span>`, `30–45 days · ${m.watch} at 46–60`)}
+    ${tile('Front-line ready', m.frontLine, `${m.inRecon} still in recon`)}
+    ${tile('VDP views 7d', m.vdp7.toLocaleString(), `${m.leads7} leads this week`)}
+  </div>`;
+}
+
+/* ============================ Lot Walk ============================ */
+function postCard(e) {
+  const p = e.actor === 'system' ? null : person(e.actor);
+  const rx = state.reactions[e.id] || {};
+  const base = e.react || { thumb: 0, fire: 0 };
+  const nThumb = base.thumb + (rx.thumb ? 1 : 0), nFire = base.fire + (rx.fire ? 1 : 0);
+  const cmts = [...(e.comments || []), ...(state.extraComments[e.id] || [])];
+
+  const media = e.vehicle
+    ? `<a class="postmedia" href="#/vehicle/${e.vehicle.id}"><img src="${e.vehicle.hero}" alt=""></a>` : '';
+
+  const unitStrip = e.units ? `<div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:1px;
+      border:1px solid var(--line);border-radius:10px;margin:0 16px 12px;overflow:hidden;background:var(--line2)">
+      ${e.units.map(v => `<a class="rrow" style="background:#fff" href="#/vehicle/${v.id}">
+        <img class="thumb" src="${v.hero}"><div class="grow">
+        <div class="sm" style="font-weight:750">${esc(vfull(v))}</div>
+        <div class="tiny muted">STK ${v.stock} · ${money(v.price)} · ${v.vdpViews7} VDP / 7d</div></div>
+        <span class="chip ${bucketOf(v.daysInStock).cls}">${v.daysInStock}d</span></a>`).join('')}
+    </div>` : '';
+
+  const personCard = e.person ? (() => {
+    const t = person(e.person);
+    return `<div style="margin:0 16px 12px;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center;background:var(--card2)">
+      <div class="av" style="width:48px;height:48px;font-size:15px;background:${t.color}">${t.initials}</div>
+      <div class="grow"><div style="font-weight:800;font-size:15px">${esc(t.name)}</div>
+      <div class="sm muted">${esc(t.role)} · ${esc(rooftopName(t.rooftop))}</div></div>
+      <button class="btn ghost sm">Say hi</button></div>`;
+  })() : '';
+
+  return `<article class="post" data-ev="${e.id}">
+    <div class="top">
+      ${p ? `<div class="av" style="background:${p.color}">${p.initials}</div>`
+          : `<div class="av sys">${MARK}</div>`}
+      <div class="grow">
+        <div class="who">${p ? esc(p.name) : 'Rooftop'}</div>
+        <div class="when">${p ? esc(p.role) : 'Automatic'} · ${ago(e.hours)} ago
+          ${e.vehicle ? `· <span class="chip ${bucketOf(e.vehicle.daysInStock).cls}">${e.vehicle.daysInStock}d</span>` : ''}</div>
+      </div>
+      <button class="iconbtn" style="color:var(--ink4)">···</button>
+    </div>
+    <div class="body"><h4>${e.icon} ${esc(e.title)}</h4><p>${esc(e.text)}</p></div>
+    ${personCard}${unitStrip}${media}
+    ${e.stats ? `<div class="stats">${e.stats.map(s =>
+      `<div class="stat"><div class="k">${esc(s.k)}</div>
+        <div class="v num ${s.good ? 'up' : s.bad ? 'down' : ''}">${s.v}</div></div>`).join('')}</div>` : ''}
+    ${e.fix ? `<div style="padding:11px 16px;border-top:1px solid var(--line2);display:flex;gap:8px">
+        <button class="btn sm" data-act="goto-syn">Open in Syndication</button>
+        <button class="btn ghost sm">Re-upload photo</button></div>` : ''}
+    <div class="react">
+      <button class="rbtn ${rx.thumb ? 'on' : ''}" data-act="react" data-ev="${e.id}" data-kind="thumb">👍 ${nThumb || ''}</button>
+      <button class="rbtn ${rx.fire ? 'on' : ''}" data-act="react" data-ev="${e.id}" data-kind="fire">🔥 ${nFire || ''}</button>
+      <button class="rbtn">💬 Comment${cmts.length ? ' ' + cmts.length : ''}</button>
+      <div class="grow"></div>
+      ${e.vehicle ? `<a class="rbtn" href="#/vehicle/${e.vehicle.id}">Open unit →</a>` : ''}
+    </div>
+    ${cmts.length ? `<div class="cmts">${cmts.map(c => { const w = person(c.who);
+      return `<div class="cmt"><div class="av" style="background:${w.color}">${w.initials}</div>
+        <div class="bub"><b>${esc(w.name)}</b>${esc(c.text)}</div></div>`; }).join('')}
+      ${commentBox(e.id)}</div>` : `<div class="cmts">${commentBox(e.id)}</div>`}
+  </article>`;
+}
+const commentBox = (id) => {
+  const me = person(state.me);
+  return `<div class="cmtin"><div class="av" style="width:28px;height:28px;font-size:10.5px;background:${me.color}">${me.initials}</div>
+    <input placeholder="Write a comment…" data-act="comment" data-ev="${id}"></div>`;
+};
+
+function railR() {
+  const inv = scoped();
+  const m = metrics();
+  const atRisk = inv.filter(isAtRisk).sort((a, b) => b.daysInStock - a.daysInStock).slice(0, 5);
+  const recon = inv.filter(v => v.reconStatus === 'in_recon');
+  return `<div class="railR sticky stack">
+    <div class="card">
+      <div class="hd"><h3>Today's board</h3></div>
+      <div class="board">
+        <div><div class="k">Sold today</div><div class="v num">${SALES.filter(s => s.when === 0).length}</div></div>
+        <div><div class="k">Sold MTD</div><div class="v num">${m.sales30}</div></div>
+        <div><div class="k">Front gross MTD</div><div class="v num">${money(m.grossMTD)}</div></div>
+        <div><div class="k">Inventory $</div><div class="v num">${'$' + Math.round(m.invValue / 1000)}k</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><h3>At-risk list</h3><div class="grow"></div>
+        <span class="chip b2">${m.atRisk}</span></div>
+      ${atRisk.map(v => `<a class="rrow" href="#/vehicle/${v.id}">
+        <img class="thumb" src="${v.hero}"><div class="grow">
+          <div class="sm trunc" style="font-weight:750">${esc(vname(v))}</div>
+          <div class="tiny muted">STK ${v.stock} · ${money(v.price)}</div></div>
+        <span class="chip ${bucketOf(v.daysInStock).cls}">${v.daysInStock}d</span></a>`).join('')}
+      <a class="rrow" href="#/inventory?f=b2" style="justify-content:center;font-weight:750;color:var(--brand-dk);font-size:12.5px">See the whole list →</a>
+    </div>
+
+    ${recon.length ? `<div class="card">
+      <div class="hd"><h3>In the recon bay</h3><div class="grow"></div><span class="chip">${recon.length}</span></div>
+      ${recon.map(v => `<a class="rrow" href="#/vehicle/${v.id}">
+        <img class="thumb" src="${v.hero}"><div class="grow">
+          <div class="sm trunc" style="font-weight:750">${esc(vname(v))}</div>
+          <div class="tiny muted">${esc(v.reconNote)}</div></div>
+        <span class="chip ${v.reconDays > 7 ? 'warn' : 'ok'}">${v.reconDays}d</span></a>`).join('')}
+      <div class="pad tiny muted" style="padding-top:0">Target recon time is 5–7 days.</div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="hd"><h3>On the lot today</h3></div>
+      <div class="pad" style="display:flex;flex-wrap:wrap;gap:8px">
+        ${SEED.people.map(p => `<div class="row" style="gap:7px">
+          <div class="av" style="width:28px;height:28px;font-size:10.5px;background:${p.color}">${p.initials}</div>
+          <div><div class="tiny" style="font-weight:750">${esc(p.name.split(' ')[0])}</div>
+          <div class="tiny muted" style="font-size:10.5px">${esc(p.role)}</div></div></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewLotWalk() {
+  const me = person(state.me);
+  return `<div class="wrap"><div class="cols">
+    ${railL()}
+    <div class="stack">
+      ${metricStrip()}
+      <div class="card">
+        <div class="composer">
+          <div class="av" style="background:${me.color}">${me.initials}</div>
+          <input placeholder="Post something to the lot, ${esc(me.name.split(' ')[0])}…">
+        </div>
+        <div class="quick">
+          <button>🚚 Log a unit</button><button>🔔 Ring the bell</button>
+          <button>💲 Price change</button><button>📸 Request photos</button><button>📣 Announcement</button>
+        </div>
+      </div>
+      ${buildFeed().map(postCard).join('')}
+      <div class="card pad" style="text-align:center" class="muted">
+        <div class="sm muted">That's the whole day. The feed only shows things that moved money.</div>
+      </div>
+    </div>
+    ${railR()}
+  </div></div>`;
+}
+
+/* ============================ Inventory ============================ */
+function viewInventory() {
+  const f = (state.route.split('?f=')[1] || '').replace(/#.*$/, '');
+  let inv = scoped();
+  if (f === 'recon') inv = inv.filter(v => v.reconStatus === 'in_recon');
+  else if (f === 'water') inv = inv.filter(v => v.isWater);
+  else if (f) inv = inv.filter(v => bucketOf(v.daysInStock).id === f);
+  inv = [...inv].sort((a, b) => b.daysInStock - a.daysInStock);
+
+  const chip = (id, label, cls) =>
+    `<a class="fchip ${cls || ''} ${f === id ? 'on' : ''}" href="#/inventory${id ? '?f=' + id : ''}">${label}</a>`;
+
+  return `<div class="wrap"><div class="cols">${railL()}
+    <div class="stack" style="grid-column:span 2">
+      ${metricStrip()}
+      <div class="card">
+        <div class="filters">
+          ${chip('', 'All ' + scoped().length)}
+          ${BUCKETS.map(b => chip(b.id, b.label + ' · ' + scoped().filter(v => bucketOf(v.daysInStock).id === b.id).length, b.cls)).join('')}
+          <span style="width:1px;height:22px;background:var(--line)"></span>
+          ${chip('recon', '🔧 In recon', '')}
+          ${chip('water', '🌊 Water', 'b4')}
+          <div class="grow"></div>
+          <input class="search" placeholder="Search VIN, stock #, make, model…" data-act="invsearch">
+          <button class="btn">+ Add vehicle</button>
+        </div>
+        <div style="overflow:auto">
+        <table class="tbl"><thead><tr>
+          <th></th><th>Vehicle</th><th>Stock / VIN</th><th class="r">Days</th><th class="r">Miles</th>
+          <th class="r">Price</th><th class="r">vs market</th><th class="r">Cost</th><th class="r">Gross</th>
+          <th class="r">VDP 7d</th><th>Channels</th><th>Rooftop</th>
+        </tr></thead><tbody>
+        ${inv.map(v => {
+          const b = bucketOf(v.daysInStock);
+          const delta = v.price - v.market;
+          const gross = v.price - v.totalCost;
+          const live = Object.values(v.listings).filter(l => l.status === 'live').length;
+          const err = Object.values(v.listings).some(l => l.status === 'error');
+          return `<tr data-act="veh" data-id="${v.id}">
+            <td><span class="agebar" style="background:var(--${b.cls})"></span></td>
+            <td><div class="row"><img class="thumb" src="${v.hero}">
+              <div><div style="font-weight:750">${esc(vfull(v))}</div>
+              <div class="tiny muted">${esc(v.exteriorColor)} · ${esc(v.drivetrain)} · ${esc(v.body)}
+              ${v.reconStatus === 'in_recon' ? ' · <b style="color:var(--warn)">in recon</b>' : ''}
+              ${v.isWater ? ' · <b style="color:var(--err)">water</b>' : ''}</div></div></div></td>
+            <td class="mono tiny">${v.stock}<br><span class="muted">${v.vin}</span></td>
+            <td class="r"><span class="chip ${b.cls}">${v.daysInStock}d</span></td>
+            <td class="r num">${v.mileage.toLocaleString()}</td>
+            <td class="r num" style="font-weight:800">${money(v.price)}</td>
+            <td class="r num ${delta > 0 ? 'down' : 'up'}">${delta > 0 ? '+' : '−'}${money(Math.abs(delta)).slice(1)}</td>
+            <td class="r num muted">${money(v.totalCost)}</td>
+            <td class="r num ${gross < 1500 ? 'down' : ''}" style="font-weight:750">${gross < 0 ? '−' : ''}${money(Math.abs(gross))}</td>
+            <td class="r num">${v.vdpViews7 || '—'}</td>
+            <td><span class="chip ${err ? 'err' : live === CHANNELS.length ? 'ok' : ''}">${err ? '⛔ ' : ''}${live}/${CHANNELS.length}</span></td>
+            <td class="tiny muted">${esc(rooftopName(v.rooftop))}</td>
+          </tr>`;
+        }).join('')}
+        </tbody></table></div>
+        <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+          Showing ${inv.length} of ${scoped().length} units${state.rooftop !== 'all' ? ' at ' + esc(rooftopName(state.rooftop)) : ' across both rooftops'}.
+          "vs market" compares your asking price to book retail for the same year, trim and mileage.
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ Vehicle profile ============================ */
+function wall(v) {
+  const d = v.daysInStock;
+  const ev = [];
+  const at = (daysAgo) => daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`;
+  ev.push({ d, ic: '🚚', h: `Acquired — ${v.source}`, t: `Stock #${v.stock} created. ACV ${money(v.cost)}, pack ${money(v.pack)}.` });
+  ev.push({ d: d - 1, ic: '🔧', h: 'Into the recon bay', t: v.reconNote });
+  if (v.reconStatus === 'complete') {
+    ev.push({ d: d - v.reconDays, ic: '✅', h: `Recon closed — ${v.reconDays} days`, t: `${money(v.reconCost)} in recon. ${v.reconDays <= 7 ? 'Inside the 5–7 day target.' : 'Over the 5–7 day target.'}` });
+    ev.push({ d: d - v.reconDays, ic: '📸', h: `${v.photoCount} photos uploaded`, t: 'Rob Chen shot the unit on the back row.' });
+    ev.push({ d: d - v.reconDays, ic: '🟢', h: 'Front-line ready', t: `Went live on ${CHANNELS.length} channels at ${money(v.price)}.` });
+  } else {
+    ev.push({ d: 0, ic: '⏳', h: `Still in recon — day ${v.reconDays}`, t: 'Held out of syndication until photos are up.' });
+  }
+  if (d > 30) ev.push({ d: d - 30, ic: '⚠︎', h: 'Added to the at-risk list', t: 'Crossed 30 days. Flagged for a decision on the next lot walk.' });
+  if (d > 45) ev.push({ d: d - 45, ic: '💲', h: 'Price cut $500', t: `${money(v.price + 500)} → ${money(v.price)} at 45 days with no deal.` });
+  if (d > 61) ev.push({ d: d - 61, ic: '🕒', h: 'Became an aged unit', t: 'Past 60 days on the ground and still eating floorplan.' });
+  if (v.isWater) ev.push({ d: 3, ic: '🌊', h: 'Flagged as a water unit', t: `Total cost ${money(v.totalCost)} is above market of ${money(v.market)}.` });
+  if (v.frontLineReady) ev.push({ d: 0, ic: '📈', h: `${v.vdpViews7} VDP views in the last 7 days`, t: `${leads7(v)} lead${leads7(v) === 1 ? '' : 's'} this week · ${v.vdpViewsTotal} views and ${v.leads} leads lifetime.` });
+
+  return ev.sort((a, b) => b.d - a.d).map(e =>
+    `<div class="wev"><div class="wdot">${e.ic}</div>
+      <div class="grow"><div class="h">${esc(e.h)}</div>
+      <div class="sm muted">${esc(e.t)}</div>
+      <div class="t" style="margin-top:2px">${at(Math.max(0, e.d))}</div></div></div>`).join('');
+}
+
+function viewVehicle(id) {
+  const v = byId(id); if (!v) return viewInventory();
+  const b = bucketOf(v.daysInStock);
+  const gross = v.price - v.totalCost;
+  const shot = Math.min(state.ui.shot, v.photos.length - 1);
+  const tab = state.ui.tab;
+
+  const kv = (k, val, cls) => `<div class="kv"><span class="k">${k}</span><span class="v ${cls || ''}">${val}</span></div>`;
+
+  return `<div class="wrap"><div class="stack">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <a class="btn ghost sm" href="#/inventory">← Inventory</a>
+      <div class="grow"><div style="font-size:22px;font-weight:850;letter-spacing:-.6px">${esc(vfull(v))}</div>
+        <div class="sm muted mono">STK ${v.stock} · VIN ${v.vin} · ${esc(rooftopName(v.rooftop))}</div></div>
+      <span class="chip ${b.cls}">${v.daysInStock} days · ${esc(b.name)}</span>
+      ${v.isWater ? '<span class="chip err">🌊 Water unit</span>' : ''}
+      ${v.frontLineReady ? '<span class="chip ok">Front-line ready</span>' : '<span class="chip warn">In recon</span>'}
+      <a class="btn ghost sm" href="#/store/v/${v.id}">View public VDP ↗</a>
+      <button class="btn sm" data-act="goto-syn-veh" data-id="${v.id}">Push to channels</button>
+    </div>
+
+    <div class="vhero">
+      <div class="stack">
+        <div class="card gal">
+          <img class="main" src="${v.photos[shot].src}" alt="">
+          <div class="gstrip">
+            ${v.photos.map((p, i) => `<img src="${p.src}" class="${i === shot ? 'on' : ''}" data-act="shot" data-i="${i}" title="${esc(p.label)}">`).join('')}
+            <div class="add">＋</div>
+          </div>
+          <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+            ${v.photoCount} photos on file · showing ${v.photos.length} placeholder stand-ins · drag to reorder ·
+            the first photo is what every channel shows in search results.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="tabs">
+            ${['wall', 'merchandising', 'syndication'].map(t =>
+              `<button class="${tab === t ? 'on' : ''}" data-act="tab" data-t="${t}">${t === 'wall' ? 'Wall' : t[0].toUpperCase() + t.slice(1)}</button>`).join('')}
+          </div>
+          ${tab === 'wall' ? `<div class="wall">${wall(v)}</div>
+            <div class="cmts" style="border-top:1px solid var(--line2)">${commentBox('veh_' + v.id)}</div>`
+          : tab === 'merchandising' ? `
+            <div class="fld"><label>VDP headline</label>
+              <input value="${esc(v.headline || `${vfull(v)} · ${v.drivetrain} · ${v.mileage.toLocaleString()} miles`)}">
+              <div class="hint">Shows as the title on your site and on every aggregator listing.</div></div>
+            <div class="fld"><label>Seller's notes</label>
+              <textarea rows="4">${esc(v.blurb || `Local ${v.year} ${v.model} ${v.trim} in ${v.exteriorColor} over ${v.interiorColor}. ${v.carfax} history, ${v.titleStatus.toLowerCase()} title. Just through our shop — ${v.reconNote.toLowerCase()}. ${v.drivetrain} and ready for the pass.`)}</textarea>
+              <div class="hint">Dealers who write real notes get more VDP time. This field syndicates everywhere except Google Vehicle Ads.</div></div>
+            <div class="fld"><label>Highlighted features</label>
+              <div class="feats">${v.features.map(f => `<span class="feat">${esc(f)} ✕</span>`).join('')}<span class="feat" style="border-style:dashed;color:var(--ink3)">＋ Add</span></div></div>
+            <div class="grid2">
+              <div class="fld"><label>Asking price</label><input value="${money(v.price)}"></div>
+              <div class="fld"><label>Internet price</label><input value="${money(v.price)}"></div>
+              <div class="fld"><label>Carfax</label><input value="${esc(v.carfax)}"></div>
+              <div class="fld"><label>Title</label><input value="${esc(v.titleStatus)}"></div>
+            </div>`
+          : `<div style="padding:14px 16px" class="stack">
+              ${CHANNELS.map(c => { const l = v.listings[c.id];
+                return `<div class="row" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px">
+                  <span class="chlogo" style="background:${c.color}">${c.logo}</span>
+                  <div class="grow"><div style="font-weight:750">${esc(c.name)}</div>
+                    <div class="tiny muted">${esc(l.error || c.cadence)}</div></div>
+                  <div style="text-align:right"><div class="num sm" style="font-weight:750">${l.status === 'off' ? '—' : money(l.price)}</div>
+                    <div class="tiny muted">${esc(l.pushedAt)}</div></div>
+                  <span class="chip ${l.status === 'live' ? 'ok' : l.status === 'error' ? 'err' : ''}">${l.status}</span>
+                </div>`; }).join('')}
+            </div>`}
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card money">
+          <div class="hd"><h3>The money</h3></div>
+          ${kv('ACV / purchase', money(v.cost))}
+          ${kv('Pack', money(v.pack))}
+          ${kv('Recon', money(v.reconCost))}
+          ${kv('Total cost', `<b>${money(v.totalCost)}</b>`)}
+          <hr class="sep">
+          ${kv('Market retail', money(v.market))}
+          ${kv('Asking price', `<b>${money(v.price)}</b>`)}
+          ${kv('vs market', `${v.price > v.market ? '+' : '−'}${money(Math.abs(v.price - v.market)).slice(1)}`, v.price > v.market ? 'down' : 'up')}
+          <hr class="sep">
+          ${kv('Projected front gross', `<b>${gross < 0 ? '−' : ''}${money(Math.abs(gross))}</b>`, gross < 1500 ? 'down' : 'up')}
+          ${v.isWater ? `<div class="pad tiny" style="background:var(--b4w);color:var(--b4);font-weight:700">
+            🌊 Water unit — you have more in it than it is worth. Wholesale or take the hit retail.</div>` : ''}
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Aging</h3></div>
+          <div class="pad">
+            <div class="row" style="gap:2px;margin-bottom:9px">
+              ${BUCKETS.map(bb => `<div style="flex:${bb.id === 'b4' ? 2 : 1};height:8px;border-radius:3px;
+                background:${bucketOf(v.daysInStock).id === bb.id ? `var(--${bb.cls})` : 'var(--line)'}"></div>`).join('')}
+            </div>
+            <div class="row"><div class="grow"><div style="font-size:26px;font-weight:850;letter-spacing:-1px">${v.daysInStock}<span class="sm muted" style="font-weight:600"> days</span></div>
+              <div class="tiny muted">Acquired ${v.acquired} · ${esc(v.source)}</div></div>
+              <span class="chip ${b.cls}">${esc(b.name)}</span></div>
+          </div>
+          <div class="specs" style="border:0;border-top:1px solid var(--line2);border-radius:0">
+            <div><div class="k">VDP 7d</div><div class="v num">${v.vdpViews7 || '—'}</div></div>
+            <div><div class="k">Lifetime</div><div class="v num">${v.vdpViewsTotal || '—'}</div></div>
+            <div><div class="k">Leads</div><div class="v num">${v.leads || '—'}</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Unit detail</h3></div>
+          ${kv('Mileage', v.mileage.toLocaleString() + ' mi')}
+          ${kv('Drivetrain', esc(v.drivetrain))}
+          ${kv('Engine', esc(v.engine))}
+          ${kv('Transmission', esc(v.transmission))}
+          ${kv('Exterior', esc(v.exteriorColor))}
+          ${kv('Interior', esc(v.interiorColor))}
+          ${kv('Title', esc(v.titleStatus))}
+          ${kv('History', esc(v.carfax))}
+          ${kv('Rooftop', esc(rooftopName(v.rooftop)))}
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ Syndication ============================ */
+function logLine(cls, text) { state.log.push({ cls, text }); if (state.log.length > 60) state.log.shift(); }
+
+function pushPrice(v, newPrice) {
+  if (state.ui.busy) return;
+  state.ui.busy = true;
+  const old = v.price;
+  v.price = newPrice;
+  logLine('br', `▸ price change  STK ${v.stock}  ${money(old)} → ${money(newPrice)}`);
+  logLine('dim', `  one record changed. fanning out to ${CHANNELS.length} channels…`);
+
+  CHANNELS.forEach(c => {
+    const l = v.listings[c.id];
+    if (l.status === 'off') { logLine('dim', `  ${c.short.padEnd(12)} skipped — unit is not syndicated`); return; }
+    l.status = 'queued';
+    const delay = c.demoMs[0] + Math.random() * (c.demoMs[1] - c.demoMs[0]);
+    setTimeout(() => { l.status = 'syncing'; logLine('dim', `  ${c.short.padEnd(12)} pushing…`); render(); }, delay * 0.45);
+    setTimeout(() => {
+      if (l.error && c.id === 'meta') {
+        l.status = 'error';
+        logLine('er', `  ${c.short.padEnd(12)} REJECTED — ${l.error}`);
+      } else {
+        l.status = 'live'; l.price = newPrice; l.pushedAt = 'just now'; l.error = null;
+        logLine('ok', `  ${c.short.padEnd(12)} live at ${money(newPrice)}  (real-world: ${c.realNote})`);
+      }
+      render();
+    }, delay);
+  });
+  setTimeout(() => {
+    state.ui.busy = false;
+    logLine('dim', `  done. you changed the price once.`);
+    render();
+  }, 3100);
+  render();
+}
+
+function viewSyndication() {
+  const inv = scoped();
+  const sel = state.ui.synVeh ? byId(state.ui.synVeh) : inv.find(v => v.frontLineReady);
+  const counts = Object.fromEntries(CHANNELS.map(c => [c.id,
+    inv.filter(v => v.listings[c.id].status === 'live').length]));
+  const errs = Object.fromEntries(CHANNELS.map(c => [c.id,
+    inv.filter(v => v.listings[c.id].status === 'error').length]));
+
+  return `<div class="wrap"><div class="stack">
+    <div class="row"><div class="grow">
+      <div style="font-size:22px;font-weight:850;letter-spacing:-.6px">Syndication</div>
+      <div class="sm muted">One inventory record. Every channel downstream. Change it here, it changes everywhere.</div>
+    </div></div>
+
+    <div class="chgrid">
+      ${CHANNELS.map(c => `<div class="ch">
+        <div class="n"><span class="chlogo" style="background:${c.color}">${c.logo}</span>
+          <div class="grow"><div>${esc(c.short)}</div><div class="tiny muted" style="font-weight:600">${esc(c.kind)}</div></div>
+          ${errs[c.id] ? `<span class="chip err">${errs[c.id]}</span>` : '<span class="chip ok">✓</span>'}</div>
+        <div class="meta"><b class="num">${counts[c.id]}</b> of ${inv.length} units live<br>${esc(c.cadence)}</div>
+        <div class="bar"><i style="width:${(counts[c.id] / Math.max(1, inv.length)) * 100}%"></i></div>
+      </div>`).join('')}
+    </div>
+
+    <div class="card">
+      <div class="demobar">
+        <div><div class="tiny" style="font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--ink3)">Live demo</div>
+          <div style="font-weight:800;font-size:15px;margin-top:2px">Change the price once, watch it land everywhere</div></div>
+        <div class="grow"></div>
+        <div class="fld"><label>Unit</label>
+          <select class="sel" data-act="syn-veh" style="width:280px">
+            ${inv.filter(v => v.frontLineReady).map(v => `<option value="${v.id}" ${sel && sel.id === v.id ? 'selected' : ''}>
+              STK ${v.stock} — ${esc(vfull(v))}</option>`).join('')}
+          </select></div>
+        <div class="fld"><label>New price</label>
+          <input class="sel" data-act="syn-price" value="${sel ? sel.price : ''}" style="width:120px"></div>
+        <button class="btn dark" data-act="push" ${state.ui.busy ? 'disabled' : ''}>
+          ${state.ui.busy ? 'Pushing…' : 'Save & push to all channels'}</button>
+      </div>
+
+      ${sel ? `<div class="row" style="padding:12px 16px;gap:14px;border-bottom:1px solid var(--line2);flex-wrap:wrap">
+        <img class="thumb" style="width:78px;height:50px" src="${sel.hero}">
+        <div class="grow"><div style="font-weight:800">${esc(vfull(sel))}</div>
+          <div class="tiny muted mono">STK ${sel.stock} · ${sel.vin}</div></div>
+        ${CHANNELS.map(c => { const l = sel.listings[c.id];
+          return `<div style="text-align:center;min-width:74px">
+            <div class="sdot s-${l.status}" style="margin:0 auto 5px">${l.status === 'live' ? '✓' : l.status === 'error' ? '!' : ''}</div>
+            <div class="tiny" style="font-weight:750">${esc(c.short)}</div>
+            <div class="tiny num muted">${l.status === 'off' ? '—' : money(l.price)}</div></div>`; }).join('')}
+      </div>` : ''}
+
+      <div class="pad"><div class="log">${state.log.length
+        ? state.log.map(l => `<div class="${l.cls}">${esc(l.text)}</div>`).join('')
+        : `<div class="dim">ready. pick a unit, set a price, hit push.<br>nothing here talks to a real API yet — the timing below is what the real thing will do.</div>`}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><h3>Per-VIN channel status</h3><div class="grow"></div>
+        <span class="chip ok">live</span><span class="chip">queued</span><span class="chip err">error</span>
+        <span class="chip" style="background:#eef1f4;color:var(--ink4)">not listed</span></div>
+      <div style="overflow:auto"><table class="matrix"><thead><tr>
+        <th class="l" style="text-align:left">Unit</th><th class="l">Days</th><th class="l">Price</th>
+        ${CHANNELS.map(c => `<th class="v">${esc(c.short)}</th>`).join('')}
+        <th class="l">Issue</th></tr></thead><tbody>
+        ${inv.sort((a, b) => a.daysInStock - b.daysInStock).map(v => {
+          const issue = Object.entries(v.listings).find(([, l]) => l.error);
+          return `<tr data-act="veh" data-id="${v.id}">
+            <td class="l"><div class="row"><img class="thumb" style="width:44px;height:29px" src="${v.hero}">
+              <div><div style="font-weight:700;font-size:12px">${esc(vname(v))}</div>
+              <div class="tiny muted mono">${v.stock}</div></div></div></td>
+            <td class="l"><span class="chip ${bucketOf(v.daysInStock).cls}">${v.daysInStock}</span></td>
+            <td class="l num" style="font-weight:750">${money(v.price)}</td>
+            ${CHANNELS.map(c => { const l = v.listings[c.id];
+              return `<td><span class="sdot s-${l.status}" title="${esc(c.name)}: ${l.status}">${l.status === 'live' ? '✓' : l.status === 'error' ? '!' : ''}</span></td>`; }).join('')}
+            <td class="l tiny" style="color:var(--err);max-width:210px">${issue ? esc(issue[1].error) : ''}</td>
+          </tr>`; }).join('')}
+      </tbody></table></div>
+      <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+        Nothing on this screen calls a real API yet. The channel cadences shown are the real ones — when we wire the
+        integrations, a price change hits your own site instantly and reaches the slowest aggregator by the next
+        morning feed. No dealer retypes anything.
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ Reporting ============================ */
+function sparkline(vals, w = 560, h = 78, color = 'var(--brand)') {
+  const max = Math.max(...vals), min = Math.min(...vals) * 0.9;
+  const pt = (v, i) => [i * (w / (vals.length - 1)), h - ((v - min) / (max - min)) * (h - 8) - 4];
+  const line = vals.map((v, i) => pt(v, i).join(',')).join(' L');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs><linearGradient id="sp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="M${line} L${w},${h} L0,${h} Z" fill="url(#sp)"/>
+    <path d="M${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>
+    ${vals.map((v, i) => { const [x, y] = pt(v, i); return `<circle cx="${x}" cy="${y}" r="2.5" fill="${color}"/>`; }).join('')}
+  </svg>`;
+}
+
+function viewReporting() {
+  const inv = scoped(); const m = metrics();
+  const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
+  const maxN = Math.max(...dist.map(d => d.n), 1);
+  const mix = ['Pickup', 'SUV', 'Sedan', 'Wagon'].map((k, i) => ({
+    k, n: inv.filter(v => v.body === k).length, c: ['#4f46e5', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
+  const total = mix.reduce((a, x) => a + x.n, 0) || 1;
+  const top = [...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7).slice(0, 6);
+  const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  const maxS = Math.max(...SALES_12M);
+
+  let off = 0;
+  const donut = mix.map(x => { const dash = (x.n / total) * 314; const el =
+    `<circle cx="60" cy="60" r="50" fill="none" stroke="${x.c}" stroke-width="19"
+      stroke-dasharray="${dash} 314" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;
+    off += dash; return el; }).join('');
+
+  return `<div class="wrap"><div class="stack">
+    <div><div style="font-size:22px;font-weight:850;letter-spacing:-.6px">Reporting</div>
+      <div class="sm muted">Only the numbers a dealer already runs their week on. Demo data.</div></div>
+    ${metricStrip()}
+
+    <div class="cols" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+      <div class="stack">
+        <div class="card">
+          <div class="hd"><h3>Aging distribution</h3><div class="grow"></div>
+            <span class="sm muted">${m.atRisk} at risk · ${m.aged} aged</span></div>
+          <div class="pad"><div class="bars">
+            ${dist.map(d => `<div class="b">
+              <div class="vl num" style="color:var(--${d.b.cls})">${d.n}</div>
+              <div class="bar" style="height:${(d.n / maxN) * 100}%;background:var(--${d.b.cls})"></div>
+              <div class="lb">${d.b.label}<br><span class="muted" style="font-weight:600">${esc(d.b.name)}</span></div>
+            </div>`).join('')}
+          </div></div>
+          <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+            A healthy independent lot wants most of the weight on the left. Anything past 60 days is eating floorplan.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>VDP views — trailing 12 months</h3><div class="grow"></div>
+            <span class="chip ok">↑ 78% vs a year ago</span></div>
+          <div class="pad">${sparkline(VDP_TREND)}
+            <div class="row tiny muted" style="justify-content:space-between;margin-top:6px">
+              ${MONTHS.map(x => `<span>${x}</span>`).join('')}</div>
+          </div>
+          <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+            VDP views is the number dealers already track. It is the one metric that connects ad spend to a unit selling.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Units sold by month</h3><div class="grow"></div>
+            <span class="sm muted num">${SALES_12M.reduce((a, b) => a + b, 0)} in 12 months</span></div>
+          <div class="pad"><div class="bars" style="height:130px">
+            ${SALES_12M.map((n, i) => `<div class="b"><div class="vl num" style="font-size:12px">${n}</div>
+              <div class="bar" style="height:${(n / maxS) * 100}%;background:${i === 11 ? 'var(--brand)' : '#c9cfe8'}"></div>
+              <div class="lb" style="font-size:10px">${MONTHS[i]}</div></div>`).join('')}
+          </div></div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="hd"><h3>Turn rate</h3></div>
+          <div class="pad">
+            <div style="font-size:44px;font-weight:850;letter-spacing:-2px;line-height:1">${m.turn}×</div>
+            <div class="sm muted" style="margin-top:4px">Average ${m.avgDis} days to turn a unit.</div>
+            <div style="margin-top:14px;height:9px;border-radius:5px;background:var(--line2);position:relative;overflow:hidden">
+              <i style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100, (m.turn / 22) * 100)}%;background:linear-gradient(90deg,var(--b4),var(--b2),var(--b0))"></i>
+            </div>
+            <div class="row tiny muted" style="justify-content:space-between;margin-top:5px">
+              <span>0</span><span>12× strong</span><span>22× top</span></div>
+            <div class="tiny" style="margin-top:11px;padding:9px 11px;background:var(--b2w);color:var(--b2);border-radius:8px;font-weight:700">
+              You are below 12×. Every extra day of average age costs you a turn.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Inventory mix</h3></div>
+          <div class="pad dnut">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--line2)" stroke-width="19"/>${donut}
+              <text x="60" y="58" text-anchor="middle" font-size="22" font-weight="800" fill="#0f1620">${inv.length}</text>
+              <text x="60" y="74" text-anchor="middle" font-size="9" font-weight="700" fill="#6d7886" letter-spacing="1">UNITS</text>
+            </svg>
+            <div class="leg">${mix.map(x => `<div><i style="background:${x.c}"></i>${esc(x.k)}
+              <b class="num">${x.n}</b><span class="muted">${Math.round((x.n / total) * 100)}%</span></div>`).join('')}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Most VDP views · 7 days</h3></div>
+          ${top.map(v => `<a class="rrow" href="#/vehicle/${v.id}">
+            <img class="thumb" src="${v.hero}"><div class="grow">
+              <div class="sm trunc" style="font-weight:750">${esc(vname(v))}</div>
+              <div class="tiny muted">${money(v.price)} · ${leads7(v)} lead${leads7(v) === 1 ? '' : 's'} this week</div></div>
+            <div style="text-align:right"><div class="num" style="font-weight:800">${v.vdpViews7}</div>
+              <div class="tiny muted">${v.daysInStock}d</div></div></a>`).join('')}
+        </div>
+
+        <div class="card">
+          <div class="hd"><h3>Days supply</h3></div>
+          <div class="pad">
+            <div style="font-size:44px;font-weight:850;letter-spacing:-2px;line-height:1">${m.daysSupply}</div>
+            <div class="sm muted" style="margin-top:4px">days of inventory at your current sales pace
+              (${m.units} units, ${m.sales30} sold in 30 days).</div>
+            <div class="tiny" style="margin-top:11px;padding:9px 11px;background:var(--card2);border-radius:8px">
+              Most independent operators aim for 30–45 days supply. Above that, you are buying faster than you are selling.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ Storefront ============================ */
+function storeHeader() {
+  const rt = SEED.virtualRooftop;
+  return `<header class="sthead"><div class="in">
+    <div class="stlogo">${esc(rt.name)}</div>
+    <nav class="stnav"><a href="#/store">Inventory</a><a href="#/store">Financing</a><a href="#/store">Trade-in</a><a href="#/store">About</a></nav>
+    <div class="spacer" style="flex:1"></div>
+    <div style="text-align:right"><div style="font-size:17px;font-weight:800">(360) 555-0142</div>
+      <div class="tiny" style="color:#9aa4b1">Open today until 7:00 PM</div></div>
+  </div>
+  <div class="stbar"><div class="in">
+    <span>📍 Two locations in Vancouver, WA</span>
+    <span>·</span><span>Fourth Plain</span><span>·</span><span>Orchards</span>
+    <div style="flex:1"></div>
+    <a href="#/lotwalk" style="color:#8ea0ff;font-weight:700">← back to Rooftop admin</a>
+  </div></div></header>`;
+}
+
+function viewStore() {
+  const f = state.ui.stFilters;
+  let inv = state.vehicles.filter(v => v.frontLineReady);
+  const makes = [...new Set(state.vehicles.map(v => v.make))].sort();
+  const bodies = [...new Set(state.vehicles.map(v => v.body))].sort();
+  if (f.makes.length) inv = inv.filter(v => f.makes.includes(v.make));
+  if (f.body.length) inv = inv.filter(v => f.body.includes(v.body));
+  if (f.q) { const q = f.q.toLowerCase();
+    inv = inv.filter(v => (vfull(v) + v.vin + v.stock + v.exteriorColor).toLowerCase().includes(q)); }
+  inv = inv.filter(v => v.price <= f.maxPrice && v.mileage <= f.maxMiles);
+
+  return `<div class="store">${storeHeader()}<div class="stwrap"><div class="stgrid">
+    <aside class="sticky" style="top:16px">
+      <div class="card pad">
+        <div class="fgroup" style="padding-top:0"><h4>Search</h4>
+          <input class="search" style="width:100%" placeholder="Make, model, color…" value="${esc(f.q)}" data-act="st-q"></div>
+        <div class="fgroup"><h4>Max price — ${money(f.maxPrice)}</h4>
+          <input type="range" min="8000" max="60000" step="1000" value="${f.maxPrice}" data-act="st-price" style="width:100%;accent-color:var(--brand)"></div>
+        <div class="fgroup"><h4>Max miles — ${f.maxMiles.toLocaleString()}</h4>
+          <input type="range" min="20000" max="200000" step="5000" value="${f.maxMiles}" data-act="st-miles" style="width:100%;accent-color:var(--brand)"></div>
+        <div class="fgroup"><h4>Body style</h4>
+          ${bodies.map(b => `<label class="cbx"><input type="checkbox" data-act="st-body" value="${b}" ${f.body.includes(b) ? 'checked' : ''}>${b}
+            <span class="muted tiny">${state.vehicles.filter(v => v.body === b && v.frontLineReady).length}</span></label>`).join('')}</div>
+        <div class="fgroup"><h4>Make</h4>
+          ${makes.filter(mk => state.vehicles.some(v => v.make === mk && v.frontLineReady)).map(mk => `<label class="cbx"><input type="checkbox" data-act="st-make" value="${mk}" ${f.makes.includes(mk) ? 'checked' : ''}>${mk}
+            <span class="muted tiny">${state.vehicles.filter(v => v.make === mk && v.frontLineReady).length}</span></label>`).join('')}</div>
+        <button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:12px" data-act="st-clear">Clear filters</button>
+      </div>
+    </aside>
+
+    <div>
+      <div class="row" style="margin-bottom:14px">
+        <div class="grow"><div style="font-size:24px;font-weight:850;letter-spacing:-.7px">${inv.length} vehicles available</div>
+          <div class="sm muted">Both Vancouver locations shown together — ask us to bring any unit to whichever lot is closer.</div></div>
+        <select class="sel"><option>Newest arrivals</option><option>Price: low to high</option><option>Lowest miles</option></select>
+      </div>
+      <div class="cards">
+        ${inv.map(v => `<div class="vcard rel" data-act="stveh" data-id="${v.id}">
+          <img src="${v.hero}" alt="">
+          ${v.daysInStock <= 7 ? '<span class="badge" style="top:auto;bottom:10px;background:rgba(21,163,74,.94)">Just arrived</span>'
+            : isAged(v) ? '<span class="badge" style="top:auto;bottom:10px;background:rgba(207,43,38,.94)">Price reduced</span>' : ''}
+          <div class="b">
+            <div class="ttl">${esc(vfull(v))}</div>
+            <div class="sub">${v.mileage.toLocaleString()} mi · ${esc(v.drivetrain)} · ${esc(v.exteriorColor)}</div>
+            <div class="pr">${money(v.price)}</div>
+            <div class="row tiny muted" style="margin-top:7px;justify-content:space-between">
+              <span>${esc(v.carfax)}</span><span>${esc(rooftopName(v.rooftop))}</span></div>
+          </div></div>`).join('')}
+      </div>
+      ${inv.length === 0 ? '<div class="card pad muted" style="text-align:center">Nothing matches those filters right now.</div>' : ''}
+    </div>
+  </div></div></div>`;
+}
+
+function viewVDP(id) {
+  const v = byId(id); if (!v) return viewStore();
+  const shot = Math.min(state.ui.stShot, v.photos.length - 1);
+  const R = 0.079 / 12;
+  const pay = Math.round(((v.price * 0.9) * R) / (1 - Math.pow(1 + R, -72)));
+  const similar = state.vehicles.filter(x => x.id !== v.id && x.frontLineReady && x.body === v.body).slice(0, 3);
+
+  return `<div class="store">${storeHeader()}<div class="stwrap">
+    <div class="sm muted" style="margin-bottom:12px"><a href="#/store">Inventory</a> › ${esc(v.body)} › ${esc(vname(v))}</div>
+    <div class="vdp">
+      <div>
+        <div class="vdpgal">
+          <img class="main" src="${v.photos[shot].src}" alt="">
+          <div class="vdpstrip">${v.photos.map((p, i) =>
+            `<img src="${p.src}" class="${i === shot ? 'on' : ''}" data-act="stshot" data-i="${i}">`).join('')}</div>
+        </div>
+
+        <h1 style="font-size:29px;font-weight:850;letter-spacing:-1px;margin:22px 0 4px">${esc(vfull(v))}</h1>
+        <div class="muted" style="margin-bottom:18px">${v.mileage.toLocaleString()} miles · ${esc(v.drivetrain)} · ${esc(v.engine)}
+          · Stock #${v.stock} · <span class="mono tiny">VIN ${v.vin}</span></div>
+
+        <div class="specs">
+          ${[['Mileage', v.mileage.toLocaleString() + ' mi'], ['Drivetrain', v.drivetrain], ['Transmission', v.transmission],
+             ['Engine', v.engine], ['Exterior', v.exteriorColor], ['Interior', v.interiorColor],
+             ['Body', v.body], ['History', v.carfax], ['Title', v.titleStatus]]
+            .map(([k, val]) => `<div><div class="k">${k}</div><div class="v">${esc(val)}</div></div>`).join('')}
+        </div>
+
+        <h3 style="margin:26px 0 10px;font-size:17px;font-weight:800">What's on it</h3>
+        <div class="feats">${v.features.map(x => `<span class="feat">${esc(x)}</span>`).join('')}</div>
+
+        <h3 style="margin:26px 0 10px;font-size:17px;font-weight:800">From the lot</h3>
+        <p class="muted" style="max-width:64ch;line-height:1.65">Local ${v.year} ${v.model} ${v.trim} in ${esc(v.exteriorColor)}
+          over ${esc(v.interiorColor)}. ${esc(v.carfax)} history and ${v.titleStatus.toLowerCase()} title. Just came through our
+          shop — ${esc(v.reconNote.toLowerCase())}. ${esc(v.drivetrain)} and ready to go. Sitting at our
+          ${esc(rooftopName(v.rooftop))} lot; happy to move it to the other store if that is closer to you.</p>
+
+        <h3 style="margin:30px 0 12px;font-size:17px;font-weight:800">Similar ${esc(v.body.toLowerCase())}s on the lot</h3>
+        <div class="cards">${similar.map(s => `<div class="vcard" data-act="stveh" data-id="${s.id}">
+          <img src="${s.hero}"><div class="b"><div class="ttl">${esc(vname(s))}</div>
+          <div class="sub">${s.mileage.toLocaleString()} mi</div><div class="pr">${money(s.price)}</div></div></div>`).join('')}</div>
+      </div>
+
+      <div class="sticky" style="top:16px">
+        <div class="pbox">
+          <div class="top">
+            <div class="tiny muted" style="font-weight:800;letter-spacing:1px;text-transform:uppercase">Our price</div>
+            <div class="price">${money(v.price)}</div>
+            <div class="pay">Est. <b>${money(pay)}/mo</b> · 72 mo · 10% down · 7.9% APR</div>
+            <div class="tiny muted" style="margin-top:6px">Estimate only, on approved credit.</div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:9px">
+            <button class="btn" style="justify-content:center">Check availability</button>
+            <button class="btn ghost" style="justify-content:center">Get my trade value</button>
+            <button class="btn ghost" style="justify-content:center">Apply for financing</button>
+          </div>
+          <div style="border-top:1px solid var(--line2);padding:14px 16px">
+            <div class="row" style="gap:10px"><div class="av" style="background:#39434f">CM</div>
+              <div><div style="font-weight:800">${esc(SEED.virtualRooftop.name)}</div>
+                <div class="tiny muted">${esc((SEED.rooftops.find(r => r.id === v.rooftop) || {}).address)}<br>Vancouver, WA</div></div></div>
+            <div style="margin-top:12px;font-size:17px;font-weight:800">${esc((SEED.rooftops.find(r => r.id === v.rooftop) || {}).phone)}</div>
+          </div>
+          <div style="border-top:1px solid var(--line2);padding:12px 16px" class="tiny muted">
+            ${v.daysInStock <= 7 ? '🟢 Just arrived — ' : ''}${v.daysInStock} days on our lot · ${v.vdpViewsTotal} people have viewed this vehicle
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ router ============================ */
+const RIBBON = `<div class="ribbon">
+  <a href="../index.html" class="rb-back">&#9664; rooftopauto.com</a>
+  <span class="rb-tag">LIVE DEMO</span>
+  <span class="rb-txt">Cascade Motors is a fictional two-rooftop lot in Vancouver, WA. Every number on these screens is sample data.</span>
+</div>`;
+
+function render() {
+  const r = state.route;
+  let html;
+  if (r.startsWith('#/store/v/')) html = viewVDP(r.split('/')[3]);
+  else if (r.startsWith('#/store')) html = viewStore();
+  else if (r.startsWith('#/vehicle/')) html = topbar() + viewVehicle(r.split('/')[2]);
+  else if (r.startsWith('#/inventory')) html = topbar() + viewInventory();
+  else if (r.startsWith('#/syndication')) html = topbar() + viewSyndication();
+  else if (r.startsWith('#/reporting')) html = topbar() + viewReporting();
+  else html = topbar() + viewLotWalk();
+  document.body.innerHTML = RIBBON + html;
+  const lg = $('.log'); if (lg) lg.scrollTop = lg.scrollHeight;
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const a = t.dataset.act;
+  if (a === 'react') {
+    const id = t.dataset.ev, k = t.dataset.kind;
+    state.reactions[id] = state.reactions[id] || {};
+    state.reactions[id][k] = !state.reactions[id][k];
+    render(); e.preventDefault();
+  } else if (a === 'veh' || a === 'stveh') {
+    location.hash = (a === 'veh' ? '#/vehicle/' : '#/store/v/') + t.dataset.id;
+    state.ui.tab = 'wall'; state.ui.shot = 0; state.ui.stShot = 0;
+  } else if (a === 'tab') { state.ui.tab = t.dataset.t; render(); }
+  else if (a === 'shot') { state.ui.shot = +t.dataset.i; render(); }
+  else if (a === 'stshot') { state.ui.stShot = +t.dataset.i; render(); }
+  else if (a === 'rooftop-set') { state.rooftop = t.dataset.id; render(); e.preventDefault(); }
+  else if (a === 'goto-syn') { location.hash = '#/syndication'; }
+  else if (a === 'goto-syn-veh') { state.ui.synVeh = t.dataset.id; location.hash = '#/syndication'; }
+  else if (a === 'push') {
+    const v = state.ui.synVeh ? byId(state.ui.synVeh) : scoped().find(x => x.frontLineReady);
+    const raw = ($('[data-act="syn-price"]') || {}).value;
+    const np = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
+    if (v && np > 0) pushPrice(v, np);
+  }
+  else if (a === 'st-clear') { state.ui.stFilters = { makes: [], body: [], q: '', maxPrice: 60000, maxMiles: 200000 }; render(); }
+});
+
+document.addEventListener('change', (e) => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const a = t.dataset.act;
+  if (a === 'rooftop') { state.rooftop = t.value; render(); }
+  else if (a === 'syn-veh') { state.ui.synVeh = t.value; render(); }
+  else if (a === 'st-make' || a === 'st-body') {
+    const key = a === 'st-make' ? 'makes' : 'body';
+    const arr = state.ui.stFilters[key];
+    const i = arr.indexOf(t.value);
+    i > -1 ? arr.splice(i, 1) : arr.push(t.value);
+    render();
+  }
+});
+
+document.addEventListener('input', (e) => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const a = t.dataset.act;
+  if (a === 'st-price') { state.ui.stFilters.maxPrice = +t.value; const s = t.value; render();
+    const el = $('[data-act="st-price"]'); if (el) el.value = s; }
+  else if (a === 'st-miles') { state.ui.stFilters.maxMiles = +t.value; render(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  const t = e.target.closest('[data-act]');
+  if (!t || e.key !== 'Enter') return;
+  if (t.dataset.act === 'comment' && t.value.trim()) {
+    const id = t.dataset.ev;
+    (state.extraComments[id] = state.extraComments[id] || []).push({ who: state.me, text: t.value.trim() });
+    render();
+  } else if (t.dataset.act === 'st-q') { state.ui.stFilters.q = t.value; render(); }
+});
+
+let _q;
+document.addEventListener('input', (e) => {
+  const t = e.target.closest('[data-act="st-q"]'); if (!t) return;
+  clearTimeout(_q); const val = t.value;
+  _q = setTimeout(() => { state.ui.stFilters.q = val; render();
+    const el = $('[data-act="st-q"]'); if (el) { el.focus(); el.value = val; } }, 260);
+});
+
+window.addEventListener('hashchange', () => { state.route = location.hash || '#/lotwalk'; window.scrollTo(0, 0); render(); });
+state.route = location.hash || '#/lotwalk';
+render();
+
+</script>
+</body></html>

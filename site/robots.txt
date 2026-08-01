@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /leads.log
+
+Sitemap: https://rooftopauto.com/sitemap.xml
