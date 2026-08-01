@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-50: #f6f7f9;
+  --color-ink-100: #eceef2;
+  --color-ink-200: #d6dae2;
+  --color-ink-300: #b2bac8;
+  --color-ink-400: #8794a8;
+  --color-ink-500: #66748c;
+  --color-ink-600: #4f5c72;
+  --color-ink-700: #3f4a5c;
+  --color-ink-800: #2a3342;
+  --color-ink-900: #18202c;
+  --color-ink-950: #0e141d;
+
+  /* Aging ramp — used identically in tables, charts and badges */
+  --color-age-fresh: #16a34a;
+  --color-age-freshbg: #dcfce7;
+  --color-age-ok: #0e7490;
+  --color-age-okbg: #cffafe;
+  --color-age-warn: #a16207;
+  --color-age-warnbg: #fef3c7;
+  --color-age-hot: #c2410c;
+  --color-age-hotbg: #ffedd5;
+  --color-age-aged: #b91c1c;
+  --color-age-agedbg: #fee2e2;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-ink-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* tabular numbers wherever a dealer compares figures down a column */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #14532d;
+  color: #fff;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--color-ink-300);
+  border-radius: 999px;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-in { animation: slide-in 0.25s ease-out; }
+
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.bar-grow { transform-origin: bottom; animation: bar-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
