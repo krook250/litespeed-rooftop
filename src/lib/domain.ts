@@ -211,3 +211,17 @@ export function monthlyPayment(price: number, down: number, apr: number, months:
   if (r === 0) return principal / months;
   return (principal * r) / (1 - Math.pow(1 + r, -months));
 }
+
+/**
+ * Rooftops are named "<Group> — <Location>" so they read correctly on their
+ * own. Inside the admin, where the group is already in the chrome, strip the
+ * prefix. Works for any tenant; the old hardcoded "Evergreen Motors — " did not.
+ */
+export function shortRooftopName(rooftopName: string, groupName?: string) {
+  if (!groupName) return rooftopName;
+  for (const dash of [' — ', ' - ', ' ']) {
+    const prefix = `${groupName}${dash}`;
+    if (rooftopName.startsWith(prefix)) return rooftopName.slice(prefix.length) || rooftopName;
+  }
+  return rooftopName;
+}

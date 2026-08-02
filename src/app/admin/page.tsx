@@ -3,7 +3,9 @@ import { AgeBadge, AgingBar, Badge, Card, CardHeader, EmptyState, Stat, cn } fro
 import { SyncTicker } from '@/components/sync-bits';
 import {
   agingCounts,
+  getGroup,
   getLiveInventory,
+  getRooftops,
   getRecentEvents,
   getSalesSince,
   getSyncMatrix,
@@ -29,11 +31,14 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const [inventory, sales, events] = await Promise.all([
+  const [group, rooftops, inventory, sales, events] = await Promise.all([
+    getGroup(),
+    getRooftops(),
     getLiveInventory(),
     getSalesSince(90),
     getRecentEvents(12),
   ]);
+  const rooftopCount = rooftops.length;
   const traffic = await getTrafficPerVehicle(30);
   const matrix = await getSyncMatrix(inventory.map((v) => v.id));
 
@@ -74,11 +79,10 @@ export default async function DashboardPage() {
     <div className="px-6 py-6 lg:px-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink-900">
-            Evergreen Motors Group
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight text-ink-900">{group.name}</h1>
           <p className="mt-1 text-sm text-ink-600">
-            Two rooftops · {inventory.length} units in stock ·{' '}
+            {rooftopCount === 1 ? 'One rooftop' : `${rooftopCount} rooftops`} ·{' '}
+            {inventory.length} units in stock ·{' '}
             {usd(moneyOut)} of inventory money on the ground
           </p>
         </div>

@@ -9,6 +9,10 @@ import * as t from './schema';
 import { SEED_CHANNELS, SEED_VEHICLES, SOLD_POOL, type SeedVehicle } from './seed-data';
 import { buildVin } from '@/lib/vin';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
+import { auth } from '@/lib/auth-config';
+
+/** Sign-in for the seeded demo dealership. Printed at the end of a seed run. */
+export const DEMO_LOGIN = { email: 'dave@evergreenmotorswa.com', password: 'lotwalk2026' };
 
 /* deterministic RNG so every reseed produces the same demo */
 function mulberry32(a: number) {
@@ -44,6 +48,8 @@ async function main() {
   await db.delete(t.channels);
   await db.delete(t.storefrontRooftops);
   await db.delete(t.storefronts);
+  await db.delete(t.sessions);
+  await db.delete(t.accounts);
   await db.delete(t.users);
   await db.delete(t.rooftops);
   await db.delete(t.dealerGroups);
@@ -111,11 +117,25 @@ async function main() {
     { storefrontId: bgStore!.id, rooftopId: bgRooftop!.id },
   ]);
 
-  await db.insert(t.users).values({
-    groupId: group!.id,
-    email: 'dave@evergreenmotorswa.com',
-    name: 'Dave Okafor',
-    role: 'OWNER',
+  // The demo owner gets real credentials so the seeded dealership can actually
+  // be signed into. Hashed with Better Auth's own hasher, so it verifies on
+  // login exactly like a self-service signup would.
+  const [demoUser] = await db
+    .insert(t.users)
+    .values({
+      groupId: group!.id,
+      email: DEMO_LOGIN.email,
+      name: 'Dave Okafor',
+      role: 'OWNER',
+    })
+    .returning();
+
+  const authCtx = await auth.$context;
+  await db.insert(t.accounts).values({
+    userId: demoUser!.id,
+    accountId: demoUser!.id,
+    providerId: 'credential',
+    password: await authCtx.password.hash(DEMO_LOGIN.password),
   });
 
   /* ------------------------------------------------------------ channels */
@@ -541,6 +561,8 @@ async function main() {
     `done — ${vehicles.length} live units, ${soldVehicles.length} sold, ` +
     `${channels.length} channels, ${syncRows.length} sync states, ${statRows.length} stat rows`,
   );
+  console.log(`\nsign in as  ${DEMO_LOGIN.email}  /  ${DEMO_LOGIN.password}`);
+  console.log('or create a fresh empty dealership at /signup\n');
   process.exit(0);
 }
 

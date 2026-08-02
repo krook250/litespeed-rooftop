@@ -2,7 +2,21 @@ import 'server-only';
 import { and, asc, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
+import { requireGroupId } from '@/lib/auth';
 import { AGING_BUCKETS, bucketFor, daysInStock, type DisMode } from '@/lib/domain';
+
+/**
+ * Tenant scoping
+ * --------------
+ * Every query below that can return more than one dealer's data takes an
+ * optional `rooftopIds`. Passing it explicitly is the *public* path — the
+ * storefront resolves its own rooftops from the slug and has no session.
+ * Omitting it is the *admin* path, and it falls back to the rooftops owned by
+ * the signed-in tenant, which throws a redirect if nobody is signed in.
+ *
+ * That is deliberate: forgetting to scope an admin query fails closed (no
+ * session, no data) rather than leaking the next dealer's inventory.
+ */
 
 export type LiveVehicle = typeof t.vehicles.$inferSelect & {
   photos: (typeof t.vehiclePhotos.$inferSelect)[];
@@ -11,17 +25,47 @@ export type LiveVehicle = typeof t.vehicles.$inferSelect & {
 
 const LIVE_STATUSES = ['ARRIVED', 'IN_RECON', 'PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'] as const;
 
+/** Rooftop ids owned by the signed-in tenant. The admin scoping fallback. */
+async function sessionRooftopIds() {
+  const groupId = await requireGroupId();
+  const rows = await db
+    .select({ id: t.rooftops.id })
+    .from(t.rooftops)
+    .where(eq(t.rooftops.groupId, groupId));
+  return rows.map((r) => r.id);
+}
+
+/** Resolve the rooftop filter for an admin-or-public query. */
+async function scopeRooftops(rooftopIds?: string[]) {
+  return rooftopIds ?? (await sessionRooftopIds());
+}
+
 export async function getGroup() {
-  const rows = await db.select().from(t.dealerGroups).limit(1);
+  const groupId = await requireGroupId();
+  const rows = await db
+    .select()
+    .from(t.dealerGroups)
+    .where(eq(t.dealerGroups.id, groupId))
+    .limit(1);
   return rows[0]!;
 }
 
 export async function getRooftops() {
-  return db.select().from(t.rooftops).orderBy(asc(t.rooftops.name));
+  const groupId = await requireGroupId();
+  return db
+    .select()
+    .from(t.rooftops)
+    .where(eq(t.rooftops.groupId, groupId))
+    .orderBy(asc(t.rooftops.name));
 }
 
 export async function getStorefronts() {
-  return db.select().from(t.storefronts).orderBy(asc(t.storefronts.name));
+  const groupId = await requireGroupId();
+  return db
+    .select()
+    .from(t.storefronts)
+    .where(eq(t.storefronts.groupId, groupId))
+    .orderBy(asc(t.storefronts.name));
 }
 
 export async function getStorefrontBySlug(slug: string) {
@@ -45,9 +89,12 @@ export async function getStorefrontBySlug(slug: string) {
 
 /** Live inventory with photos. Sold units never come back from here. */
 export async function getLiveInventory(opts: { rooftopIds?: string[] } = {}) {
-  const where = opts.rooftopIds?.length
-    ? and(inArray(t.vehicles.status, LIVE_STATUSES), inArray(t.vehicles.rooftopId, opts.rooftopIds))
-    : inArray(t.vehicles.status, LIVE_STATUSES);
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
+  const where = and(
+    inArray(t.vehicles.status, LIVE_STATUSES),
+    inArray(t.vehicles.rooftopId, rooftopIds),
+  );
 
   const rows = await db
     .select()
@@ -79,12 +126,14 @@ export async function getLiveInventory(opts: { rooftopIds?: string[] } = {}) {
   })) as LiveVehicle[];
 }
 
-export async function getVehicleById(id: string) {
+export async function getVehicleById(id: string, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return null;
   const rows = await db
     .select()
     .from(t.vehicles)
     .innerJoin(t.rooftops, eq(t.vehicles.rooftopId, t.rooftops.id))
-    .where(eq(t.vehicles.id, id))
+    .where(and(eq(t.vehicles.id, id), inArray(t.vehicles.rooftopId, rooftopIds)))
     .limit(1);
   if (!rows[0]) return null;
   const photos = await db
@@ -95,26 +144,36 @@ export async function getVehicleById(id: string) {
   return { ...rows[0].vehicles, rooftop: rows[0].rooftops, photos } as LiveVehicle;
 }
 
-export async function getVehicleByStock(stock: string) {
+/**
+ * Stock numbers are only unique within a tenant, so this must always be scoped.
+ * The storefront passes its own rooftops; admin screens fall back to session.
+ */
+export async function getVehicleByStock(stock: string, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return null;
   const rows = await db
     .select({ id: t.vehicles.id })
     .from(t.vehicles)
-    .where(eq(t.vehicles.stockNumber, stock))
+    .where(and(eq(t.vehicles.stockNumber, stock), inArray(t.vehicles.rooftopId, rooftopIds)))
     .limit(1);
   if (!rows[0]) return null;
-  return getVehicleById(rows[0].id);
+  return getVehicleById(rows[0].id, { rooftopIds });
 }
 
+/** Channels are a shared catalogue, not tenant data. Intentionally unscoped. */
 export async function getChannels() {
   return db.select().from(t.channels).orderBy(asc(t.channels.sortOrder));
 }
 
-export async function getConnections() {
+export async function getConnections(opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
   return db
     .select()
     .from(t.channelConnections)
     .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
     .innerJoin(t.rooftops, eq(t.channelConnections.rooftopId, t.rooftops.id))
+    .where(inArray(t.channelConnections.rooftopId, rooftopIds))
     .orderBy(asc(t.channels.sortOrder));
 }
 
@@ -141,13 +200,16 @@ export async function getSyncStatesForVehicle(vehicleId: string) {
     .orderBy(asc(t.channels.sortOrder));
 }
 
-export async function getRecentEvents(limit = 40) {
+export async function getRecentEvents(limit = 40, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
   return db
     .select()
     .from(t.syncEvents)
     .innerJoin(t.vehicles, eq(t.syncEvents.vehicleId, t.vehicles.id))
     .innerJoin(t.channelConnections, eq(t.syncEvents.connectionId, t.channelConnections.id))
     .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
+    .where(inArray(t.vehicles.rooftopId, rooftopIds))
     .orderBy(desc(t.syncEvents.createdAt))
     .limit(limit);
 }
@@ -169,12 +231,19 @@ export async function getPriceHistory(vehicleId: string) {
 
 /* -------------------------------------------------------------- reporting */
 
-export async function getSalesSince(days: number) {
+export async function getSalesSince(days: number, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
   const since = new Date(Date.now() - days * 86_400_000);
-  return db.select().from(t.sales).where(gte(t.sales.soldDate, since));
+  return db
+    .select()
+    .from(t.sales)
+    .where(and(gte(t.sales.soldDate, since), inArray(t.sales.rooftopId, rooftopIds)));
 }
 
-export async function getTrafficByChannel(days = 30) {
+export async function getTrafficByChannel(days = 30, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
   const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
   return db
     .select({
@@ -188,13 +257,18 @@ export async function getTrafficByChannel(days = 30) {
       saves: sql<number>`sum(${t.vehicleDailyStats.saves})::int`,
     })
     .from(t.vehicleDailyStats)
+    .innerJoin(t.vehicles, eq(t.vehicleDailyStats.vehicleId, t.vehicles.id))
     .innerJoin(t.channels, eq(t.vehicleDailyStats.channelId, t.channels.id))
-    .where(gte(t.vehicleDailyStats.date, since))
+    .where(
+      and(gte(t.vehicleDailyStats.date, since), inArray(t.vehicles.rooftopId, rooftopIds)),
+    )
     .groupBy(t.vehicleDailyStats.channelId, t.channels.name, t.channels.shortName, t.channels.brandHex)
     .orderBy(desc(sql`sum(${t.vehicleDailyStats.vdpViews})`));
 }
 
-export async function getTrafficByDay(days = 30) {
+export async function getTrafficByDay(days = 30, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
   const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
   return db
     .select({
@@ -203,7 +277,10 @@ export async function getTrafficByDay(days = 30) {
       leads: sql<number>`sum(${t.vehicleDailyStats.leads})::int`,
     })
     .from(t.vehicleDailyStats)
-    .where(gte(t.vehicleDailyStats.date, since))
+    .innerJoin(t.vehicles, eq(t.vehicleDailyStats.vehicleId, t.vehicles.id))
+    .where(
+      and(gte(t.vehicleDailyStats.date, since), inArray(t.vehicles.rooftopId, rooftopIds)),
+    )
     .groupBy(t.vehicleDailyStats.date)
     .orderBy(asc(t.vehicleDailyStats.date));
 }
@@ -223,7 +300,9 @@ export async function getVehicleTraffic(vehicleId: string, days = 30) {
   return rows[0] ?? { vdpViews: 0, leads: 0, saves: 0 };
 }
 
-export async function getTrafficPerVehicle(days = 30) {
+export async function getTrafficPerVehicle(days = 30, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return new Map<string, { vehicleId: string; vdpViews: number; leads: number }>();
   const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
   const rows = await db
     .select({
@@ -232,7 +311,10 @@ export async function getTrafficPerVehicle(days = 30) {
       leads: sql<number>`sum(${t.vehicleDailyStats.leads})::int`,
     })
     .from(t.vehicleDailyStats)
-    .where(gte(t.vehicleDailyStats.date, since))
+    .innerJoin(t.vehicles, eq(t.vehicleDailyStats.vehicleId, t.vehicles.id))
+    .where(
+      and(gte(t.vehicleDailyStats.date, since), inArray(t.vehicles.rooftopId, rooftopIds)),
+    )
     .groupBy(t.vehicleDailyStats.vehicleId);
   return new Map(rows.map((r) => [r.vehicleId, r]));
 }
@@ -274,7 +356,7 @@ export async function getTrafficDailyByChannel(opts: StatWindowOpts) {
     sql`${t.vehicleDailyStats.date} > ${from}`,
     sql`${t.vehicleDailyStats.date} <= ${to}`,
   ];
-  if (opts.rooftopIds?.length) filters.push(inArray(t.vehicles.rooftopId, opts.rooftopIds));
+  filters.push(inArray(t.vehicles.rooftopId, await scopeRooftops(opts.rooftopIds)));
 
   return db
     .select({
@@ -311,7 +393,7 @@ export async function getTrafficPerVehicleInWindow(opts: StatWindowOpts) {
     sql`${t.vehicleDailyStats.date} > ${from}`,
     sql`${t.vehicleDailyStats.date} <= ${to}`,
   ];
-  if (opts.rooftopIds?.length) filters.push(inArray(t.vehicles.rooftopId, opts.rooftopIds));
+  filters.push(inArray(t.vehicles.rooftopId, await scopeRooftops(opts.rooftopIds)));
 
   const rows = await db
     .select({
@@ -345,6 +427,8 @@ export type VehicleLifecycle = {
  * front line).
  */
 export async function getVehicleLifecycle(opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [] as VehicleLifecycle[];
   return db
     .select({
       id: t.vehicles.id,
@@ -355,7 +439,7 @@ export async function getVehicleLifecycle(opts: { rooftopIds?: string[] } = {}) 
       soldDate: t.vehicles.soldDate,
     })
     .from(t.vehicles)
-    .where(opts.rooftopIds?.length ? inArray(t.vehicles.rooftopId, opts.rooftopIds) : undefined)
+    .where(inArray(t.vehicles.rooftopId, rooftopIds))
     .orderBy(asc(t.vehicles.acquiredDate)) as Promise<VehicleLifecycle[]>;
 }
 

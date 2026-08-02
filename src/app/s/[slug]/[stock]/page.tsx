@@ -33,7 +33,9 @@ const PUBLIC_STATUSES = new Set(['PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_
 async function load(slug: string, stock: string) {
   const storefront = await getStorefrontBySlug(slug);
   if (!storefront) return null;
-  const vehicle = await getVehicleByStock(stock.toUpperCase());
+  const vehicle = await getVehicleByStock(stock.toUpperCase(), {
+    rooftopIds: storefront.rooftopIds,
+  });
   if (!vehicle) return null;
   if (!storefront.rooftopIds.includes(vehicle.rooftopId)) return null;
   if (!PUBLIC_STATUSES.has(vehicle.status)) return null;

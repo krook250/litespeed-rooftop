@@ -128,7 +128,7 @@ export default async function SyndicationPage({
                 : 'bg-white text-ink-700 ring-ink-300 hover:bg-ink-50',
             )}
           >
-            {r.name.replace('Evergreen Motors — ', '')}
+            {r.name}
           </Link>
         ))}
         <span className="ml-auto text-xs text-ink-500">
@@ -149,7 +149,7 @@ export default async function SyndicationPage({
               className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
             >
               <span className="text-sm font-semibold text-red-800">
-                {c.channels.name} — {c.rooftops.name.replace('Evergreen Motors — ', '')}
+                {c.channels.name} — {c.rooftops.name}
               </span>
               <span className="text-xs text-red-700">{c.channel_connections.errorMessage}</span>
               <form action={repairConnection} className="ml-auto">
@@ -255,7 +255,7 @@ export default async function SyndicationPage({
                       )}
                     />
                     <span className="truncate text-ink-600">
-                      {c.rooftops.name.replace('Evergreen Motors — ', '')}
+                      {c.rooftops.name}
                     </span>
                     <span className="ml-auto shrink-0 text-ink-400">
                       {c.channel_connections.status === 'CONNECTED'

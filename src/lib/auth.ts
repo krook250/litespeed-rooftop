@@ -1,36 +1,32 @@
 import 'server-only';
-import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth-config';
+import * as t from '@/db/schema';
 
-/**
- * Hardcoded demo login. Deliberately not a real auth system — the real one
- * lands with multi-user roles, not before.
- */
-export const DEMO_USER = {
-  email: 'dave@evergreenmotorswa.com',
-  password: 'rooftop',
-  name: 'Dave Okafor',
-  role: 'Owner',
-};
+export { auth };
 
-const COOKIE = 'rooftop_demo_session';
+export type SessionUser = typeof t.users.$inferSelect;
 
-export async function isSignedIn() {
-  const jar = await cookies();
-  return jar.get(COOKIE)?.value === 'ok';
+/** Current user, or null. Safe to call from anywhere on the server. */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const res = await auth.api.getSession({ headers: await headers() });
+  if (!res?.user) return null;
+  return res.user as unknown as SessionUser;
 }
 
-export async function requireSession() {
-  if (!(await isSignedIn())) redirect('/login');
-  return DEMO_USER;
+/** Current user, or bounce to /login. Use at the top of every admin screen. */
+export async function requireSession(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) redirect('/login');
+  return user;
 }
 
-export async function signIn() {
-  const jar = await cookies();
-  jar.set(COOKIE, 'ok', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 30 });
+/** The tenant the request belongs to. Every admin query scopes on this. */
+export async function requireGroupId(): Promise<string> {
+  return (await requireSession()).groupId;
 }
 
 export async function signOut() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
+  await auth.api.signOut({ headers: await headers() });
 }

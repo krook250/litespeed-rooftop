@@ -116,6 +116,12 @@ export const storefrontRooftops = pgTable(
   (t) => [primaryKey({ columns: [t.storefrontId, t.rooftopId] })],
 );
 
+/**
+ * `users` doubles as Better Auth's `user` model (mapped via `user.modelName`
+ * in src/lib/auth.ts). The four columns below the divider are Better Auth's;
+ * `groupId` and `role` are ours and are set server-side in a database hook,
+ * never accepted from the client.
+ */
 export const users = pgTable('users', {
   id: cuid().primaryKey(),
   groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
@@ -123,7 +129,61 @@ export const users = pgTable('users', {
   name: text().notNull(),
   role: userRoleEnum().notNull().default('MANAGER'),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  /* ---- Better Auth core fields ---- */
+  emailVerified: boolean().notNull().default(false),
+  image: text(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/* --------------------------------------------------------- auth (Better Auth) */
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: cuid().primaryKey(),
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    token: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    ipAddress: text(),
+    userAgent: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (s) => [index('sessions_user_idx').on(s.userId)],
+);
+
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: cuid().primaryKey(),
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    accountId: text().notNull(),
+    providerId: text().notNull(),
+    accessToken: text(),
+    refreshToken: text(),
+    accessTokenExpiresAt: timestamp({ withTimezone: true }),
+    refreshTokenExpiresAt: timestamp({ withTimezone: true }),
+    scope: text(),
+    idToken: text(),
+    password: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (a) => [index('accounts_user_idx').on(a.userId)],
+);
+
+export const verifications = pgTable(
+  'verifications',
+  {
+    id: cuid().primaryKey(),
+    identifier: text().notNull(),
+    value: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (v) => [index('verifications_identifier_idx').on(v.identifier)],
+);
 
 /* -------------------------------------------------------------- inventory */
 

@@ -98,7 +98,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
               <span>Stock {vehicle.stockNumber}</span>
               <span className="font-mono">{vehicle.vin}</span>
               <span>{num(vehicle.mileage)} mi</span>
-              <span>{vehicle.rooftop.name.replace('Evergreen Motors — ', '')}</span>
+              <span>{vehicle.rooftop.name}</span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <AgeBadge days={dis} />

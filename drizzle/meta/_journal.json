@@ -8,6 +8,13 @@
       "when": 1785607372185,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785681548871,
+      "tag": "0001_light_exodus",
+      "breakpoints": true
     }
   ]
 }

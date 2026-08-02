@@ -16,6 +16,17 @@ import {
 import { buildVin } from '@/lib/vin';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 
+/** Dealership name stamped on generated placeholder photos, per tenant. */
+async function dealerLabelForRooftop(rooftopId: string) {
+  const rows = await db
+    .select({ name: t.dealerGroups.name })
+    .from(t.rooftops)
+    .innerJoin(t.dealerGroups, eq(t.rooftops.groupId, t.dealerGroups.id))
+    .where(eq(t.rooftops.id, rooftopId))
+    .limit(1);
+  return rows[0]?.name ?? 'Dealership';
+}
+
 function refreshAll(vehicleId?: string) {
   revalidatePath('/admin', 'layout');
   revalidatePath('/s', 'layout');
@@ -140,6 +151,7 @@ export async function saveVehicle(formData: FormData) {
     const v = inserted[0]!;
 
     // give it a photo set so it is presentable the moment it is created
+    const photoLabel = await dealerLabelForRooftop(v.rooftopId);
     await db.insert(t.vehiclePhotos).values(
       PHOTO_SET.map((scene, n) => ({
         vehicleId: v.id,
@@ -147,7 +159,7 @@ export async function saveVehicle(formData: FormData) {
           scene,
           body: v.bodyStyle,
           hex: v.exteriorColorHex,
-          label: 'Evergreen Motors',
+          label: photoLabel,
           sublabel: `STK ${v.stockNumber}`,
           mileage: v.mileage,
         }),
@@ -314,13 +326,14 @@ export async function addPhoto(formData: FormData) {
     .from(t.vehiclePhotos)
     .where(eq(t.vehiclePhotos.vehicleId, vehicleId));
 
+  const photoLabel = await dealerLabelForRooftop(v.rooftopId);
   await db.insert(t.vehiclePhotos).values({
     vehicleId,
     url: generatedPhotoUrl({
       scene: scene as (typeof PHOTO_SET)[number],
       body: v.bodyStyle,
       hex: v.exteriorColorHex,
-      label: 'Evergreen Motors',
+      label: photoLabel,
       sublabel: `STK ${v.stockNumber}`,
       mileage: v.mileage,
     }),
