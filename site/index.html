@@ -3,24 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rooftop — inventory, merchandising and syndication for independent car lots</title>
-<meta name="description" content="One inventory record that pushes to your own website, Meta, Google Vehicle Ads, Facebook Marketplace and the aggregators. Plus aging, merchandising and the reporting you already run your week on. Works with your DMS.">
+<title>Rooftop Auto — the dealer platform built to sell cars, not store them</title>
+<meta name="description" content="Enter a car once and your website, your Meta catalog, Marketplace and the aggregators all update themselves — so your ads are always running on inventory you actually have. Built by advertisers. Works with your DMS.">
 <link rel="canonical" href="https://rooftopauto.com/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0f1620">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Rooftop — change the price once">
-<meta property="og:description" content="Dealer software for independent used car lots. One record, every channel, nothing retyped.">
+<meta property="og:title" content="Rooftop Auto — take the car in, the ads are already running">
+<meta property="og:description" content="Most dealer software is built to store your inventory. This one is built to sell it. One record, every channel, always current.">
 <meta property="og:image" content="https://rooftopauto.com/img/shot-lotwalk.jpg">
 <meta property="og:url" content="https://rooftopauto.com/">
 <meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,600;0,700;0,800;1,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 /* ============ tokens ============ */
 :root{
   --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
   --line:#e3e7ec; --line2:#eef1f4; --bg:#fff; --wash:#f5f7fa;
-  --brand:#4f46e5; --brand2:#6d64f0; --brand-dk:#3b32c9; --brand-wash:#eef0fe;
+  /* Litespeed brand blue */
+  --brand:#3D8BFF; --brand2:#6BA6FF; --brand-dk:#1F6FEA; --brand-wash:#EAF2FF;
+  --brand-lt:#8FBCFF;
+  --amber:#FFB020; --amber-dk:#B87700; --amber-wash:#FFF4E0;
   --ok:#15a34a; --warn:#c9760a; --err:#cf2b26;
-  --ff:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --ff:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --fh:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --fm:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --max:1180px;
 }
@@ -30,25 +41,26 @@ body{margin:0;font-family:var(--ff);color:var(--ink);background:var(--bg);
   font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;height:auto;display:block}
-h1,h2,h3,h4{margin:0;letter-spacing:-.03em;line-height:1.12;font-weight:850}
+h1,h2,h3,h4{margin:0;font-family:var(--fh);letter-spacing:-.03em;line-height:1.12;font-weight:800}
 h1{font-size:clamp(38px,5.6vw,64px)}
 h2{font-size:clamp(29px,3.8vw,44px)}
 h3{font-size:clamp(20px,2vw,25px);letter-spacing:-.02em}
 p{margin:0}
 .wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
 .narrow{max-width:760px}
-.eyebrow{font-size:12px;font-weight:850;letter-spacing:2px;text-transform:uppercase;color:var(--brand)}
-.eyebrow.on-dark{color:#a49dff}
+.eyebrow{font-family:var(--fh);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-dk)}
+.eyebrow.on-dark{color:var(--brand-lt)}
+.eyebrow.amber{color:var(--amber-dk)}
+.eyebrow.amber.on-dark{color:var(--amber)}
 .lede{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);line-height:1.62}
 .muted{color:var(--ink3)}
 .sm{font-size:14.5px}
 .tiny{font-size:13px}
 .center{text-align:center}
-.stack-lg>*+*{margin-top:22px}
 
 /* ============ buttons ============ */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
-  padding:14px 24px;border-radius:11px;font-weight:800;font-size:16px;
+  padding:14px 24px;border-radius:11px;font-family:var(--fh);font-weight:700;font-size:16px;
   background:var(--brand);color:#fff;transition:.15s;white-space:nowrap;border:0;cursor:pointer}
 .btn:hover{background:var(--brand-dk);transform:translateY(-1px)}
 .btn.big{padding:17px 30px;font-size:17.5px}
@@ -60,30 +72,44 @@ p{margin:0}
 .btn.ghost.on-dark:hover{background:#1b2431;border-color:#5b6674}
 .btns{display:flex;gap:12px;flex-wrap:wrap}
 
+/* ============ logo ============ */
+.logo{display:flex;align-items:center;gap:11px}
+.logo svg{flex:0 0 auto}
+.stackt{display:flex;flex-direction:column}
+.wordmark{font-family:var(--fh);font-style:italic;font-weight:900;font-size:20px;
+  letter-spacing:-.5px;color:#fff;line-height:1;white-space:nowrap}
+.wordmark i{font-style:italic;color:var(--brand)}
+.logo .sub{font-size:9.5px;font-weight:600;letter-spacing:1.7px;color:#8e97a6;
+  text-transform:uppercase;margin-top:5px;font-family:var(--ff);font-style:normal;line-height:1}
+
 /* ============ nav ============ */
 .nav{position:sticky;top:0;z-index:50;background:rgba(15,22,32,.94);backdrop-filter:blur(12px);
   border-bottom:1px solid #1f2835}
-.nav .in{max-width:var(--max);margin:0 auto;padding:13px 22px;display:flex;align-items:center;gap:26px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:19px;color:#fff;letter-spacing:-.4px}
-.logomark{width:30px;height:30px;border-radius:8px;flex:0 0 auto;
-  background:linear-gradient(140deg,var(--brand2),var(--brand-dk));display:grid;place-items:center}
-.logo small{font-size:10px;font-weight:700;letter-spacing:1.8px;color:#8e97a6;
-  border-left:1px solid #333e4c;padding-left:10px}
-.navlinks{display:flex;gap:24px;font-size:15px;font-weight:650;color:#b6bec9}
+.nav .in{max-width:var(--max);margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:26px}
+.navlinks{display:flex;gap:24px;font-size:15px;font-weight:500;color:#b6bec9}
 .navlinks a:hover{color:#fff}
 .nav .btn{padding:10px 18px;font-size:14.5px}
-@media(max-width:860px){.navlinks{display:none}}
+@media(max-width:900px){.navlinks{display:none}}
+@media(max-width:520px){
+  .nav .in{gap:10px;padding:10px 16px}
+  .wordmark{font-size:17px}
+  .logo{gap:8px}
+  .logo svg{width:29px;height:26px}
+  .logo .sub{font-size:8.5px;letter-spacing:1.3px;margin-top:4px}
+  .nav .btn{padding:9px 14px;font-size:13.5px}
+}
 
 /* ============ hero ============ */
 .hero{background:var(--ink);color:#fff;padding:76px 0 0;overflow:hidden;position:relative}
 .hero:before{content:"";position:absolute;inset:0;
-  background:radial-gradient(900px 480px at 50% -8%,rgba(79,70,229,.36),transparent 68%)}
+  background:radial-gradient(900px 480px at 50% -8%,rgba(61,139,255,.34),transparent 68%)}
 .hero .in{position:relative}
-.hero h1{max-width:15ch;margin-inline:auto}
-.hero .lede{color:#b9c1cc;max-width:60ch;margin:22px auto 0}
+.hero h1{max-width:17ch;margin-inline:auto}
+.hero h1 em{font-style:normal;color:var(--brand-lt)}
+.hero .lede{color:#b9c1cc;max-width:62ch;margin:22px auto 0}
 .hero .btns{justify-content:center;margin-top:30px}
 .worksWith{margin-top:24px;font-size:14px;color:#8e97a6}
-.worksWith b{color:#dfe4ea;font-weight:750}
+.worksWith b{color:#dfe4ea;font-weight:600}
 .shotwrap{margin-top:52px;position:relative}
 .shot{border-radius:14px 14px 0 0;border:1px solid #2b3542;border-bottom:0;overflow:hidden;
   box-shadow:0 30px 80px rgba(0,0,0,.55)}
@@ -91,20 +117,20 @@ p{margin:0}
 
 /* ============ sections ============ */
 section{padding:88px 0}
-section[id],header[id]{scroll-margin-top:74px}
+section[id],header[id]{scroll-margin-top:72px}
 .wash{background:var(--wash)}
 .dark{background:var(--ink);color:#fff}
 .dark .lede{color:#b9c1cc}
-.dark h2{color:#fff}
-.shead{max-width:640px}
+.dark h2,.dark h3{color:#fff}
+.shead{max-width:660px}
 .shead h2{margin-top:14px}
 .shead .lede{margin-top:16px}
 
 /* problem list */
 .tabs-problem{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:38px}
 .tabcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}
-.tabcard .n{font-family:var(--fm);font-size:12px;font-weight:700;color:var(--brand);letter-spacing:1px}
-.tabcard .t{font-weight:800;margin-top:7px;font-size:15.5px}
+.tabcard .n{font-family:var(--fm);font-size:12px;font-weight:700;color:var(--brand-dk);letter-spacing:1px}
+.tabcard .t{font-family:var(--fh);font-weight:700;margin-top:7px;font-size:15.5px}
 .tabcard .d{font-size:14px;color:var(--ink3);margin-top:4px;line-height:1.5}
 
 /* feature rows */
@@ -121,8 +147,22 @@ section[id],header[id]{scroll-margin-top:74px}
 .ticks{margin-top:20px;display:flex;flex-direction:column;gap:10px}
 .tick{display:flex;gap:11px;align-items:flex-start;font-size:15.5px}
 .tick i{flex:0 0 auto;width:19px;height:19px;border-radius:50%;background:var(--brand-wash);color:var(--brand-dk);
-  display:grid;place-items:center;font-size:11px;font-weight:900;font-style:normal;margin-top:3px}
-.dark .tick i{background:rgba(109,100,240,.22);color:#b3acff}
+  display:grid;place-items:center;font-size:11px;font-weight:800;font-style:normal;margin-top:3px}
+.dark .tick i{background:rgba(61,139,255,.22);color:var(--brand-lt)}
+
+/* the positioning band */
+.pband{background:linear-gradient(150deg,#0a2447,#0f1620 64%);color:#fff;border-radius:18px;
+  padding:clamp(30px,5vw,56px)}
+.pband h2{max-width:20ch;color:#fff}
+.pband .lede{color:#c3c9d3;max-width:66ch;margin-top:20px}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:34px}
+@media(max-width:760px){.vs{grid-template-columns:1fr}}
+.vbox{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:20px 22px}
+.vbox h4{font-family:var(--fh);font-size:12px;letter-spacing:1.6px;text-transform:uppercase;
+  color:#8e97a6;font-weight:800}
+.vbox.us h4{color:var(--brand-lt)}
+.vbox ul{margin:13px 0 0;padding-left:19px;color:#c3c9d3;font-size:15px;line-height:1.8}
+.vbox.us ul{color:#e6ebf1}
 
 /* timing table */
 .timing{margin-top:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
@@ -131,7 +171,7 @@ section[id],header[id]{scroll-margin-top:74px}
   border-bottom:1px solid var(--line2)}
 .dark .timing div{border-bottom-color:#232d3a}
 .timing div:last-child{border-bottom:0}
-.timing b{font-weight:750}
+.timing b{font-weight:600}
 .timing span{color:var(--ink3);font-family:var(--fm);font-size:13px;white-space:nowrap}
 .dark .timing span{color:#8e97a6}
 
@@ -141,53 +181,68 @@ section[id],header[id]{scroll-margin-top:74px}
 .ag:last-child{border-bottom:0}
 .ag i{width:10px;height:26px;border-radius:3px;flex:0 0 auto}
 .ag .d{font-family:var(--fm);font-size:12.5px;font-weight:700;color:var(--ink3);width:58px;flex:0 0 auto}
-.ag .l{font-weight:800;font-size:15px}
+.ag .l{font-weight:600;font-size:15px}
+
+/* event log sample */
+.logbox{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.lrow{display:flex;gap:12px;align-items:baseline;padding:10px 15px;border-bottom:1px solid var(--line2);font-size:14.5px}
+.lrow:last-child{border-bottom:0}
+.lrow time{font-family:var(--fm);font-size:12px;color:var(--ink3);flex:0 0 auto;width:52px}
+.lrow b{font-weight:600}
+.lrow .who{color:var(--ink3);font-size:13px;margin-left:auto;flex:0 0 auto;white-space:nowrap}
+@media(max-width:560px){.lrow .who{display:none}}
 
 /* not-a-DMS band */
-.band{background:linear-gradient(140deg,#1b1745,#0f1620 62%);color:#fff;border-radius:18px;padding:clamp(30px,5vw,54px)}
-.band h2{max-width:18ch}
+.band{background:linear-gradient(140deg,#10294c,#0f1620 62%);color:#fff;border-radius:18px;padding:clamp(30px,5vw,54px)}
+.band h2{max-width:18ch;color:#fff}
 .band .lede{color:#c3c9d3;max-width:62ch;margin-top:18px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:32px}
 @media(max-width:760px){.split{grid-template-columns:1fr}}
 .sbox{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:20px 22px}
-.sbox h4{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:#a49dff;font-weight:850}
+.sbox h4{font-family:var(--fh);font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--brand-lt);font-weight:800}
 .sbox ul{margin:13px 0 0;padding-left:19px;color:#c3c9d3;font-size:15px;line-height:1.85}
 .sbox.keep h4{color:#7bd8a4}
 
 /* pricing */
-.price{max-width:520px;margin:44px auto 0;border:1.5px solid var(--line);border-radius:18px;overflow:hidden;
-  background:#fff;box-shadow:0 22px 60px rgba(15,22,32,.1)}
-.price .top{padding:34px 32px 28px;text-align:center;border-bottom:1px solid var(--line2);
+.price{max-width:540px;margin:44px auto 0;border:1.5px solid var(--brand);border-radius:18px;overflow:hidden;
+  background:#fff;box-shadow:0 22px 60px rgba(31,111,234,.16)}
+.ribbon{background:var(--amber);color:#2a1a00;font-family:var(--fh);font-weight:800;font-size:12.5px;
+  letter-spacing:1.6px;text-transform:uppercase;text-align:center;padding:9px 14px}
+.price .top{padding:30px 32px 28px;text-align:center;border-bottom:1px solid var(--line2);
   background:linear-gradient(180deg,var(--brand-wash),#fff)}
-.price .amt{font-size:62px;font-weight:900;letter-spacing:-3px;line-height:1}
-.price .amt small{font-size:20px;font-weight:750;letter-spacing:-.3px;color:var(--ink3)}
-.price .per{margin-top:6px;font-weight:750;color:var(--ink2)}
+.price .was{font-size:15.5px;color:var(--ink3);font-weight:600}
+.price .was s{text-decoration-thickness:2px}
+.price .amt{font-family:var(--fh);font-size:62px;font-weight:800;letter-spacing:-3px;line-height:1;margin-top:6px}
+.price .amt small{font-size:20px;font-weight:700;letter-spacing:-.3px;color:var(--ink3)}
+.price .per{margin-top:8px;font-weight:600;color:var(--ink2)}
 .price ul{margin:0;padding:26px 32px;list-style:none;display:flex;flex-direction:column;gap:11px}
 .price li{display:flex;gap:11px;font-size:15.5px}
 .price li i{flex:0 0 auto;width:19px;height:19px;border-radius:50%;background:var(--brand-wash);color:var(--brand-dk);
-  display:grid;place-items:center;font-size:11px;font-weight:900;font-style:normal;margin-top:3px}
+  display:grid;place-items:center;font-size:11px;font-weight:800;font-style:normal;margin-top:3px}
 .price .foot{padding:0 32px 30px}
 .price .foot .btn{width:100%}
-.pnote{text-align:center;margin-top:20px;font-size:14.5px;color:var(--ink3)}
+.pnote{text-align:center;margin:20px auto 0;max-width:52ch;font-size:14.5px;color:var(--ink3)}
 
 /* faq */
 .faq{max-width:800px;margin:40px auto 0;border-top:1px solid var(--line)}
 details{border-bottom:1px solid var(--line)}
-summary{padding:20px 44px 20px 0;font-weight:800;font-size:17.5px;cursor:pointer;list-style:none;position:relative}
+summary{padding:20px 44px 20px 0;font-family:var(--fh);font-weight:700;font-size:17.5px;cursor:pointer;
+  list-style:none;position:relative}
 summary::-webkit-details-marker{display:none}
-summary:after{content:"+";position:absolute;right:8px;top:17px;font-size:24px;font-weight:400;color:var(--ink4)}
+summary:after{content:"+";position:absolute;right:8px;top:15px;font-size:24px;font-weight:400;color:var(--ink4)}
 details[open] summary:after{content:"\2212"}
 details p{padding:0 0 22px;color:var(--ink2);max-width:70ch}
+details p+p{margin-top:-10px}
 
 /* contact */
 .form{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px}
 @media(max-width:680px){.form{grid-template-columns:1fr}}
 .form .full{grid-column:1/-1}
-.form label{display:block;font-size:12px;font-weight:850;letter-spacing:1.1px;text-transform:uppercase;
+.form label{display:block;font-size:12px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
   color:#8e97a6;margin-bottom:7px}
 .form input,.form textarea,.form select{width:100%;background:#151d29;border:1px solid #2b3542;border-radius:10px;
   padding:13px 15px;color:#fff;font:inherit;font-size:16px;outline:none}
-.form input:focus,.form textarea:focus,.form select:focus{border-color:var(--brand2)}
+.form input:focus,.form textarea:focus,.form select:focus{border-color:var(--brand)}
 .form textarea{resize:vertical;min-height:104px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
@@ -195,6 +250,7 @@ details p{padding:0 0 22px;color:var(--ink2);max-width:70ch}
 footer{background:var(--ink);color:#8e97a6;padding:52px 0 40px;border-top:1px solid #1f2835;font-size:14.5px}
 footer a:hover{color:#fff}
 .fgrid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+.fhead{font-family:var(--fh);color:#fff;font-weight:700;margin-bottom:10px}
 .fbot{margin-top:34px;padding-top:24px;border-top:1px solid #1f2835;display:flex;gap:16px;
   flex-wrap:wrap;justify-content:space-between;font-size:13.5px}
 </style>
@@ -203,12 +259,19 @@ footer a:hover{color:#fff}
 
 <!-- ======================= nav ======================= -->
 <nav class="nav"><div class="in">
-  <a class="logo" href="#top">
-    <span class="logomark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg></span>
-    Rooftop <small>AUTO</small>
+  <a class="logo" href="#top" aria-label="Rooftop Auto home">
+    <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
+      <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
+      <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
+    </svg>
+    <span class="stackt">
+      <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+      <span class="sub">A Litespeed company</span>
+    </span>
   </a>
   <div class="navlinks">
-    <a href="#how">How it works</a>
+    <a href="#advertise">Advertising</a>
     <a href="#lotwalk">Lot Walk</a>
     <a href="#dms">Not a DMS</a>
     <a href="#pricing">Pricing</a>
@@ -221,10 +284,10 @@ footer a:hover{color:#fff}
 <!-- ======================= hero ======================= -->
 <header class="hero" id="top"><div class="wrap in center">
   <div class="eyebrow on-dark">For independent used car lots</div>
-  <h1 style="margin-top:18px">Change the price once.</h1>
-  <p class="lede">Rooftop is one inventory record that pushes to your own website, Meta, Google
-    Vehicle Ads, Facebook Marketplace and the aggregators — plus the aging, merchandising and
-    reporting you already run your week on.</p>
+  <h1 style="margin-top:18px">Take the car in. <em>The ads are already running.</em></h1>
+  <p class="lede">Rooftop Auto is dealer software built by advertisers. Enter a unit once and your
+    website, your Meta catalog, Marketplace and the aggregators all update themselves — so the money
+    you spend is always pointed at cars you actually have, at the price you actually want.</p>
   <div class="btns">
     <a class="btn big on-dark" href="demo/">Walk through the demo &rarr;</a>
     <a class="btn big ghost on-dark" href="#contact">Book 15 minutes</a>
@@ -234,13 +297,47 @@ footer a:hover{color:#fff}
   <div class="shotwrap"><div class="shot">
     <picture>
       <source srcset="img/shot-lotwalk.webp" type="image/webp">
-      <img src="img/shot-lotwalk.jpg" width="1400" height="887" alt="The Rooftop Lot Walk screen: days supply, turn rate and aging across the top, with a feed of inventory events below.">
+      <img src="img/shot-lotwalk.jpg" width="1400" height="887" alt="The Rooftop Auto Lot Walk screen: days supply, turn rate and aging across the top, with a feed of inventory events below.">
     </picture>
   </div></div>
 </div></header>
 
+<!-- ======================= the angle ======================= -->
+<section class="wash"><div class="wrap"><div class="pband">
+  <div class="eyebrow on-dark">Read this part first</div>
+  <h2 style="margin-top:14px">Inventory management is the easy part.</h2>
+  <p class="lede">Every platform in this category is organized around the filing cabinet. Get the
+    cars in, keep the fields tidy, push a list out the door. That is a spreadsheet with a login, and
+    it is the part of your business that was never actually hard.</p>
+  <p class="lede">A car parked on your lot does not earn anything until somebody sees it. So Rooftop
+    is organized around that instead — the shortest path between <b>you took the car in</b> and
+    <b>the car is in an ad somebody is looking at tonight</b>. All the inventory tools everyone else
+    has, sitting on top of a marketing engine instead of a filing system.</p>
+
+  <div class="vs">
+    <div class="vbox">
+      <h4>Inventory software asks</h4>
+      <ul>
+        <li>Is every field filled in?</li>
+        <li>Did the feed go out?</li>
+        <li>How many units are in stock?</li>
+        <li>Did we send it to the channel?</li>
+      </ul>
+    </div>
+    <div class="vbox us">
+      <h4>Rooftop asks</h4>
+      <ul>
+        <li>Is this car in a live ad right now?</li>
+        <li>Did the catalog pick up the new price?</li>
+        <li>Which channel is producing the views?</li>
+        <li>What is this unit costing you per day it sits?</li>
+      </ul>
+    </div>
+  </div>
+</div></div></section>
+
 <!-- ======================= problem ======================= -->
-<section class="wash"><div class="wrap">
+<section><div class="wrap">
   <div class="shead">
     <div class="eyebrow">The tab problem</div>
     <h2>Right now, dropping a price is five logins.</h2>
@@ -261,74 +358,114 @@ footer a:hover{color:#fff}
       <div class="d">Cars.com, Autotrader, CarGurus — separate logins each.</div></div>
   </div>
 
-  <p class="lede" style="margin-top:34px;max-width:66ch">Then somebody misses one, and on Saturday
-    a shopper walks in quoting a price you moved off two weeks ago. That is not a discipline
-    problem. That is five systems that were never told to talk to each other.</p>
+  <p class="lede" style="margin-top:34px;max-width:66ch">Then somebody misses one, and on Saturday a
+    shopper walks in quoting a price you moved off two weeks ago — while your ad budget spent all
+    week promoting it. That is not a discipline problem. That is five systems that were never told
+    to talk to each other.</p>
 </div></section>
 
-<!-- ======================= syndication ======================= -->
-<section class="dark" id="how"><div class="wrap">
+<!-- ======================= meta catalog / advertising ======================= -->
+<section class="dark" id="advertise"><div class="wrap">
   <div class="frow">
     <div class="ftext">
-      <div class="eyebrow on-dark">Syndication</div>
-      <h3>One record. Seven channels. One change.</h3>
-      <p>Type the new price, hit save. Rooftop fans it out to every channel you are connected to
-        and shows you exactly where it landed and where it is still in flight.</p>
-      <p>Most tools show you a green checkmark the second you hit save. That checkmark is their
-        own queue, not the channel. We show you the real clock instead:</p>
-
-      <div class="timing">
-        <div><b>Your own website</b><span>instant</span></div>
-        <div><b>Meta Catalog</b><span>~15 min re-crawl</span></div>
-        <div><b>Facebook Marketplace</b><span>~1 hr</span></div>
-        <div><b>Google Vehicle Ads</b><span>up to 4 hrs</span></div>
-        <div><b>Cars.com</b><span>next 2:00 AM feed</span></div>
-        <div><b>Autotrader</b><span>next 1:00 AM feed</span></div>
-        <div><b>CarGurus</b><span>~6 hr pickup</span></div>
-      </div>
-
+      <div class="eyebrow on-dark">Meta catalog</div>
+      <h3>Your catalog stops being a project.</h3>
+      <p>Catalog ads are the best-performing thing a used car lot can run on Facebook and Instagram,
+        and almost nobody runs them properly — because keeping a vehicle catalog accurate by hand is
+        miserable, and the moment it drifts you are paying for clicks on cars that are gone.</p>
+      <p>Rooftop connects straight to your Meta catalog. A unit you enter this morning is in the
+        catalog this morning. Sold at four o'clock, out of the catalog by four. Price cut, photos
+        swapped, description rewritten — the ad follows, and nobody opens Business Manager.</p>
       <div class="ticks">
-        <div class="tick"><i>&#10003;</i><span>Per-VIN status on every channel, in one grid</span></div>
-        <div class="tick"><i>&#10003;</i><span>Rejections surface with the actual reason, not a red dot</span></div>
-        <div class="tick"><i>&#10003;</i><span>Every change is logged — who, what, when</span></div>
+        <div class="tick"><i>&#10003;</i><span>New units land in the catalog the moment you save them</span></div>
+        <div class="tick"><i>&#10003;</i><span>Sold units pulled automatically — stop paying to advertise cars you don't have</span></div>
+        <div class="tick"><i>&#10003;</i><span>Rejections surface with Meta's actual reason, on the unit</span></div>
+        <div class="tick"><i>&#10003;</i><span>Marketplace and Google Vehicle Ads run off the same record</span></div>
       </div>
     </div>
     <div class="fimg"><picture>
       <source srcset="img/shot-syndication.webp" type="image/webp">
-      <img src="img/shot-syndication.jpg" width="1400" height="887" alt="The Rooftop syndication screen showing a price change fanning out across seven channels with per-VIN status.">
+      <img src="img/shot-syndication.jpg" width="1400" height="887" alt="The Rooftop Auto syndication screen showing a price change fanning out across every channel with per-VIN status.">
     </picture></div>
+  </div>
+
+  <div class="shead" style="margin-top:92px">
+    <div class="eyebrow on-dark">Syndication, honestly</div>
+    <h2>One record. Every channel. One change.</h2>
+    <p class="lede">Most tools show a green checkmark the second you hit save. That checkmark is
+      their own queue, not the channel. We show you the real clock instead.</p>
+  </div>
+  <div class="timing" style="max-width:660px">
+    <div><b>Your own website</b><span>instant</span></div>
+    <div><b>Meta Catalog</b><span>~15 min re-crawl</span></div>
+    <div><b>Facebook Marketplace</b><span>~1 hr</span></div>
+    <div><b>Google Vehicle Ads</b><span>up to 4 hrs</span></div>
+    <div><b>Cars.com</b><span>next 2:00 AM feed</span></div>
+    <div><b>Autotrader</b><span>next 1:00 AM feed</span></div>
+    <div><b>CarGurus</b><span>~6 hr pickup</span></div>
   </div>
 </div></section>
 
 <!-- ======================= lot walk ======================= -->
-<section id="lotwalk"><div class="wrap">
+<section class="wash" id="lotwalk"><div class="wrap">
   <div class="frow flip">
     <div class="ftext">
       <div class="eyebrow">Lot Walk</div>
-      <h3>Your lot has a feed now.</h3>
-      <p>You already walk the lot every morning — what came in, what is still in the bay, what has
-        been sitting too long. Rooftop walks it with you and writes it down.</p>
-      <p>The posts come from your inventory, not from your people. A unit landed. Recon closed in
-        four days. Photos are up and it went front-line ready. Something crossed thirty days.
-        Meta rejected a listing. Mike sold a truck.</p>
-      <p>Every card carries the number that matters — days on the ground, gross, VDP views,
-        dollars tied up. Your crew comments on it the way they already text each other about it.</p>
+      <h3>Every move your lot makes, written down.</h3>
+      <p>Lot Walk is the feed everybody watches. A unit landed. Recon closed in four days. Photos are
+        up and it went front-line ready. Something crossed thirty days. Meta rejected a listing. Mike
+        sold a truck. Your crew reads it the way they already read Facebook and comments on it the
+        way they already text each other — nothing to learn, nothing to train.</p>
+      <p>It is also the record. Every post is a real event on a real VIN with a person and a
+        timestamp on it, and it is kept. Most dealer software holds the current state of the car and
+        overwrites the rest. Rooftop keeps the whole history, because the history is the only place
+        the insight lives.</p>
       <div class="ticks">
-        <div class="tick"><i>&#10003;</i><span>Nothing to learn — if you use Facebook, you can drive this</span></div>
-        <div class="tick"><i>&#10003;</i><span>Works with three employees or thirty, because the cars do the posting</span></div>
-        <div class="tick"><i>&#10003;</i><span>Open a unit straight from the post that flagged it</span></div>
+        <div class="tick"><i>&#10003;</i><span>Every event tied to a VIN, a person and a time</span></div>
+        <div class="tick"><i>&#10003;</i><span>Nothing overwritten — the full life of every unit you have ever carried</span></div>
+        <div class="tick"><i>&#10003;</i><span>Filter the log by unit, channel, person or date</span></div>
+        <div class="tick"><i>&#10003;</i><span>Open the unit straight from the post that flagged it</span></div>
       </div>
     </div>
     <div class="fimg"><picture>
       <source srcset="img/shot-lotwalk.webp" type="image/webp">
-      <img src="img/shot-lotwalk.jpg" width="1400" height="887" alt="The Lot Walk feed showing automatic posts about at-risk units, a sale, and a new hire.">
+      <img src="img/shot-lotwalk.jpg" width="1400" height="887" alt="The Lot Walk feed showing automatic posts about at-risk units, a recon milestone and a sale.">
+    </picture></div>
+  </div>
+</div></section>
+
+<!-- ======================= reporting ======================= -->
+<section><div class="wrap">
+  <div class="frow">
+    <div class="ftext">
+      <div class="eyebrow">Reporting</div>
+      <h3>Numbers you could not have run before.</h3>
+      <p>Days supply, turn rate against the benchmark, VDP views and aging distribution — computed
+        off live inventory instead of a spreadsheet somebody updates on Sundays.</p>
+      <p>Then the ones that only exist because the log exists. What recon <i>actually</i> takes by
+        vehicle type. What a price cut did to views in the seven days after it. Which channel
+        produced the views on the units that sold. What a car costs you for every day it sits.</p>
+
+      <div class="logbox">
+        <div class="lrow"><time>08:14</time><span><b>2019 Silverado</b> &middot; price 32,450 &rarr; 31,950</span><span class="who">Dave</span></div>
+        <div class="lrow"><time>08:14</time><span>Meta catalog updated</span><span class="who">automatic</span></div>
+        <div class="lrow"><time>08:29</time><span>Meta re-crawl confirmed &middot; ad live at new price</span><span class="who">automatic</span></div>
+        <div class="lrow"><time>11:02</time><span>VDP views +38% against the 7-day average</span><span class="who">automatic</span></div>
+        <div class="lrow"><time>16:40</time><span><b>Sold</b> &middot; 41 days on ground &middot; pulled from 6 channels</span><span class="who">Mike</span></div>
+      </div>
+      <p class="sm muted" style="margin-top:12px">One afternoon out of one unit's history. Multiply
+        that by every car you have ever carried — that is the part a listing subscription throws away.</p>
+    </div>
+    <div class="fimg"><picture>
+      <source srcset="img/shot-reporting.webp" type="image/webp">
+      <img src="img/shot-reporting.jpg" width="1400" height="887" alt="Rooftop Auto reporting: aging distribution, turn rate against benchmark, VDP view trend and inventory mix.">
     </picture></div>
   </div>
 </div></section>
 
 <!-- ======================= inventory ======================= -->
 <section class="wash"><div class="wrap">
-  <div class="frow">
+  <div class="frow flip">
     <div class="ftext">
       <div class="eyebrow">Inventory &amp; aging</div>
       <h3>Aging you can read from across the room.</h3>
@@ -338,7 +475,7 @@ footer a:hover{color:#fff}
       <div class="aging">
         <div class="ag"><i style="background:#15a34a"></i><span class="d">0&ndash;15</span><span class="l">Fresh air</span></div>
         <div class="ag"><i style="background:#0e8fa8"></i><span class="d">16&ndash;30</span><span class="l">Moving</span></div>
-        <div class="ag"><i style="background:#c9760a"></i><span class="d">31&ndash;45</span><span class="l">At risk &mdash; a price move still works here</span></div>
+        <div class="ag"><i style="background:#FFB020"></i><span class="d">31&ndash;45</span><span class="l">At risk &mdash; a price move still works here</span></div>
         <div class="ag"><i style="background:#e2560d"></i><span class="d">46&ndash;60</span><span class="l">Getting late</span></div>
         <div class="ag"><i style="background:#cf2b26"></i><span class="d">61+</span><span class="l">Aged unit</span></div>
       </div>
@@ -352,23 +489,23 @@ footer a:hover{color:#fff}
     </div>
     <div class="fimg"><picture>
       <source srcset="img/shot-inventory.webp" type="image/webp">
-      <img src="img/shot-inventory.jpg" width="1400" height="887" alt="The Rooftop inventory list with colour-coded aging buckets, cost, gross and per-channel status.">
+      <img src="img/shot-inventory.jpg" width="1400" height="887" alt="The Rooftop Auto inventory list with colour-coded aging buckets, cost, gross and per-channel status.">
     </picture></div>
   </div>
 
-  <div class="frow flip" style="margin-top:96px">
+  <div class="frow" style="margin-top:96px">
     <div class="ftext">
       <div class="eyebrow">Merchandising</div>
       <h3>One VIN. Two audiences.</h3>
       <p>The internal record has the whole story of the unit — acquired, into the bay, recon
         closed, photos up, price cuts, every day it has been on the ground. The public page has
         none of that and everything a shopper wants.</p>
-      <p>Per-VIN headline, seller's notes, feature highlights and photo order. Write it once and
-        it goes out everywhere.</p>
+      <p>Per-VIN headline, seller's notes, feature highlights and photo order. Write it once and it
+        goes out everywhere, including into the ad creative.</p>
     </div>
     <div class="fimg"><picture>
       <source srcset="img/shot-vehicle.webp" type="image/webp">
-      <img src="img/shot-vehicle.jpg" width="1400" height="887" alt="A single vehicle record in Rooftop showing its full history timeline alongside cost, market and gross.">
+      <img src="img/shot-vehicle.jpg" width="1400" height="887" alt="A single vehicle record in Rooftop Auto showing its full history timeline alongside cost, market and gross.">
     </picture></div>
   </div>
 </div></section>
@@ -377,13 +514,15 @@ footer a:hover{color:#fff}
 <section class="dark"><div class="wrap">
   <div class="frow">
     <div class="ftext">
-      <div class="eyebrow on-dark">Your website</div>
-      <h3>The VDP is where you get judged.</h3>
-      <p>A shopper decides on the vehicle detail page. Big photos, an honest payment estimate,
-        specs that are actually filled in, and a form that works on a phone in a parking lot.</p>
-      <p>Your site is not a bolt-on that lags behind the listing sites. It runs off the same
-        record, so it is the fastest thing you own to update — instant, every time.</p>
+      <div class="eyebrow on-dark">Your website — included</div>
+      <h3>The VDP is where the ad gets judged.</h3>
+      <p>Every dollar you spend on Meta lands on a vehicle detail page. If that page is slow, thin or
+        three days out of date, you paid for the click and then lost the shopper on arrival.</p>
+      <p>So the website comes with the platform, on your domain, running off the same record — which
+        makes it the fastest thing you own to update. Big photos, an honest payment estimate, specs
+        that are actually filled in, and a form that works on a phone in a parking lot.</p>
       <div class="ticks">
+        <div class="tick"><i>&#10003;</i><span>Included — not a separate website bill</span></div>
         <div class="tick"><i>&#10003;</i><span>Search and filter by make, model, year, price, mileage and body style</span></div>
         <div class="tick"><i>&#10003;</i><span>Payment estimator, trade form and financing application</span></div>
         <div class="tick"><i>&#10003;</i><span>Your domain, your branding, no listing-site chrome around your inventory</span></div>
@@ -391,33 +530,14 @@ footer a:hover{color:#fff}
     </div>
     <div class="fimg"><picture>
       <source srcset="img/shot-vdp.webp" type="image/webp">
-      <img src="img/shot-vdp.jpg" width="1400" height="887" alt="A Rooftop vehicle detail page with gallery, price, payment estimate and specifications.">
-    </picture></div>
-  </div>
-</div></section>
-
-<!-- ======================= reporting ======================= -->
-<section><div class="wrap">
-  <div class="frow flip">
-    <div class="ftext">
-      <div class="eyebrow">Reporting</div>
-      <h3>Four numbers, not forty.</h3>
-      <p>Days supply. Turn rate against the benchmark. VDP views. Aging distribution. The figures
-        you already argue about, computed off live inventory instead of a spreadsheet somebody
-        updates on Sundays.</p>
-      <p>VDP views is the one that connects your ad spend to a unit actually selling, so it sits
-        on every screen — per unit, per channel, and over twelve months.</p>
-    </div>
-    <div class="fimg"><picture>
-      <source srcset="img/shot-reporting.webp" type="image/webp">
-      <img src="img/shot-reporting.jpg" width="1400" height="887" alt="Rooftop reporting: aging distribution, turn rate against benchmark, VDP view trend and inventory mix.">
+      <img src="img/shot-vdp.jpg" width="1400" height="887" alt="A Rooftop Auto vehicle detail page with gallery, price, payment estimate and specifications.">
     </picture></div>
   </div>
 </div></section>
 
 <!-- ======================= not a DMS ======================= -->
-<section class="wash" id="dms"><div class="wrap"><div class="band">
-  <div class="eyebrow on-dark">Read this part</div>
+<section id="dms"><div class="wrap"><div class="band">
+  <div class="eyebrow on-dark">Where it fits</div>
   <h2 style="margin-top:14px">Rooftop is not a DMS.</h2>
   <p class="lede">Your DMS is your system of record — accounting, F&amp;I, deal jackets, title and
     DMV, floorplan. Frazer, DealerCenter, whatever you are running. We do not touch it and we are
@@ -449,11 +569,11 @@ footer a:hover{color:#fff}
 </div></div></section>
 
 <!-- ======================= multi-rooftop ======================= -->
-<section><div class="wrap narrow center">
+<section class="wash"><div class="wrap narrow center">
   <div class="eyebrow">Multi-rooftop</div>
   <h2 style="margin-top:14px">Two lots, one website. Or five.</h2>
   <p class="lede" style="margin-top:18px">Rooftop was built for groups from the first table.
-    Each physical rooftop keeps its own inventory, its own numbers and its own channel accounts —
+    Each physical rooftop keeps its own inventory, its own numbers and its own ad accounts —
     then you point as many of them as you want at a single storefront, so shoppers see one
     combined lot instead of hunting across two sites.</p>
   <p class="lede" style="margin-top:16px">Switch between rooftops or look at the whole group in
@@ -461,52 +581,69 @@ footer a:hover{color:#fff}
 </div></section>
 
 <!-- ======================= pricing ======================= -->
-<section class="wash" id="pricing"><div class="wrap">
+<section id="pricing"><div class="wrap">
   <div class="narrow center" style="margin:0 auto">
-    <div class="eyebrow">Pricing</div>
+    <div class="eyebrow amber">Early access</div>
     <h2 style="margin-top:14px">One price. Everything in it.</h2>
     <p class="lede" style="margin-top:16px">No setup fee, no per-listing charge, no annual
       contract. Month to month — if it is not paying for itself, leave.</p>
   </div>
 
-  <!-- PRICE: change these two numbers and nothing else -->
+  <!-- PRICE: the early-bird number, the regular number and the lock-in line all live in this block -->
   <div class="price">
+    <div class="ribbon">Founding dealer pricing &middot; limited spots</div>
     <div class="top">
-      <div class="amt">$149<small>/mo</small></div>
-      <div class="per">per rooftop &middot; additional rooftops $99/mo each</div>
+      <div class="was">Regular price <s>$149/mo</s></div>
+      <div class="amt">$99<small>/mo</small></div>
+      <div class="per">per rooftop &middot; everything below included</div>
     </div>
     <ul>
       <li><i>&#10003;</i><span>Unlimited inventory &mdash; no per-unit pricing</span></li>
-      <li><i>&#10003;</i><span>Your dealer website, on your domain</span></li>
-      <li><i>&#10003;</i><span>Syndication to Meta, Google Vehicle Ads, Marketplace and the aggregators</span></li>
-      <li><i>&#10003;</i><span>Lot Walk, aging buckets, at-risk and water-unit flags</span></li>
+      <li><i>&#10003;</i><span><b>Your dealer website, on your domain</b> &mdash; included, not a separate bill</span></li>
+      <li><i>&#10003;</i><span>Live Meta catalog sync, Marketplace and Google Vehicle Ads</span></li>
+      <li><i>&#10003;</i><span>Syndication to the aggregators, with real per-channel status</span></li>
+      <li><i>&#10003;</i><span>Lot Walk feed and the full event log behind it</span></li>
+      <li><i>&#10003;</i><span>Aging buckets, at-risk and water-unit flags</span></li>
       <li><i>&#10003;</i><span>Per-VIN merchandising and photo management</span></li>
       <li><i>&#10003;</i><span>Days supply, turn rate, VDP views and aging reporting</span></li>
       <li><i>&#10003;</i><span>Multi-rooftop and combined storefronts</span></li>
       <li><i>&#10003;</i><span>We move your current inventory over for you</span></li>
     </ul>
-    <div class="foot"><a class="btn big" href="#contact">Book a walkthrough</a></div>
+    <div class="foot"><a class="btn big" href="#contact">Claim a founding spot</a></div>
   </div>
-  <p class="pnote">Want the ad management too? That is what Litespeed does. Ask when we talk.</p>
+  <p class="pnote">Month to month, cancel any time. Founding dealers keep $99 for as long as they
+    stay on the plan.</p>
 </div></section>
 
 <!-- ======================= faq ======================= -->
-<section id="faq"><div class="wrap">
+<section class="wash" id="faq"><div class="wrap">
   <div class="narrow center" style="margin:0 auto">
     <div class="eyebrow">Questions</div>
     <h2 style="margin-top:14px">The ones every dealer asks.</h2>
   </div>
   <div class="faq">
-    <details open><summary>Do I have to leave my DMS?</summary>
+    <details open><summary>How is this different from what I already pay for?</summary>
+      <p>Most of it is built to hold your inventory and push a list out. Rooftop is built to keep you
+        advertising. The difference shows up in small, specific places — a sold unit leaving your
+        Meta catalog the same hour instead of on the next feed run, a rejection that tells you the
+        image was too small instead of showing a red dot, a price cut you can trace to what it did to
+        views three days later. Same inventory work, aimed at selling instead of storing.</p></details>
+
+    <details><summary>Do I have to leave my DMS?</summary>
       <p>No. Rooftop sits next to it. Your DMS keeps the books, the deals, the titles and the
         floorplan. Rooftop handles the inventory record that goes out to the world — photos,
         merchandising, your website and every channel. Nothing gets ripped out.</p></details>
 
-    <details><summary>What happens to my current website?</summary>
-      <p>Rooftop builds you one and points your domain at it. Same address, same branding, and
-        the inventory on it updates the instant you change a record instead of whenever your
-        current provider gets around to it. If you would rather keep the site you have, we can
-        feed it instead — tell us who built it.</p></details>
+    <details><summary>Is the website really included?</summary>
+      <p>Yes. It is in the monthly price, on your domain, and it runs off the same record as
+        everything else — which is the whole point, because that is where your ad traffic lands. If
+        you would rather keep the site you have, we can feed it instead; tell us who built it.</p></details>
+
+    <details><summary>Do you run the ads too?</summary>
+      <p>We can. Rooftop Auto is built by Litespeed Marketing, an advertising agency that has been
+        buying media for twenty years and runs Meta campaigns for car lots right now. The platform
+        stands on its own and plenty of dealers will run their own ads on it — if you would rather
+        hand that part off, ask when we talk.</p></details>
 
     <details><summary>How fast does a price change actually reach each channel?</summary>
       <p>Your own site is instant. Meta usually re-crawls the catalog inside fifteen minutes.
@@ -524,18 +661,22 @@ footer a:hover{color:#fff}
         online we pull those too.</p></details>
 
     <details><summary>I run more than one lot. Does that cost double?</summary>
-      <p>First rooftop is $149 a month, each additional rooftop is $99. You can run them as
-        separate storefronts or combine them into one website — a lot of groups do the second,
-        because a shopper does not care which of your lots a truck is parked on.</p></details>
+      <p>Founding pricing is $99 a month per rooftop. You can run them as separate storefronts or
+        combine them into one website — a lot of groups do the second, because a shopper does not
+        care which of your lots a truck is parked on.</p></details>
 
     <details><summary>Am I signing a contract?</summary>
       <p>No. Month to month. The whole pitch is that this pays for itself in one extra unit
         turned, and if it does not, you should not be locked in.</p></details>
 
     <details><summary>Who is behind this?</summary>
-      <p>Rooftop Auto is a product of Litespeed Marketing LLC in Vancouver, Washington. We have
-        been running paid advertising for car lots for years — this is the software we kept
-        wishing our own clients had.</p></details>
+      <p>Rooftop Auto is a product of Litespeed Marketing LLC in Vancouver, Washington — an
+        advertising agency, not a software company that decided cars looked interesting. Twenty years
+        of buying media, and car dealers among our clients today.</p>
+      <p>It got built because we were running ads for lots that sat on the big dealer platforms, and
+        we kept losing to the software instead of to the competition. Catalogs drifting out of date.
+        Sold units still taking impressions. A price on Facebook that had not been the price for a
+        week. This is the platform we needed on the other side of that.</p></details>
   </div>
 </div></section>
 
@@ -549,7 +690,7 @@ footer a:hover{color:#fff}
         what you are doing now. If it does not, that is a fast no and nobody wasted an afternoon.</p>
       <p style="margin-top:24px"><a class="btn big on-dark" href="demo/">Or just poke at the demo &rarr;</a></p>
       <p class="sm" style="margin-top:26px;color:#8e97a6">Prefer email?
-        <a href="mailto:david@litespeedmarketing.com" style="color:#a49dff;font-weight:700">david@litespeedmarketing.com</a></p>
+        <a href="mailto:david@litespeedmarketing.com" style="color:#8FBCFF;font-weight:600">david@litespeedmarketing.com</a></p>
     </div>
 
     <form class="form" method="post" action="contact.php">
@@ -578,10 +719,10 @@ footer a:hover{color:#fff}
       </div>
       <div class="full">
         <label for="msg">What are you using now?</label>
-        <textarea id="msg" name="msg" placeholder="CarsForSale, Dealer Car Search, a website guy, nothing&hellip;"></textarea>
+        <textarea id="msg" name="msg" placeholder="A listing platform, a website guy, Marketplace by hand, nothing&hellip;"></textarea>
       </div>
       <div class="hp"><label>Leave this empty</label><input name="website" tabindex="-1" autocomplete="off"></div>
-      <div class="full"><button class="btn big" type="submit" style="width:100%">Book a walkthrough</button></div>
+      <div class="full"><button class="btn big" type="submit" style="width:100%">Claim a founding spot</button></div>
       <p class="full tiny" style="color:#6d7886;margin-top:-2px">We will get back to you the same day. No drip sequence.</p>
     </form>
   </div>
@@ -590,25 +731,32 @@ footer a:hover{color:#fff}
 <!-- ======================= footer ======================= -->
 <footer><div class="wrap">
   <div class="fgrid">
-    <div style="max-width:330px">
-      <a class="logo" href="#top">
-        <span class="logomark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg></span>
-        Rooftop <small>AUTO</small>
+    <div style="max-width:340px">
+      <a class="logo" href="#top" aria-label="Rooftop Auto home">
+        <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
+          <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
+          <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
+        </svg>
+        <span class="stackt">
+          <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+          <span class="sub">A Litespeed company</span>
+        </span>
       </a>
-      <p style="margin-top:14px">Inventory, merchandising and syndication for independent used
-        car lots. Built in Vancouver, Washington.</p>
+      <p style="margin-top:16px">The dealer platform built to sell cars, not store them. Made in
+        Vancouver, Washington by an advertising agency that got tired of waiting on the software.</p>
     </div>
     <div>
-      <div style="color:#fff;font-weight:800;margin-bottom:10px">Product</div>
+      <div class="fhead">Product</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <a href="#how">Syndication</a><a href="#lotwalk">Lot Walk</a>
+        <a href="#advertise">Meta &amp; syndication</a><a href="#lotwalk">Lot Walk</a>
         <a href="#dms">Not a DMS</a><a href="#pricing">Pricing</a><a href="demo/">Live demo</a>
       </div>
     </div>
     <div>
-      <div style="color:#fff;font-weight:800;margin-bottom:10px">Talk to us</div>
+      <div class="fhead">Talk to us</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <a href="#contact">Book a walkthrough</a>
+        <a href="#contact">Claim a founding spot</a>
         <a href="mailto:david@litespeedmarketing.com">david@litespeedmarketing.com</a>
       </div>
     </div>

@@ -1,0 +1,756 @@
+{
+  "Ford F-150": [
+    {
+      "file": "ford-f-150/1.jpg",
+      "title": "'15-'17 Ford F-150 Crew Cab Milwaukee.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_Crew_Cab_Milwaukee.jpg"
+    },
+    {
+      "file": "ford-f-150/2.jpg",
+      "title": "'15-'17 Ford F-150 Crew Cab (Cruisin' At The Boardwalk '18).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_Crew_Cab_(Cruisin%27_At_The_Boardwalk_%2718).jpg"
+    },
+    {
+      "file": "ford-f-150/3.jpg",
+      "title": "'15-'17 Ford F-150 Crew Cab Endress + Hauser.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_Crew_Cab_Endress_%2B_Hauser.jpg"
+    },
+    {
+      "file": "ford-f-150/4.jpg",
+      "title": "'15-'17 Ford F-150 Extended Cab Ste. Anne De Bellevue (Cruisin' At The Boardwalk '18).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_Extended_Cab_Ste._Anne_De_Bellevue_(Cruisin%27_At_The_Boardwalk_%2718).jpg"
+    },
+    {
+      "file": "ford-f-150/5.jpg",
+      "title": "'15-'17 Ford F-150 XL Crew Cab.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_XL_Crew_Cab.jpg"
+    },
+    {
+      "file": "ford-f-150/6.jpg",
+      "title": "USMS-Omaha-25 (29439008412).jpg",
+      "artist": "Office of Public Affairs from Washinton DC",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:USMS-Omaha-25_(29439008412).jpg"
+    }
+  ],
+  "Ram 1500": [
+    {
+      "file": "ram-1500/1.jpg",
+      "title": "New 2020 Ram 2500.jpg",
+      "artist": "The Wikipeadian guy",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:New_2020_Ram_2500.jpg"
+    },
+    {
+      "file": "ram-1500/2.jpg",
+      "title": "19-20 Ram 1500 Crew Cab Laramie 4x4 03-27-2020 Rear.jpg",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:19-20_Ram_1500_Crew_Cab_Laramie_4x4_03-27-2020_Rear.jpg"
+    },
+    {
+      "file": "ram-1500/3.jpg",
+      "title": "2019 Ram 1500 Laramie, front 2.28.20.jpg",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Laramie,_front_2.28.20.jpg"
+    },
+    {
+      "file": "ram-1500/4.jpg",
+      "title": "2019 Ram 1500 Laramie, front 2.26.20.jpg",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Laramie,_front_2.26.20.jpg"
+    },
+    {
+      "file": "ram-1500/5.jpg",
+      "title": "2019 Ram 1500 Bighorn, front 3.11.20.jpg",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Bighorn,_front_3.11.20.jpg"
+    },
+    {
+      "file": "ram-1500/6.jpg",
+      "title": "2019 Ram 1500 Bighorn, rear 3.11.20.jpg",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Bighorn,_rear_3.11.20.jpg"
+    }
+  ],
+  "Chevrolet Silverado 1500": [
+    {
+      "file": "chevrolet-silverado-1500/1.jpg",
+      "title": "2015 chevrolet silverado 1500 wt long observe.JPG",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_chevrolet_silverado_1500_wt_long_observe.JPG"
+    },
+    {
+      "file": "chevrolet-silverado-1500/2.jpg",
+      "title": "2015 chevrolet silverado 1500 wt long reverse.JPG",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_chevrolet_silverado_1500_wt_long_reverse.JPG"
+    },
+    {
+      "file": "chevrolet-silverado-1500/3.jpg",
+      "title": "2016 chevrolet silverado wt regular standard blackout observe.jpg",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_chevrolet_silverado_wt_regular_standard_blackout_observe.jpg"
+    },
+    {
+      "file": "chevrolet-silverado-1500/4.jpg",
+      "title": "2016 chevrolet silverado wt regular standard blackout reverse.jpg",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_chevrolet_silverado_wt_regular_standard_blackout_reverse.jpg"
+    },
+    {
+      "file": "chevrolet-silverado-1500/5.jpg",
+      "title": "'14-'15 Chevrolet Silverado 1500 Double Cab.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714-%2715_Chevrolet_Silverado_1500_Double_Cab.jpg"
+    },
+    {
+      "file": "chevrolet-silverado-1500/6.jpg",
+      "title": "Chevrolet Silverado GMTK2CC.png",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:Chevrolet_Silverado_GMTK2CC.png"
+    }
+  ],
+  "GMC Sierra 1500": [
+    {
+      "file": "gmc-sierra-1500/1.jpg",
+      "title": "Puerto Rico National Guard (38159110496).jpg",
+      "artist": "The National Guard Capt. J. Scott Detweiler/65th Press Camp Headquarters",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:Puerto_Rico_National_Guard_(38159110496).jpg"
+    },
+    {
+      "file": "gmc-sierra-1500/2.jpg",
+      "title": "'18 GMC Sierra Crew Cab (SIAM 2018).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2718_GMC_Sierra_Crew_Cab_(SIAM_2018).jpg"
+    },
+    {
+      "file": "gmc-sierra-1500/3.jpg",
+      "title": "'14-'15 GMC Sierra 1500 Crew Cab Kodiak GMTK2XX (Les chauds vendredis 2018).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714-%2715_GMC_Sierra_1500_Crew_Cab_Kodiak_GMTK2XX_(Les_chauds_vendredis_2018).jpg"
+    },
+    {
+      "file": "gmc-sierra-1500/4.jpg",
+      "title": "GMC 1500 Sierra Z71 1990 (24593530438).jpg",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:GMC_1500_Sierra_Z71_1990_(24593530438).jpg"
+    },
+    {
+      "file": "gmc-sierra-1500/5.jpg",
+      "title": "2019 GMC Sierra 1500 Denali au SIAM 2019.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_GMC_Sierra_1500_Denali_au_SIAM_2019.jpg"
+    },
+    {
+      "file": "gmc-sierra-1500/6.jpg",
+      "title": "2019 GMC Sierra 1500.jpg",
+      "artist": "The Wikipeadian guy",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_GMC_Sierra_1500.jpg"
+    }
+  ],
+  "Toyota Tacoma": [
+    {
+      "file": "toyota-tacoma/1.jpg",
+      "title": "2015 Greater Valdosta Community Christmas Parade 142.JPG",
+      "artist": "Michael Rivera",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Greater_Valdosta_Community_Christmas_Parade_142.JPG"
+    },
+    {
+      "file": "toyota-tacoma/2.jpg",
+      "title": "2015 Greater Valdosta Community Christmas Parade 143.JPG",
+      "artist": "Michael Rivera",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Greater_Valdosta_Community_Christmas_Parade_143.JPG"
+    },
+    {
+      "file": "toyota-tacoma/3.jpg",
+      "title": "Toyota Tacoma II Crew Cab facelift China 2015-04-13.jpg",
+      "artist": "Navigator84",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Toyota_Tacoma_II_Crew_Cab_facelift_China_2015-04-13.jpg"
+    },
+    {
+      "file": "toyota-tacoma/4.jpg",
+      "title": "2016 Toyota Tacoma .jpg",
+      "artist": "Slapotoic",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_Tacoma_.jpg"
+    },
+    {
+      "file": "toyota-tacoma/5.jpg",
+      "title": "Refuge Road Activity (22622569604).jpg",
+      "artist": "USFWS Mountain-Prairie",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:Refuge_Road_Activity_(22622569604).jpg"
+    },
+    {
+      "file": "toyota-tacoma/6.jpg",
+      "title": "Harley-Davidson touring motorcycles State Street downtown Montpelier VT July 2016.jpg",
+      "artist": "Artaxerxes",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Harley-Davidson_touring_motorcycles_State_Street_downtown_Montpelier_VT_July_2016.jpg"
+    }
+  ],
+  "Toyota Tundra": [
+    {
+      "file": "toyota-tundra/1.jpg",
+      "title": "5 Hour Energy DSC 0021 (19272193883).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0021_(19272193883).jpg"
+    },
+    {
+      "file": "toyota-tundra/2.jpg",
+      "title": "5 Hour Energy DSC 0019 (19706455369).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0019_(19706455369).jpg"
+    },
+    {
+      "file": "toyota-tundra/3.jpg",
+      "title": "5 Hour Energy DSC 0018 (19885623252).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0018_(19885623252).jpg"
+    },
+    {
+      "file": "toyota-tundra/4.jpg",
+      "title": "5 Hour Energy DSC 0020 (19270469964).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0020_(19270469964).jpg"
+    },
+    {
+      "file": "toyota-tundra/5.jpg",
+      "title": "5 Hour Energy DSC 0014 (19705098760).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0014_(19705098760).jpg"
+    },
+    {
+      "file": "toyota-tundra/6.jpg",
+      "title": "5 Hour Energy DSC 0011 (19898156071).jpg",
+      "artist": "Yzukerman from Wayland, MA, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:5_Hour_Energy_DSC_0011_(19898156071).jpg"
+    }
+  ],
+  "Subaru Outback": [
+    {
+      "file": "subaru-outback/1.jpg",
+      "title": "2015 Subaru Outback (BS9 MY15) 2.5i Premium station wagon (2016-04-29) 02.jpg",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Subaru_Outback_(BS9_MY15)_2.5i_Premium_station_wagon_(2016-04-29)_02.jpg"
+    },
+    {
+      "file": "subaru-outback/2.jpg",
+      "title": "2015 Subaru Outback (BS9 MY15) 2.5i Premium station wagon (2016-04-29) 01.jpg",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Subaru_Outback_(BS9_MY15)_2.5i_Premium_station_wagon_(2016-04-29)_01.jpg"
+    },
+    {
+      "file": "subaru-outback/3.jpg",
+      "title": "Subaru Outback 2.5i XS 2016.jpg",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Outback_2.5i_XS_2016.jpg"
+    },
+    {
+      "file": "subaru-outback/4.jpg",
+      "title": "Subaru Outback 2.5i Limited 2016.jpg",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Outback_2.5i_Limited_2016.jpg"
+    },
+    {
+      "file": "subaru-outback/5.jpg",
+      "title": "Formation lap at 2016 International Suzuka 1000km (4).jpg",
+      "artist": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Formation_lap_at_2016_International_Suzuka_1000km_(4).jpg"
+    },
+    {
+      "file": "subaru-outback/6.jpg",
+      "title": "Starting grid at 2016 International Suzuka 1000km (2).jpg",
+      "artist": "Tokumeigakarinoaoshima",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Starting_grid_at_2016_International_Suzuka_1000km_(2).jpg"
+    }
+  ],
+  "Subaru Forester": [
+    {
+      "file": "subaru-forester/1.jpg",
+      "title": "2017 Subaru Forester (MY17) wagon (2017-11-18) 01.jpg",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Subaru_Forester_(MY17)_wagon_(2017-11-18)_01.jpg"
+    },
+    {
+      "file": "subaru-forester/2.jpg",
+      "title": "2017 Subaru Forester (MY17) wagon (2017-11-18) 02.jpg",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Subaru_Forester_(MY17)_wagon_(2017-11-18)_02.jpg"
+    },
+    {
+      "file": "subaru-forester/3.jpg",
+      "title": "Subaru Forester (38961088021).jpg",
+      "artist": "Matthew Paul Argall from Australia",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_(38961088021).jpg"
+    },
+    {
+      "file": "subaru-forester/4.jpg",
+      "title": "Subaru Forester at Legendy 2018 in Prague.jpg",
+      "artist": "Jiří Sedláček",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_at_Legendy_2018_in_Prague.jpg"
+    },
+    {
+      "file": "subaru-forester/5.jpg",
+      "title": "Subaru Forester 2018 at Legendy 2018 in Prague.jpg",
+      "artist": "Jiří Sedláček",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Forester_2018_at_Legendy_2018_in_Prague.jpg"
+    },
+    {
+      "file": "subaru-forester/6.jpg",
+      "title": "2018 Subaru Forester (SK MY19) 2.5i AWD wagon (2018-10-08) 01.jpg",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Subaru_Forester_(SK_MY19)_2.5i_AWD_wagon_(2018-10-08)_01.jpg"
+    }
+  ],
+  "Subaru Crosstrek": [
+    {
+      "file": "subaru-crosstrek/1.jpg",
+      "title": "2021 Subaru Crosstrek (front view).png",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(front_view).png"
+    },
+    {
+      "file": "subaru-crosstrek/2.jpg",
+      "title": "2021 Subaru Crosstrek (front view) 01.png",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(front_view)_01.png"
+    },
+    {
+      "file": "subaru-crosstrek/3.jpg",
+      "title": "2021 Subaru Crosstrek (rear view) 01.png",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(rear_view)_01.png"
+    },
+    {
+      "file": "subaru-crosstrek/4.jpg",
+      "title": "A Day In New York 25th April 2021 (51139676460).jpg",
+      "artist": "The All-Nite Images",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:A_Day_In_New_York_25th_April_2021_(51139676460).jpg"
+    },
+    {
+      "file": "subaru-crosstrek/5.jpg",
+      "title": "2019 Subaru Crosstrek 2.0 USDM.jpg",
+      "artist": "Rutger van der Maar",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Subaru_Crosstrek_2.0_USDM.jpg"
+    },
+    {
+      "file": "subaru-crosstrek/6.jpg",
+      "title": "Subaru Crosstrek hybride de 2022 au salon des voitures éléctriques de Montréal 2022.JPG",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Crosstrek_hybride_de_2022_au_salon_des_voitures_%C3%A9l%C3%A9ctriques_de_Montr%C3%A9al_2022.JPG"
+    }
+  ],
+  "Honda CR-V": [
+    {
+      "file": "honda-cr-v/1.jpg",
+      "title": "Facelift 2020 Honda CR-V.jpg",
+      "artist": "Ee2mba",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Facelift_2020_Honda_CR-V.jpg"
+    },
+    {
+      "file": "honda-cr-v/2.jpg",
+      "title": "Facelift 2020 Honda CR-V rearview.jpg",
+      "artist": "Ee2mba",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Facelift_2020_Honda_CR-V_rearview.jpg"
+    },
+    {
+      "file": "honda-cr-v/3.jpg",
+      "title": "A Ford Taurus in Hsinchu 02.jpg",
+      "artist": "Tbatb",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:A_Ford_Taurus_in_Hsinchu_02.jpg"
+    },
+    {
+      "file": "honda-cr-v/4.jpg",
+      "title": "2019 Honda CRV Touring, Front Left, 09-20-2020.jpg",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CRV_Touring,_Front_Left,_09-20-2020.jpg"
+    },
+    {
+      "file": "honda-cr-v/5.jpg",
+      "title": "2019 Honda CR-V 1.5 Turbo Prestige RW1 (20210821).jpg",
+      "artist": "オーバードライブ83",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CR-V_1.5_Turbo_Prestige_RW1_(20210821).jpg"
+    },
+    {
+      "file": "honda-cr-v/6.jpg",
+      "title": "2019 Honda CR-V 1.5 Turbo Prestige RW1 (20210919) 01.jpg",
+      "artist": "オーバードライブ83",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CR-V_1.5_Turbo_Prestige_RW1_(20210919)_01.jpg"
+    }
+  ],
+  "Honda Accord": [
+    {
+      "file": "honda-accord/1.jpg",
+      "title": "Honda Accord (2018 model year).jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year).jpg"
+    },
+    {
+      "file": "honda-accord/2.jpg",
+      "title": "Honda Accord (2018 model year) 2.jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_2.jpg"
+    },
+    {
+      "file": "honda-accord/3.jpg",
+      "title": "Honda Accord (2018 model year) 3.jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_3.jpg"
+    },
+    {
+      "file": "honda-accord/4.jpg",
+      "title": "Honda Accord (2018 model year) 4.jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_4.jpg"
+    },
+    {
+      "file": "honda-accord/5.jpg",
+      "title": "Honda Accord (2018 model year) 5.jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_5.jpg"
+    },
+    {
+      "file": "honda-accord/6.jpg",
+      "title": "Honda Accord (2018 model year) 6.jpg",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_6.jpg"
+    }
+  ],
+  "Honda Pilot": [
+    {
+      "file": "honda-pilot/1.jpg",
+      "title": "US Post Office, Canandaigua, NY.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:US_Post_Office,_Canandaigua,_NY.jpg"
+    },
+    {
+      "file": "honda-pilot/2.jpg",
+      "title": "Honda Pilot EXL 4WD 2013 (14042200794).jpg",
+      "artist": "order_242 from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Pilot_EXL_4WD_2013_(14042200794).jpg"
+    },
+    {
+      "file": "honda-pilot/3.jpg",
+      "title": "Honda Pilot EX 2012 (15036852922).jpg",
+      "artist": "order_242 from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Pilot_EX_2012_(15036852922).jpg"
+    },
+    {
+      "file": "honda-pilot/4.jpg",
+      "title": "'12-'15 Honda Pilot CKMF-FM 94,3 NRJ.jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2712-%2715_Honda_Pilot_CKMF-FM_94,3_NRJ.jpg"
+    },
+    {
+      "file": "honda-pilot/5.jpg",
+      "title": "'14 Honda Pilot (MIAS '14).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714_Honda_Pilot_(MIAS_%2714).jpg"
+    },
+    {
+      "file": "honda-pilot/6.jpg",
+      "title": "Honda Pilot EXL 4WD 2013 (15570177863).jpg",
+      "artist": "order_242 from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Pilot_EXL_4WD_2013_(15570177863).jpg"
+    }
+  ],
+  "Toyota RAV4": [
+    {
+      "file": "toyota-rav4/1.jpg",
+      "title": "'17 Toyota RAV4 (MIAS '17).jpg",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2717_Toyota_RAV4_(MIAS_%2717).jpg"
+    },
+    {
+      "file": "toyota-rav4/2.jpg",
+      "title": "2017 Toyota RAV4 D4-D facelift 2.0.jpg",
+      "artist": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Toyota_RAV4_D4-D_facelift_2.0.jpg"
+    },
+    {
+      "file": "toyota-rav4/3.jpg",
+      "title": "2019 Toyota RAV4 rear 4.2.18.jpg",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Toyota_RAV4_rear_4.2.18.jpg"
+    },
+    {
+      "file": "toyota-rav4/4.jpg",
+      "title": "2017 Toyota Rav4 XLE Hybrid AWD-I (36942372982).jpg",
+      "artist": "Greg Gjerdingen from Willmar, USA",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Toyota_Rav4_XLE_Hybrid_AWD-I_(36942372982).jpg"
+    }
+  ],
+  "Toyota Camry": [
+    {
+      "file": "toyota-camry/2.jpg",
+      "title": "NYC, Nice Butt.jpg",
+      "artist": "Jess Hawsor",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:NYC,_Nice_Butt.jpg"
+    },
+    {
+      "file": "toyota-camry/3.jpg",
+      "title": "Toyota Camry 2.5 XLE Hybrid 2017 (44744225392).jpg",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Toyota_Camry_2.5_XLE_Hybrid_2017_(44744225392).jpg"
+    },
+    {
+      "file": "toyota-camry/4.jpg",
+      "title": "Moscow Retro Tram Parade 2019, Shabolovka Street - 5381.jpg",
+      "artist": "Roman Balabin",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Moscow_Retro_Tram_Parade_2019,_Shabolovka_Street_-_5381.jpg"
+    },
+    {
+      "file": "toyota-camry/5.jpg",
+      "title": "Moscow Retro Tram Parade 2019, Shabolovka Street - 5382.jpg",
+      "artist": "Roman Balabin",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Moscow_Retro_Tram_Parade_2019,_Shabolovka_Street_-_5382.jpg"
+    },
+    {
+      "file": "toyota-camry/6.jpg",
+      "title": "2020 Toyota Camry 2.5 (Front view).jpg",
+      "artist": "AIMHO'S REBELLION 8490s",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Toyota_Camry_2.5_(Front_view).jpg"
+    }
+  ],
+  "Jeep Grand Cherokee": [
+    {
+      "file": "jeep-grand-cherokee/1.jpg",
+      "title": "Georgia I75sb Exit 177.jpg",
+      "artist": "Michael Rivera",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Georgia_I75sb_Exit_177.jpg"
+    },
+    {
+      "file": "jeep-grand-cherokee/2.jpg",
+      "title": "Jeep Grand Cherokee Limited (26705338865).jpg",
+      "artist": "GPS 56 from New Zealand",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Jeep_Grand_Cherokee_Limited_(26705338865).jpg"
+    },
+    {
+      "file": "jeep-grand-cherokee/3.jpg",
+      "title": "GambiaSerekunda012 (30580176123).jpg",
+      "artist": "tjabeljan",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:GambiaSerekunda012_(30580176123).jpg"
+    },
+    {
+      "file": "jeep-grand-cherokee/4.jpg",
+      "title": "Confederation Building (rear), St. John's, Newfoundland, Canada.jpg",
+      "artist": "Shhewitt",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Confederation_Building_(rear),_St._John%27s,_Newfoundland,_Canada.jpg"
+    },
+    {
+      "file": "jeep-grand-cherokee/5.jpg",
+      "title": "2014 Jeep WK2 Grand Cherokee SRT 6.4 Wagon (25834046966).jpg",
+      "artist": "Sicnag",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2014_Jeep_WK2_Grand_Cherokee_SRT_6.4_Wagon_(25834046966).jpg"
+    }
+  ],
+  "Hyundai Santa Fe": [
+    {
+      "file": "hyundai-santa-fe/1.jpg",
+      "title": "Georgia I75sb Exit 177.jpg",
+      "artist": "Michael Rivera",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Georgia_I75sb_Exit_177.jpg"
+    }
+  ],
+  "Kia Telluride": [
+    {
+      "file": "kia-telluride/1.jpg",
+      "title": "2020 Kia Telluride, Cleveland Auto Show (Side).jpg",
+      "artist": "Syntaxlord",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Kia_Telluride,_Cleveland_Auto_Show_(Side).jpg"
+    },
+    {
+      "file": "kia-telluride/2.jpg",
+      "title": "Kia Telluride 2019.jpg",
+      "artist": "The Wikipeadian guy",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Kia_Telluride_2019.jpg"
+    },
+    {
+      "file": "kia-telluride/3.jpg",
+      "title": "TellurideRear.jpg",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:TellurideRear.jpg"
+    }
+  ]
+}
