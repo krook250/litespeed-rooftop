@@ -5,6 +5,7 @@ import {
   getLiveInventory,
   getRooftops,
   getSyncMatrix,
+  sessionScope,
   getTrafficPerVehicle,
 } from '@/lib/queries';
 import {
@@ -50,7 +51,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   const [rooftops, all] = await Promise.all([getRooftops(), getLiveInventory()]);
   const traffic = await getTrafficPerVehicle(30);
-  const matrix = await getSyncMatrix(all.map((v) => v.id));
+  const matrix = await getSyncMatrix(await sessionScope(), all.map((v) => v.id));
 
   const liveCount = new Map<string, number>();
   const errCount = new Map<string, number>();

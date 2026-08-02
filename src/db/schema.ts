@@ -67,6 +67,23 @@ export const syncActionEnum = pgEnum('sync_action', [
 ]);
 export const userRoleEnum = pgEnum('user_role', ['OWNER', 'MANAGER', 'SALES', 'LOT_PORTER']);
 
+/** Which screen a user lands on after signing in. Feed is the default bet. */
+export const homeViewEnum = pgEnum('home_view', ['FEED', 'DASHBOARD']);
+
+/**
+ * Lot Walk event kinds. The list grows as the product does — a lead becomes
+ * another `kind` when the CRM lands, with no re-architecture.
+ * `team` and `note` are the two human-authored kinds; everything else is
+ * posted by the system off a real write.
+ */
+export const feedEventKindEnum = pgEnum('feed_event_kind', [
+  'acquired', 'recon_in', 'recon_out', 'photos', 'front_line', 'price_change',
+  'at_risk', 'aged', 'water', 'vdp_milestone', 'sync_error', 'sold', 'team', 'note',
+]);
+
+/** Two reactions, deliberately. 👍 acknowledges, 🔥 says "this one is hot." */
+export const feedReactionKindEnum = pgEnum('feed_reaction_kind', ['THUMB', 'FIRE']);
+
 /* ---------------------------------------------------------------- tenancy */
 
 export const dealerGroups = pgTable('dealer_groups', {
@@ -128,6 +145,8 @@ export const users = pgTable('users', {
   email: text().notNull().unique(),
   name: text().notNull(),
   role: userRoleEnum().notNull().default('MANAGER'),
+  /** Landing screen. Lot Walk is the bet, so it is the default. */
+  homeView: homeViewEnum().notNull().default('FEED'),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   /* ---- Better Auth core fields ---- */
   emailVerified: boolean().notNull().default(false),
@@ -437,6 +456,92 @@ export const leads = pgTable(
   (t) => [index('leads_rooftop_idx').on(t.rooftopId, t.createdAt)],
 );
 
+/* --------------------------------------------------------------- lot walk */
+
+/**
+ * One stat cell on a feed card. Section 2 of the data-model doc makes this
+ * non-negotiable: **every card carries a number.** The moment the feed reads
+ * as activity theater instead of "where my money is sitting", a dealer mutes
+ * it. That is why `stats` is not nullable and why `emitFeedEvent` takes a
+ * non-empty tuple — see src/lib/feed.ts.
+ */
+export type FeedStat = {
+  /** Short uppercase label: "DAYS IN STOCK", "FRONT GROSS". */
+  k: string;
+  /** Already formatted for display — the writer owns the units. */
+  v: string;
+  /** Colour intent. Neither set = neutral. */
+  good?: boolean;
+  bad?: boolean;
+};
+
+/**
+ * The feed. **The inventory posts, humans comment.**
+ *
+ * Scoped by `rooftopId` rather than by group: a multi-rooftop dealer wants to
+ * walk one lot at a time, and the scoping story stays identical to vehicles.
+ * `actorId` null means the system authored it, which is the common case.
+ */
+export const feedEvents = pgTable(
+  'feed_events',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    kind: feedEventKindEnum().notNull(),
+    /** null = posted by the system. Otherwise the user who did it. */
+    actorId: text().references(() => users.id, { onDelete: 'set null' }),
+    /** The unit this is about, when it is about a unit. */
+    vehicleId: text().references(() => vehicles.id, { onDelete: 'cascade' }),
+    /** The person this is about — "meet the new rep" posts. */
+    subjectUserId: text().references(() => users.id, { onDelete: 'set null' }),
+    title: text().notNull(),
+    body: text().notNull().default(''),
+    stats: jsonb().$type<FeedStat[]>().notNull().default([]),
+    /**
+     * Idempotency key for threshold events. "This unit crossed 30 days" must
+     * post exactly once, no matter how many times the sweep runs. Null for
+     * events that are genuinely allowed to repeat (every price change is news).
+     * Postgres treats NULLs as distinct, so the unique index below does not
+     * collapse them.
+     */
+    dedupeKey: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('feed_events_rooftop_created_idx').on(t.rooftopId, t.createdAt),
+    index('feed_events_vehicle_created_idx').on(t.vehicleId, t.createdAt),
+    uniqueIndex('feed_events_dedupe_uq').on(t.dedupeKey),
+  ],
+);
+
+/** One row per (event, user, kind). The unique index is the toggle. */
+export const feedReactions = pgTable(
+  'feed_reactions',
+  {
+    id: cuid().primaryKey(),
+    eventId: text().notNull().references(() => feedEvents.id, { onDelete: 'cascade' }),
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    kind: feedReactionKindEnum().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('feed_reactions_event_user_kind_uq').on(t.eventId, t.userId, t.kind),
+    index('feed_reactions_event_idx').on(t.eventId),
+  ],
+);
+
+export const feedComments = pgTable(
+  'feed_comments',
+  {
+    id: cuid().primaryKey(),
+    eventId: text().notNull().references(() => feedEvents.id, { onDelete: 'cascade' }),
+    userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+    body: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('feed_comments_event_created_idx').on(t.eventId, t.createdAt)],
+);
+
 /* -------------------------------------------------------------- relations */
 
 export const dealerGroupsRelations = relations(dealerGroups, ({ many }) => ({
@@ -523,6 +628,25 @@ export const salesRelations = relations(sales, ({ one }) => ({
   rooftop: one(rooftops, { fields: [sales.rooftopId], references: [rooftops.id] }),
 }));
 
+export const feedEventsRelations = relations(feedEvents, ({ one, many }) => ({
+  rooftop: one(rooftops, { fields: [feedEvents.rooftopId], references: [rooftops.id] }),
+  vehicle: one(vehicles, { fields: [feedEvents.vehicleId], references: [vehicles.id] }),
+  actor: one(users, { fields: [feedEvents.actorId], references: [users.id] }),
+  subject: one(users, { fields: [feedEvents.subjectUserId], references: [users.id] }),
+  reactions: many(feedReactions),
+  comments: many(feedComments),
+}));
+
+export const feedReactionsRelations = relations(feedReactions, ({ one }) => ({
+  event: one(feedEvents, { fields: [feedReactions.eventId], references: [feedEvents.id] }),
+  user: one(users, { fields: [feedReactions.userId], references: [users.id] }),
+}));
+
+export const feedCommentsRelations = relations(feedComments, ({ one }) => ({
+  event: one(feedEvents, { fields: [feedComments.eventId], references: [feedEvents.id] }),
+  user: one(users, { fields: [feedComments.userId], references: [users.id] }),
+}));
+
 /* ------------------------------------------------------------------ types */
 
 export type Vehicle = typeof vehicles.$inferSelect;
@@ -537,3 +661,10 @@ export type Storefront = typeof storefronts.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type SyncStatus = (typeof syncStatusEnum.enumValues)[number];
 export type VehicleStatus = (typeof vehicleStatusEnum.enumValues)[number];
+export type FeedEvent = typeof feedEvents.$inferSelect;
+export type NewFeedEvent = typeof feedEvents.$inferInsert;
+export type FeedComment = typeof feedComments.$inferSelect;
+export type FeedReaction = typeof feedReactions.$inferSelect;
+export type FeedEventKind = (typeof feedEventKindEnum.enumValues)[number];
+export type FeedReactionKind = (typeof feedReactionKindEnum.enumValues)[number];
+export type HomeView = (typeof homeViewEnum.enumValues)[number];

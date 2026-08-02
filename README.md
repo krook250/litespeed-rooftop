@@ -29,12 +29,20 @@ npm run dev
 Open http://localhost:3000 — you land on the login. Credentials are pre-filled:
 
 ```
-dave@evergreenmotorswa.com / rooftop
+dave@evergreenmotorswa.com / lotwalk2026
 ```
 
 `npm run db:seed` is destructive and idempotent: it wipes every table and
 rebuilds the demo from scratch. Run it before a dealer walkthrough to reset any
 price changes you made while practising.
+
+**It refuses to run against a non-local database.** `.env` points at production
+Neon, and this script starts with `delete from` on every table. If you really
+mean it — a throwaway Neon branch, say — pass `--force`:
+
+```bash
+npm run db:seed -- --force     # or SEED_FORCE=1
+```
 
 ### Scripts
 
@@ -44,8 +52,10 @@ price changes you made while practising.
 | `npm run build` | Production build |
 | `npm run db:generate` | Regenerate SQL migrations after editing `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations |
-| `npm run db:seed` | Wipe and reseed the demo dealer |
+| `npm run db:seed` | Wipe and reseed the demo dealer (refuses non-local without `--force`) |
+| `npm run db:backfill` | Replay existing history into the Lot Walk feed. Additive, idempotent, safe on a live database |
 | `npm run db:reset` | Migrate then seed |
+| `npm test` | Tenant-isolation and seed-guard tests. Needs `DATABASE_URL` |
 
 ---
 
@@ -53,19 +63,31 @@ price changes you made while practising.
 
 The walkthrough that lands, in order:
 
-1. **`/admin`** — the lot at a glance. Aging distribution, at-risk list, recon
-   board, water units, days supply and turn rate against real benchmarks.
-2. **`/admin/inventory`** — 25 units, aging buckets colour-coded. Toggle
+1. **`/admin/feed` — Lot Walk.** The home screen is a feed, not a dashboard.
+   The inventory posts; humans comment. Acquired, into recon, recon closed,
+   photos up, front-line ready, price cut, crossed 30 days, water unit, VDP
+   milestone, channel rejection, sold — every card carries a number, because
+   the moment it reads as activity theater instead of "where my money is
+   sitting", a dealer mutes it. React, comment, or post to the lot; even a
+   human post gets the state of the lot attached to it.
+2. **`/admin/dashboard`** — the lot at a glance. Aging distribution, at-risk
+   list, recon board, water units, days supply and turn rate against real
+   benchmarks. Unchanged; it simply moved off `/admin`.
+
+   `/admin` itself is now a router: it sends each user to whichever of the two
+   they picked, defaulting to Lot Walk. "Make this my home screen" sits in the
+   header of both, and the choice is per user, not per dealership.
+3. **`/admin/inventory`** — 25 units, aging buckets colour-coded. Toggle
    **Days in stock** vs **Days front line** in the header: same lot, two clocks.
    Cost, pack, recon and gross are visible here and nowhere public.
-3. **`/admin/inventory/{id}`** — one record. Photos, per-VIN merchandising, and
+4. **`/admin/inventory/{id}`** — one record. Photos, per-VIN merchandising, and
    per-channel copy overrides (Marketplace copy is not website copy).
-4. **`/admin/syndication`** — the money screen. **Change a price in the left
+5. **`/admin/syndication`** — the money screen. **Change a price in the left
    column and watch the row move.** Push channels land in seconds; feed channels
    go blue and wait for their next fetch, with a live countdown.
-5. **`/s/vancouver`** and the VDP — what the shopper sees, updated by the same
+6. **`/s/vancouver`** and the VDP — what the shopper sees, updated by the same
    record.
-6. **`/admin/reporting`** — days supply, turn rate, VDP views by channel, aging
+7. **`/admin/reporting`** — days supply, turn rate, VDP views by channel, aging
    distribution, recon time. Every figure is computed from seeded data; nothing
    is hardcoded.
 

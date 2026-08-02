@@ -2,7 +2,7 @@
 /* ============================================================================
    Rooftop Auto — vehicle photo fetcher
    ----------------------------------------------------------------------------
-   Pulls real, commercially-usable photos of the demo's 25 vehicles from
+   Pulls real, commercially-usable photos for every vehicle in seed.json from
    Wikimedia Commons and drops them into site/demo/img/veh/.
 
    Run it from the repo root:   node mock/photos/fetch-photos.mjs
@@ -18,6 +18,12 @@
    photos/manifest.json with its author, license and source page, and
    site/demo/credits.html is regenerated from that so the attribution CC BY and
    CC BY-SA require is actually published.
+
+   Expect to keep roughly a third of what lands. Commons is full of parades,
+   racetracks, auto-show floors and decal-covered fleet trucks that no filename
+   filter can catch, so the frames still have to be looked at. List the keepers
+   in photos/curated.json, then run photos/finalize.mjs — it rewrites
+   credits.html to cover only what the demo publishes and moves the rest out.
 
    Re-running is safe: files already on disk are left alone.
    ============================================================================ */
@@ -115,7 +121,13 @@ async function findPhotos(v) {
     console.warn(`  ! search failed (${e.message}) — retrying without year hint`);
   }
 
-  if (pages.length < PER_MODEL) {
+  // Sift the year-hinted results first, so we only widen the net when the strict
+  // query genuinely came up short. Counting raw `pages` here was the original
+  // bug: a model could return 45 hits, have every one of them rejected on
+  // licence or subject, and still never reach the fallback.
+  let kept = sift(pages);
+
+  if (kept.length < PER_MODEL) {
     // Fall back to the bare model name; the generation may drift a little.
     const j = await api({
       action: 'query', generator: 'search',
@@ -124,9 +136,16 @@ async function findPhotos(v) {
       prop: 'imageinfo', iiprop: 'url|size|extmetadata', iiurlwidth: String(WIDTH),
     });
     const seen = new Set(pages.map((p) => p.title));
-    pages = pages.concat((j.query?.pages || []).filter((p) => !seen.has(p.title)));
+    const extra = (j.query?.pages || []).filter((p) => !seen.has(p.title));
+    const seenFile = new Set(kept.map((k) => k.title));
+    kept = kept.concat(sift(extra).filter((k) => !seenFile.has(k.title)));
   }
 
+  return kept.slice(0, PER_MODEL);
+}
+
+/* Apply the licence, subject and framing filters to a page list. */
+function sift(pages) {
   const kept = [];
   for (const p of pages) {
     const ii = p.imageinfo?.[0];

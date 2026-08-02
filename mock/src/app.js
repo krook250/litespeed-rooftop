@@ -346,8 +346,11 @@ function viewVehicle(id) {
             <div class="add">＋</div>
           </div>
           <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
-            ${v.photoCount} photos on file · showing ${v.photos.length} placeholder stand-ins · drag to reorder ·
-            the first photo is what every channel shows in search results.
+            ${v.photoCount
+              ? `${v.photoCount} photos on file · showing ${v.photos.length} · drag to reorder ·
+                 the first photo is what every channel shows in search results.`
+              : `No photos yet · held out of syndication until the unit is shot ·
+                 the first photo is what every channel shows in search results.`}
           </div>
         </div>
 
@@ -839,7 +842,7 @@ function viewVDP(id) {
 const RIBBON = `<div class="ribbon">
   <a href="../index.html" class="rb-back">&#9664; rooftopauto.com</a>
   <span class="rb-tag">LIVE DEMO</span>
-  <span class="rb-txt">Cascade Motors is a fictional two-rooftop lot in Vancouver, WA. Every number on these screens is sample data.</span>
+  <span class="rb-txt">Cascade Motors is a fictional two-rooftop lot in Vancouver, WA. Every number on these screens is sample data. The vehicle photographs are real and freely licensed &mdash; <a href="credits.html" class="rb-link">credits</a>.</span>
 </div>`;
 
 function render() {

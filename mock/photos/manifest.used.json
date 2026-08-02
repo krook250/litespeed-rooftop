@@ -1,0 +1,364 @@
+{
+  "ram-a": [
+    {
+      "file": "ram-1500/2.jpg",
+      "label": "Rear 3/4",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:19-20_Ram_1500_Crew_Cab_Laramie_4x4_03-27-2020_Rear.jpg"
+    }
+  ],
+  "ram-b": [
+    {
+      "file": "ram-1500/3.jpg",
+      "label": "Front 3/4",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Laramie,_front_2.28.20.jpg"
+    }
+  ],
+  "ram-c": [
+    {
+      "file": "ram-1500/4.jpg",
+      "label": "Front 3/4",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Laramie,_front_2.26.20.jpg"
+    }
+  ],
+  "ram-d": [
+    {
+      "file": "ram-1500/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Bighorn,_front_3.11.20.jpg"
+    },
+    {
+      "file": "ram-1500/6.jpg",
+      "label": "Rear 3/4",
+      "artist": "Kevauto",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Ram_1500_Bighorn,_rear_3.11.20.jpg"
+    }
+  ],
+  "sil-a": [
+    {
+      "file": "chevrolet-silverado-1500/1.jpg",
+      "label": "Front 3/4",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_chevrolet_silverado_1500_wt_long_observe.JPG"
+    }
+  ],
+  "sil-b": [
+    {
+      "file": "chevrolet-silverado-1500/2.jpg",
+      "label": "Rear 3/4",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_chevrolet_silverado_1500_wt_long_reverse.JPG"
+    }
+  ],
+  "sil-c": [
+    {
+      "file": "chevrolet-silverado-1500/3.jpg",
+      "label": "Front 3/4",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_chevrolet_silverado_wt_regular_standard_blackout_observe.jpg"
+    },
+    {
+      "file": "chevrolet-silverado-1500/4.jpg",
+      "label": "Rear 3/4",
+      "artist": "Rjluna2",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_chevrolet_silverado_wt_regular_standard_blackout_reverse.jpg"
+    }
+  ],
+  "sil-d": [
+    {
+      "file": "chevrolet-silverado-1500/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714-%2715_Chevrolet_Silverado_1500_Double_Cab.jpg"
+    }
+  ],
+  "f150-a": [
+    {
+      "file": "ford-f-150/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2715-%2717_Ford_F-150_XL_Crew_Cab.jpg"
+    }
+  ],
+  "gmc-a": [
+    {
+      "file": "gmc-sierra-1500/3.jpg",
+      "label": "Front 3/4",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714-%2715_GMC_Sierra_1500_Crew_Cab_Kodiak_GMTK2XX_(Les_chauds_vendredis_2018).jpg"
+    }
+  ],
+  "tac-a": [
+    {
+      "file": "toyota-tacoma/4.jpg",
+      "label": "Front 3/4",
+      "artist": "Slapotoic",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Toyota_Tacoma_.jpg"
+    }
+  ],
+  "out-a": [
+    {
+      "file": "subaru-outback/2.jpg",
+      "label": "Front 3/4",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Subaru_Outback_(BS9_MY15)_2.5i_Premium_station_wagon_(2016-04-29)_01.jpg"
+    },
+    {
+      "file": "subaru-outback/1.jpg",
+      "label": "Rear 3/4",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2015_Subaru_Outback_(BS9_MY15)_2.5i_Premium_station_wagon_(2016-04-29)_02.jpg"
+    }
+  ],
+  "out-b": [
+    {
+      "file": "subaru-outback/3.jpg",
+      "label": "Driver side",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Outback_2.5i_XS_2016.jpg"
+    }
+  ],
+  "out-c": [
+    {
+      "file": "subaru-outback/4.jpg",
+      "label": "Front 3/4",
+      "artist": "RL GNZLZ from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Subaru_Outback_2.5i_Limited_2016.jpg"
+    }
+  ],
+  "for-a": [
+    {
+      "file": "subaru-forester/1.jpg",
+      "label": "Front 3/4",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Subaru_Forester_(MY17)_wagon_(2017-11-18)_01.jpg"
+    },
+    {
+      "file": "subaru-forester/2.jpg",
+      "label": "Rear 3/4",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Subaru_Forester_(MY17)_wagon_(2017-11-18)_02.jpg"
+    }
+  ],
+  "for-b": [
+    {
+      "file": "subaru-forester/6.jpg",
+      "label": "Front 3/4",
+      "artist": "EurovisionNim",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2018_Subaru_Forester_(SK_MY19)_2.5i_AWD_wagon_(2018-10-08)_01.jpg"
+    }
+  ],
+  "cro-a": [
+    {
+      "file": "subaru-crosstrek/2.jpg",
+      "label": "Front 3/4",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(front_view)_01.png"
+    },
+    {
+      "file": "subaru-crosstrek/1.jpg",
+      "label": "Driver side",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(front_view).png"
+    },
+    {
+      "file": "subaru-crosstrek/3.jpg",
+      "label": "Rear 3/4",
+      "artist": "Gold Pony",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2021_Subaru_Crosstrek_(rear_view)_01.png"
+    }
+  ],
+  "cro-b": [
+    {
+      "file": "subaru-crosstrek/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Rutger van der Maar",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Subaru_Crosstrek_2.0_USDM.jpg"
+    }
+  ],
+  "crv-a": [
+    {
+      "file": "honda-cr-v/4.jpg",
+      "label": "Front 3/4",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CRV_Touring,_Front_Left,_09-20-2020.jpg"
+    }
+  ],
+  "crv-b": [
+    {
+      "file": "honda-cr-v/5.jpg",
+      "label": "Driver side",
+      "artist": "オーバードライブ83",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CR-V_1.5_Turbo_Prestige_RW1_(20210821).jpg"
+    }
+  ],
+  "crv-c": [
+    {
+      "file": "honda-cr-v/6.jpg",
+      "label": "Front 3/4",
+      "artist": "オーバードライブ83",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2019_Honda_CR-V_1.5_Turbo_Prestige_RW1_(20210919)_01.jpg"
+    }
+  ],
+  "pil-a": [
+    {
+      "file": "honda-pilot/2.jpg",
+      "label": "Driver side",
+      "artist": "order_242 from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Pilot_EXL_4WD_2013_(14042200794).jpg"
+    }
+  ],
+  "pil-b": [
+    {
+      "file": "honda-pilot/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Bull-Doser",
+      "license": "Public domain",
+      "licenseUrl": "",
+      "source": "https://commons.wikimedia.org/wiki/File:%2714_Honda_Pilot_(MIAS_%2714).jpg"
+    }
+  ],
+  "pil-c": [
+    {
+      "file": "honda-pilot/6.jpg",
+      "label": "Driver side",
+      "artist": "order_242 from Chile",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Pilot_EXL_4WD_2013_(15570177863).jpg"
+    }
+  ],
+  "acc-a": [
+    {
+      "file": "honda-accord/1.jpg",
+      "label": "Front 3/4",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year).jpg"
+    },
+    {
+      "file": "honda-accord/5.jpg",
+      "label": "Front detail",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_5.jpg"
+    },
+    {
+      "file": "honda-accord/2.jpg",
+      "label": "Rear 3/4",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_2.jpg"
+    },
+    {
+      "file": "honda-accord/6.jpg",
+      "label": "Driver side",
+      "artist": "Mliu92",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Honda_Accord_(2018_model_year)_6.jpg"
+    }
+  ],
+  "jgc-a": [
+    {
+      "file": "jeep-grand-cherokee/5.jpg",
+      "label": "Front 3/4",
+      "artist": "Sicnag",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2014_Jeep_WK2_Grand_Cherokee_SRT_6.4_Wagon_(25834046966).jpg"
+    }
+  ],
+  "tel-a": [
+    {
+      "file": "kia-telluride/3.jpg",
+      "label": "Rear 3/4",
+      "artist": "SsmIntrigue",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:TellurideRear.jpg"
+    }
+  ],
+  "rav-a": [
+    {
+      "file": "toyota-rav4/2.jpg",
+      "label": "Front 3/4",
+      "artist": "Vauxford",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2017_Toyota_RAV4_D4-D_facelift_2.0.jpg"
+    }
+  ],
+  "cam-a": [
+    {
+      "file": "toyota-camry/6.jpg",
+      "label": "Front 3/4",
+      "artist": "AIMHO'S REBELLION 8490s",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2020_Toyota_Camry_2.5_(Front_view).jpg"
+    }
+  ]
+}

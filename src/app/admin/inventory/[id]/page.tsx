@@ -7,6 +7,7 @@ import {
   getOverrides,
   getPriceHistory,
   getSyncStatesForVehicle,
+  sessionScope,
   getVehicleById,
   getVehicleTraffic,
 } from '@/lib/queries';
@@ -55,12 +56,13 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
   const vehicle = await getVehicleById(id);
   if (!vehicle) notFound();
 
+  const scope = await sessionScope();
   const [syncStates, channels, overrides, prices, traffic] = await Promise.all([
-    getSyncStatesForVehicle(id),
+    getSyncStatesForVehicle(scope, id),
     getChannels(),
-    getOverrides(id),
-    getPriceHistory(id),
-    getVehicleTraffic(id, 30),
+    getOverrides(scope, id),
+    getPriceHistory(scope, id),
+    getVehicleTraffic(scope, id, 30),
   ]);
 
   const dis = daysInStock(vehicle, 'dateIn');

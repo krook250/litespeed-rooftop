@@ -71,6 +71,13 @@ export const auth = betterAuth({
       // Both columns are still NOT NULL in Postgres, which is the real guard.
       groupId: { type: 'string', required: false, input: false },
       role: { type: 'string', required: false, input: false, defaultValue: 'OWNER' },
+      // Must be declared here or Better Auth simply does not select the column,
+      // and `getSessionUser()` hands back a user whose homeView is undefined —
+      // which silently pins everyone to the default and makes the preference
+      // look like it saved and then did nothing. Unlike the two above this one
+      // *is* user-settable, but through the `setHomeView` server action rather
+      // than through a signup body, so `input: false` still applies.
+      homeView: { type: 'string', required: false, input: false, defaultValue: 'FEED' },
     },
   },
   session: { modelName: 'sessions' },

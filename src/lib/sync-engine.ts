@@ -3,6 +3,7 @@ import { and, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { isSyndicatable } from '@/lib/domain';
+import { feedSyncError } from '@/lib/feed';
 
 /**
  * Mock syndication engine.
@@ -78,13 +79,25 @@ export async function enqueueChange(
     // A broken connection cannot carry the change. Say so instead of pretending.
     if (conn.status === 'ERROR') {
       blocked++;
+      const message = `Change not sent — ${channel.name} connection needs attention.`;
       await db.insert(t.syncEvents).values({
         vehicleId,
         connectionId: conn.id,
         action,
         status: 'ERROR',
-        message: `Change not sent — ${channel.name} connection needs attention.`,
+        message,
         fieldChanges,
+      });
+      // The dealer finds out here, on the lot walk, not by noticing a dark
+      // listing three weeks later. Deduped to one card per unit per channel
+      // per day so a flapping connection cannot bury the rest of the feed.
+      const live = states.filter((r) => r.vehicle_sync_states.status === 'LIVE').length;
+      await feedSyncError(vehicle, {
+        channelName: channel.name,
+        channelShort: channel.shortName,
+        message: conn.errorMessage ?? message,
+        liveOn: live,
+        totalChannels: states.length,
       });
       continue;
     }

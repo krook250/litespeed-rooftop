@@ -1,10 +1,11 @@
 /* ============================================================
    Rooftop — vehicle imagery
-   The demo ships no external images. Each "photo" is a generated
-   placeholder tile keyed to the unit's real paint color and body
+   Units carry real, freely-licensed photography from img/veh/,
+   attached by the seed as photoFiles (see mock/photos/curated.json).
+   Anything without photography falls back to the generated tile
+   below: a placeholder keyed to the unit's paint color and body
    type, so a gallery still reads as "silver crew cab" vs "green
    wagon" without pretending to be photography it isn't.
-   Real dealer photos drop straight into photoSet().
    ============================================================ */
 
 /* icon-scale body glyphs, viewBox 0 0 120 44 */
@@ -113,7 +114,24 @@ const enc = (svg) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sv
 
 const SHOT_LABELS = ['Driver side', 'Front 3/4', 'Rear 3/4', 'Interior', 'Engine bay', 'Wheels', 'Rear seat', 'Cargo'];
 
+/* Real photos live in img/veh/<make-model>/<n>.jpg and are attached to the unit
+   as photoFiles by the seed. A unit still in recon shows fewer of them, because
+   that is the whole point of the recon state. Anything without photography falls
+   back to the generated swatch tile below, so the demo never breaks. */
+const PHOTO_DIR = 'img/veh/';
+
+function realShots(v) {
+  const files = v.photoFiles || [];
+  if (!files.length) return null;
+  const cap = v.reconStatus === 'in_recon' ? Math.min(files.length, v.photoCount) : files.length;
+  if (cap < 1) return [];
+  return files.slice(0, cap).map(([file, label]) => ({ label, src: PHOTO_DIR + file }));
+}
+
 function photoSet(v) {
+  const real = realShots(v);
+  if (real) return real.length ? real : [{ label: 'No photos yet', src: enc(tileSVG(v, 'Awaiting photos', 0, 1)) }];
+
   const n = Math.max(1, Math.min(8, Math.round(v.photoCount / 4)));
   const shots = [];
   for (let i = 0; i < n; i++) {
@@ -122,4 +140,10 @@ function photoSet(v) {
   shots.push({ label: 'Odometer', src: enc(odoSVG(v)) });
   return shots;
 }
-const heroPhoto = (v) => enc(tileSVG(v, 'Driver side', 0, Math.max(2, Math.round(v.photoCount / 4) + 1)));
+
+function heroPhoto(v) {
+  const real = realShots(v);
+  if (real && real.length) return real[0].src;
+  if (real) return enc(tileSVG(v, 'Awaiting photos', 0, 1));
+  return enc(tileSVG(v, 'Driver side', 0, Math.max(2, Math.round(v.photoCount / 4) + 1)));
+}

@@ -4,12 +4,15 @@
  */
 
 import 'dotenv/config';
+import { desc, inArray, sql } from 'drizzle-orm';
 import { db } from './index';
 import * as t from './schema';
 import { SEED_CHANNELS, SEED_VEHICLES, SOLD_POOL, type SeedVehicle } from './seed-data';
 import { buildVin } from '@/lib/vin';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 import { auth } from '@/lib/auth-config';
+import { assertSafeToWipe } from './guard';
+import { backfillFeed } from './backfill-feed';
 
 /** Sign-in for the seeded demo dealership. Printed at the end of a seed run. */
 export const DEMO_LOGIN = { email: 'dave@evergreenmotorswa.com', password: 'lotwalk2026' };
@@ -34,7 +37,13 @@ const daysAgo = (n: number) => new Date(NOW.getTime() - n * day);
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
 async function main() {
+  // Refuses to wipe anything that is not a local database. See src/db/guard.ts.
+  assertSafeToWipe('db:seed');
+
   console.log('clearing…');
+  await db.delete(t.feedComments);
+  await db.delete(t.feedReactions);
+  await db.delete(t.feedEvents);
   await db.delete(t.leads);
   await db.delete(t.vehicleDailyStats);
   await db.delete(t.syncEvents);
@@ -137,6 +146,21 @@ async function main() {
     providerId: 'credential',
     password: await authCtx.password.hash(DEMO_LOGIN.password),
   });
+
+  // The rest of the lot. No credentials — they are staff records, not logins,
+  // which is exactly what an independent's roster looks like on day one. They
+  // exist so Lot Walk has humans to attribute comments to: the system is the
+  // primary author, but a feed nobody replies to is a log file.
+  const staff = await db
+    .insert(t.users)
+    .values([
+      { groupId: group!.id, email: 'mike@evergreenmotorswa.com', name: 'Mike Ruiz', role: 'SALES' as const },
+      { groupId: group!.id, email: 'tina@evergreenmotorswa.com', name: 'Tina Alvarez', role: 'SALES' as const },
+      { groupId: group!.id, email: 'rob@evergreenmotorswa.com', name: 'Rob Chen', role: 'LOT_PORTER' as const },
+      { groupId: group!.id, email: 'tim@evergreenmotorswa.com', name: 'Tim Boyd', role: 'SALES' as const },
+    ])
+    .returning();
+  const [mike, tina, rob, tim] = staff;
 
   /* ------------------------------------------------------------ channels */
   const channels = await db.insert(t.channels).values(SEED_CHANNELS).returning();
@@ -556,6 +580,131 @@ async function main() {
   for (let i = 0; i < statRows.length; i += 2000) {
     await db.insert(t.vehicleDailyStats).values(statRows.slice(i, i + 2000));
   }
+
+  /* ------------------------------------------------------------ lot walk */
+  // Replay the history above into the feed, so the demo dealer's home screen
+  // has a month of real activity on it the first time anyone signs in.
+  console.log('building the Lot Walk feed…');
+  const { created } = await backfillFeed({
+    rooftopIds: [vanRooftop!.id, bgRooftop!.id],
+    sinceDays: 60,
+  });
+
+  // Two human posts, because "the inventory posts, humans comment" still needs
+  // a human on the page. These are the only fabricated rows in the feed —
+  // everything else came out of a table.
+  const [timPost] = await db
+    .insert(t.feedEvents)
+    .values({
+      rooftopId: bgRooftop!.id,
+      kind: 'team',
+      actorId: demoUser!.id,
+      subjectUserId: tim!.id,
+      title: 'Meet Tim Boyd — starting Monday at Battle Ground',
+      body:
+        'Tim comes over from a franchise store with ten years in. Knows trucks cold and has ' +
+        'done his own desking. He is on the Battle Ground side but will float. Say hi when you see him.',
+      stats: [
+        { k: 'Starts', v: 'Monday' },
+        { k: 'Rooftop', v: 'Battle Ground' },
+        { k: 'Years in', v: '10' },
+      ],
+      dedupeKey: 'seed:team:tim',
+      createdAt: daysAgo(0),
+    })
+    .returning();
+
+  const [robPost] = await db
+    .insert(t.feedEvents)
+    .values({
+      rooftopId: vanRooftop!.id,
+      kind: 'note',
+      actorId: rob!.id,
+      title: 'Detail bay is down until Thursday — buffer is out for service',
+      body:
+        'Anything that needs paint correction, flag it on the unit and I will batch them ' +
+        'Friday morning. Wash and vac are unaffected.',
+      stats: [
+        { k: 'Back up', v: 'Thursday' },
+        { k: 'Units waiting', v: String(vehicles.filter((v) => v.status === 'IN_RECON').length) },
+        { k: 'Recon target', v: '5–7d' },
+      ],
+      dedupeKey: 'seed:note:detail-bay',
+      createdAt: daysAgo(0),
+    })
+    .returning();
+
+  // Comments and reactions on the newest system cards, so the interaction
+  // grammar is visible the moment the page loads.
+  // Newest card of each kind, so the scripted replies land on the cards a
+  // dealer will actually see rather than on whatever happened to be recent.
+  const recent = await db
+    .select()
+    .from(t.feedEvents)
+    .where(inArray(t.feedEvents.rooftopId, [vanRooftop!.id, bgRooftop!.id]))
+    .orderBy(desc(t.feedEvents.createdAt));
+
+  const firstOf = (kind: typeof t.feedEventKindEnum.enumValues[number]) =>
+    recent.find((e) => e.kind === kind);
+
+  const commentRows: (typeof t.feedComments.$inferInsert)[] = [];
+  const reactionRows: (typeof t.feedReactions.$inferInsert)[] = [];
+  const say = (event: typeof t.feedEvents.$inferSelect | undefined, userId: string, body: string) => {
+    if (event) commentRows.push({ eventId: event.id, userId, body });
+  };
+  const react = (
+    event: typeof t.feedEvents.$inferSelect | undefined,
+    userId: string,
+    kind: 'THUMB' | 'FIRE',
+  ) => {
+    if (event) reactionRows.push({ eventId: event.id, userId, kind });
+  };
+
+  const sold = firstOf('sold');
+  say(sold, demoUser!.id, 'That is the third truck this month. Buy more trucks.');
+  say(sold, tina!.id, 'Way to go 👏');
+  react(sold, mike!.id, 'THUMB');
+  react(sold, tina!.id, 'THUMB');
+  react(sold, rob!.id, 'FIRE');
+
+  const atRisk = firstOf('at_risk');
+  say(atRisk, demoUser!.id, 'Tina — get me a price recommendation on this one before noon.');
+  say(atRisk, tina!.id, 'On it. I think we are $900 over the market on it.');
+
+  const water = firstOf('water');
+  say(water, demoUser!.id, 'We are upside down. Run it through the sale Thursday, take the hit and move on.');
+
+  const err = firstOf('sync_error');
+  say(err, mike!.id, 'This is the second time this month on that channel.');
+
+  const vdp = firstOf('vdp_milestone');
+  say(vdp, tina!.id, 'Two of those leads are the same guy. He is grinding me on the trade.');
+  react(vdp, demoUser!.id, 'FIRE');
+
+  const frontLine = firstOf('front_line');
+  say(frontLine, mike!.id, 'Already have someone coming to look at this Saturday.');
+  react(frontLine, demoUser!.id, 'THUMB');
+  react(frontLine, rob!.id, 'THUMB');
+
+  say(timPost, mike!.id, 'Welcome aboard Tim.');
+  react(timPost, mike!.id, 'THUMB');
+  react(timPost, tina!.id, 'THUMB');
+  react(timPost, rob!.id, 'THUMB');
+  react(robPost, demoUser!.id, 'THUMB');
+
+  if (commentRows.length) await db.insert(t.feedComments).values(commentRows);
+  if (reactionRows.length) {
+    await db.insert(t.feedReactions).values(reactionRows).onConflictDoNothing();
+  }
+
+  const feedTotal = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(t.feedEvents);
+
+  console.log(
+    `feed — ${created} backfilled + 2 human posts = ${feedTotal[0]?.c ?? 0} cards, ` +
+    `${commentRows.length} comments, ${reactionRows.length} reactions`,
+  );
 
   console.log(
     `done — ${vehicles.length} live units, ${soldVehicles.length} sold, ` +

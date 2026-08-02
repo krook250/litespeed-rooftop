@@ -15,6 +15,13 @@
       "when": 1785681548871,
       "tag": "0001_light_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785689511874,
+      "tag": "0002_loud_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

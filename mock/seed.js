@@ -81,6 +81,26 @@ const COLORS = [
 ];
 const INTERIORS = ['Black Cloth','Black Leather','Gray Cloth','Tan Leather','Charcoal Cloth','Ebony Leatherette'];
 
+// ---------- real photography ----------
+// One group per physical car, hand-checked. See photos/curated.json for how they
+// were culled. The lot is built FROM these rather than the other way round, so
+// every unit's gallery is a real photo of the right car in the right colour —
+// which is also why Cascade stocks four Rams and four Silverados. Independent
+// PNW lots really do repeat models; that is what a truck lot looks like.
+const GROUPS = JSON.parse(fs.readFileSync(__dirname + '/photos/curated.json', 'utf8')).groups;
+// curated.json is grouped by model for readability, but DIS_PLAN walks this array
+// in order — leaving it sorted would make every fresh unit a Ram and every aged
+// unit a sedan. Shuffle once, deterministically, so aging and model are unrelated.
+for (let i = GROUPS.length - 1; i > 0; i--) {
+  const j = Math.floor(rnd() * (i + 1));
+  [GROUPS[i], GROUPS[j]] = [GROUPS[j], GROUPS[i]];
+}
+const catalogFor = (g) => {
+  const c = CATALOG.find(x => x.make === g.make && x.model === g.model);
+  if (!c) throw new Error(`seed: no CATALOG entry for ${g.make} ${g.model}`);
+  return c;
+};
+
 const FEATURES_BY_BODY = {
   Pickup: ['Tow Package','Bed Liner','Running Boards','Backup Camera','Trailer Brake Controller','Bluetooth','Apple CarPlay','Heated Seats','Remote Start','Bedcover'],
   SUV:    ['Third Row','Backup Camera','Blind Spot Monitor','Apple CarPlay','Heated Seats','Panoramic Roof','Roof Rails','Power Liftgate','Adaptive Cruise','Remote Start'],
@@ -106,13 +126,17 @@ const PEOPLE = [
 
 // ---------- aging plan: deliberate spread across buckets ----------
 // bucket targets so the demo shows every color on screen
+// One entry per photo group in photos/curated.json — keep the two in step.
 const DIS_PLAN = [
-  3, 5, 7, 9, 11, 13,            // fresh air (<15)  — 6 units
-  17, 20, 23, 26, 29,            // 16-30            — 5 units
+  3, 5, 7, 9, 11, 13, 14,        // fresh air (<15)  — 7 units
+  17, 19, 22, 24, 26, 29,        // 16-30            — 6 units
   32, 35, 38, 41, 44,            // 31-45 at-risk    — 5 units
   48, 52, 56, 59,                // 46-60 at-risk    — 4 units
-  67, 74, 88, 103, 121,          // 61+ aged         — 5 units
+  64, 71, 79, 88, 97, 110, 124,  // 61+ aged         — 7 units
 ];
+if (DIS_PLAN.length !== GROUPS.length) {
+  throw new Error(`seed: DIS_PLAN has ${DIS_PLAN.length} entries but curated.json has ${GROUPS.length} groups`);
+}
 
 const RECON_NOTES = [
   'Front pads + rotors, alignment',
@@ -128,10 +152,14 @@ const vehicles = [];
 const usedStock = new Set();
 
 DIS_PLAN.forEach((dis, i) => {
-  const c = CATALOG[i % CATALOG.length];
-  const year = ri(c.yr[0], c.yr[1]);
+  const g = GROUPS[i];
+  const c = catalogFor(g);
+  // Year comes from the generation actually visible in the photo, and colour is
+  // read off the car itself — not picked at random — so the spec sheet cannot
+  // contradict the gallery.
+  const year = ri(g.yr[0], g.yr[1]);
   const age = 2026 - year;
-  const [colorName, colorHex] = pick(COLORS);
+  const [colorName, colorHex] = g.color;
   const trim = pick(c.trims);
   const dt = pick(c.dt);
 
@@ -170,7 +198,9 @@ DIS_PLAN.forEach((dis, i) => {
   // recon: fresher units may still be in recon
   const inRecon = dis <= 6 && rnd() < 0.6;
   const reconDays = inRecon ? dis : Math.min(dis, ri(3, 11));
-  const photoCount = inRecon ? ri(0, 3) : ri(14, 32);
+  // photoCount is what the dealer has on file; the gallery shows the subset we
+  // actually hold a licensed photo for. Never let it read lower than what we show.
+  const photoCount = Math.max(inRecon ? ri(0, 3) : ri(14, 32), inRecon ? 0 : g.shots.length);
   const frontLineReady = !inRecon && photoCount >= 12;
 
   // VDP views: decay with age, boost for trucks & fresh units
@@ -205,6 +235,7 @@ DIS_PLAN.forEach((dis, i) => {
     reconStatus: inRecon ? 'in_recon' : 'complete',
     reconDays, reconNote: pick(RECON_NOTES),
     photoCount, frontLineReady, isWater,
+    photoFiles: g.shots, photoGroup: g.id,
     vdpViews7: vdp7, vdpViewsTotal: vdpTotal, leads,
     rooftop, features,
     titleStatus: rnd() < 0.9 ? 'In hand' : 'Pending',

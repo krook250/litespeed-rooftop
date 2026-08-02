@@ -19,4 +19,12 @@ ${p('src/app.js')}
 </body></html>`;
 
 fs.writeFileSync(__dirname + '/rooftop-demo.html', html);
-console.log('rooftop-demo.html', (html.length / 1024).toFixed(0) + ' KB');
+
+// Write straight into the folder that ships, too. Copying it across by hand is
+// how the deployed demo drifts from the source.
+const dest = __dirname + '/../site/demo/index.html';
+fs.mkdirSync(__dirname + '/../site/demo', { recursive: true });
+fs.writeFileSync(dest, html);
+
+console.log('rooftop-demo.html      ', (html.length / 1024).toFixed(0) + ' KB');
+console.log('site/demo/index.html   ', (html.length / 1024).toFixed(0) + ' KB');

@@ -8,6 +8,7 @@ import {
   getRecentEvents,
   getRooftops,
   getSyncMatrix,
+  sessionScope,
 } from '@/lib/queries';
 import {
   SYNC_STATUS_LABEL,
@@ -58,7 +59,7 @@ export default async function SyndicationPage({
   const inventory = await getLiveInventory(
     activeRooftop ? { rooftopIds: [activeRooftop.id] } : {},
   );
-  const matrix = await getSyncMatrix(inventory.map((v) => v.id));
+  const matrix = await getSyncMatrix(await sessionScope(), inventory.map((v) => v.id));
 
   // vehicleId -> channelId -> state
   const grid = new Map<string, Map<string, (typeof matrix)[number]>>();

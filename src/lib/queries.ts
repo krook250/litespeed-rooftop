@@ -1,9 +1,30 @@
 import 'server-only';
-import { and, asc, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
 import { AGING_BUCKETS, bucketFor, daysInStock, type DisMode } from '@/lib/domain';
+import { scopeForGroup, type Scope } from '@/lib/scoped-db';
+
+/**
+ * The vehicle-keyed helpers now live in `scoped-db.ts` and take a `Scope` they
+ * cannot be called without. Re-exported here so callers keep one import.
+ */
+export {
+  assertVehicleInScope,
+  getOverrides,
+  getPriceHistory,
+  getSyncMatrix,
+  getSyncStatesForVehicle,
+  assertFeedEventInScope,
+  publicScope,
+  type Scope,
+} from '@/lib/scoped-db';
+
+/** The admin path: the tenant behind the current request. */
+export async function sessionScope(): Promise<Scope> {
+  return scopeForGroup(await requireGroupId());
+}
 
 /**
  * Tenant scoping
@@ -177,29 +198,6 @@ export async function getConnections(opts: { rooftopIds?: string[] } = {}) {
     .orderBy(asc(t.channels.sortOrder));
 }
 
-export async function getSyncMatrix(vehicleIds: string[]) {
-  if (!vehicleIds.length) return [];
-  return db
-    .select()
-    .from(t.vehicleSyncStates)
-    .innerJoin(
-      t.channelConnections,
-      eq(t.vehicleSyncStates.connectionId, t.channelConnections.id),
-    )
-    .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
-    .where(inArray(t.vehicleSyncStates.vehicleId, vehicleIds));
-}
-
-export async function getSyncStatesForVehicle(vehicleId: string) {
-  return db
-    .select()
-    .from(t.vehicleSyncStates)
-    .innerJoin(t.channelConnections, eq(t.vehicleSyncStates.connectionId, t.channelConnections.id))
-    .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
-    .where(eq(t.vehicleSyncStates.vehicleId, vehicleId))
-    .orderBy(asc(t.channels.sortOrder));
-}
-
 export async function getRecentEvents(limit = 40, opts: { rooftopIds?: string[] } = {}) {
   const rooftopIds = await scopeRooftops(opts.rooftopIds);
   if (!rooftopIds.length) return [];
@@ -212,21 +210,6 @@ export async function getRecentEvents(limit = 40, opts: { rooftopIds?: string[] 
     .where(inArray(t.vehicles.rooftopId, rooftopIds))
     .orderBy(desc(t.syncEvents.createdAt))
     .limit(limit);
-}
-
-export async function getOverrides(vehicleId: string) {
-  return db
-    .select()
-    .from(t.vehicleChannelOverrides)
-    .where(eq(t.vehicleChannelOverrides.vehicleId, vehicleId));
-}
-
-export async function getPriceHistory(vehicleId: string) {
-  return db
-    .select()
-    .from(t.priceChanges)
-    .where(eq(t.priceChanges.vehicleId, vehicleId))
-    .orderBy(desc(t.priceChanges.changedAt));
 }
 
 /* -------------------------------------------------------------- reporting */
@@ -285,19 +268,27 @@ export async function getTrafficByDay(days = 30, opts: { rooftopIds?: string[] }
     .orderBy(asc(t.vehicleDailyStats.date));
 }
 
-export async function getVehicleTraffic(vehicleId: string, days = 30) {
+/** Vehicle-keyed, so it takes a Scope for the same reason the others do. */
+export async function getVehicleTraffic(scope: Scope, vehicleId: string, days = 30) {
+  const empty = { vdpViews: 0, leads: 0, saves: 0 };
+  if (!scope.rooftopIds.length) return empty;
   const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
   const rows = await db
     .select({
-      vdpViews: sql<number>`sum(${t.vehicleDailyStats.vdpViews})::int`,
-      leads: sql<number>`sum(${t.vehicleDailyStats.leads})::int`,
-      saves: sql<number>`sum(${t.vehicleDailyStats.saves})::int`,
+      vdpViews: sql<number>`coalesce(sum(${t.vehicleDailyStats.vdpViews}), 0)::int`,
+      leads: sql<number>`coalesce(sum(${t.vehicleDailyStats.leads}), 0)::int`,
+      saves: sql<number>`coalesce(sum(${t.vehicleDailyStats.saves}), 0)::int`,
     })
     .from(t.vehicleDailyStats)
+    .innerJoin(t.vehicles, eq(t.vehicleDailyStats.vehicleId, t.vehicles.id))
     .where(
-      and(eq(t.vehicleDailyStats.vehicleId, vehicleId), gte(t.vehicleDailyStats.date, since)),
+      and(
+        eq(t.vehicleDailyStats.vehicleId, vehicleId),
+        gte(t.vehicleDailyStats.date, since),
+        inArray(t.vehicles.rooftopId, scope.rooftopIds),
+      ),
     );
-  return rows[0] ?? { vdpViews: 0, leads: 0, saves: 0 };
+  return rows[0] ?? empty;
 }
 
 export async function getTrafficPerVehicle(days = 30, opts: { rooftopIds?: string[] } = {}) {

@@ -1,0 +1,43 @@
+{
+  "_note": "Hand-culled from the Wikimedia Commons fetch. Each entry is ONE physical car: the photos in `shots` are that same vehicle, so a gallery stays consistent. `color` is read off the actual photo, not invented — seed.js uses it so the spec sheet agrees with what the buyer sees. `yr` is narrowed to the generation visible in the photo. Files not listed here were rejected (auto-show floors, parades, racetracks, fleet decals, wrong generation, no car in frame).",
+  "groups": [
+    { "id": "ram-a",  "make": "Ram", "model": "1500", "yr": [2019, 2022], "color": ["Patriot Blue", "#1f2c44"], "shots": [["ram-1500/2.jpg", "Rear 3/4"]] },
+    { "id": "ram-b",  "make": "Ram", "model": "1500", "yr": [2019, 2022], "color": ["Billet Silver", "#8f949a"], "shots": [["ram-1500/3.jpg", "Front 3/4"]] },
+    { "id": "ram-c",  "make": "Ram", "model": "1500", "yr": [2019, 2022], "color": ["Delmonico Red", "#7d2029"], "shots": [["ram-1500/4.jpg", "Front 3/4"]] },
+    { "id": "ram-d",  "make": "Ram", "model": "1500", "yr": [2019, 2022], "color": ["Bright White", "#eef0f2"], "shots": [["ram-1500/5.jpg", "Front 3/4"], ["ram-1500/6.jpg", "Rear 3/4"]] },
+
+    { "id": "sil-a",  "make": "Chevrolet", "model": "Silverado 1500", "yr": [2016, 2018], "color": ["Summit White", "#f2f3f4"], "shots": [["chevrolet-silverado-1500/1.jpg", "Front 3/4"]] },
+    { "id": "sil-b",  "make": "Chevrolet", "model": "Silverado 1500", "yr": [2016, 2018], "color": ["Silver Ice", "#b9bdc2"], "shots": [["chevrolet-silverado-1500/2.jpg", "Rear 3/4"]] },
+    { "id": "sil-c",  "make": "Chevrolet", "model": "Silverado 1500", "yr": [2016, 2018], "color": ["Black", "#1a1c20"], "shots": [["chevrolet-silverado-1500/3.jpg", "Front 3/4"], ["chevrolet-silverado-1500/4.jpg", "Rear 3/4"]] },
+    { "id": "sil-d",  "make": "Chevrolet", "model": "Silverado 1500", "yr": [2016, 2017], "color": ["Victory Red", "#8f1f22"], "shots": [["chevrolet-silverado-1500/5.jpg", "Front 3/4"]] },
+
+    { "id": "f150-a", "make": "Ford", "model": "F-150", "yr": [2017, 2019], "color": ["Oxford White", "#eef0f2"], "shots": [["ford-f-150/5.jpg", "Front 3/4"]] },
+    { "id": "gmc-a",  "make": "GMC", "model": "Sierra 1500", "yr": [2017, 2018], "color": ["Quicksilver", "#a7abb0"], "shots": [["gmc-sierra-1500/3.jpg", "Front 3/4"]] },
+    { "id": "tac-a",  "make": "Toyota", "model": "Tacoma", "yr": [2017, 2020], "color": ["Cement", "#8d8a80"], "shots": [["toyota-tacoma/4.jpg", "Front 3/4"]] },
+
+    { "id": "out-a",  "make": "Subaru", "model": "Outback", "yr": [2017, 2019], "color": ["Crystal White", "#eef0f2"], "shots": [["subaru-outback/2.jpg", "Front 3/4"], ["subaru-outback/1.jpg", "Rear 3/4"]] },
+    { "id": "out-b",  "make": "Subaru", "model": "Outback", "yr": [2017, 2019], "color": ["Ice Silver", "#b5bcc2"], "shots": [["subaru-outback/3.jpg", "Driver side"]] },
+    { "id": "out-c",  "make": "Subaru", "model": "Outback", "yr": [2017, 2019], "color": ["Magnetic Gray", "#4b5158"], "shots": [["subaru-outback/4.jpg", "Front 3/4"]] },
+
+    { "id": "for-a",  "make": "Subaru", "model": "Forester", "yr": [2017, 2018], "color": ["Jasper Green", "#97a08a"], "shots": [["subaru-forester/1.jpg", "Front 3/4"], ["subaru-forester/2.jpg", "Rear 3/4"]] },
+    { "id": "for-b",  "make": "Subaru", "model": "Forester", "yr": [2019, 2022], "color": ["Ice Silver", "#b5bcc2"], "shots": [["subaru-forester/6.jpg", "Front 3/4"]] },
+
+    { "id": "cro-a",  "make": "Subaru", "model": "Crosstrek", "yr": [2018, 2021], "color": ["Ice Silver", "#b8bfc0"], "shots": [["subaru-crosstrek/2.jpg", "Front 3/4"], ["subaru-crosstrek/1.jpg", "Driver side"], ["subaru-crosstrek/3.jpg", "Rear 3/4"]] },
+    { "id": "cro-b",  "make": "Subaru", "model": "Crosstrek", "yr": [2018, 2021], "color": ["Magnetite Gray", "#4a5058"], "shots": [["subaru-crosstrek/5.jpg", "Front 3/4"]] },
+
+    { "id": "crv-a",  "make": "Honda", "model": "CR-V", "yr": [2017, 2020], "color": ["Platinum White", "#eef0f2"], "shots": [["honda-cr-v/4.jpg", "Front 3/4"]] },
+    { "id": "crv-b",  "make": "Honda", "model": "CR-V", "yr": [2017, 2020], "color": ["Modern Steel", "#6a6f75"], "shots": [["honda-cr-v/5.jpg", "Driver side"]] },
+    { "id": "crv-c",  "make": "Honda", "model": "CR-V", "yr": [2017, 2020], "color": ["Crystal Black", "#141519"], "shots": [["honda-cr-v/6.jpg", "Front 3/4"]] },
+
+    { "id": "pil-a",  "make": "Honda", "model": "Pilot", "yr": [2016, 2018], "color": ["White Diamond", "#e9eaec"], "shots": [["honda-pilot/2.jpg", "Driver side"]] },
+    { "id": "pil-b",  "make": "Honda", "model": "Pilot", "yr": [2016, 2018], "color": ["White Diamond", "#eef0f2"], "shots": [["honda-pilot/5.jpg", "Front 3/4"]] },
+    { "id": "pil-c",  "make": "Honda", "model": "Pilot", "yr": [2016, 2018], "color": ["Taffeta White", "#f0f1f2"], "shots": [["honda-pilot/6.jpg", "Driver side"]] },
+
+    { "id": "acc-a",  "make": "Honda", "model": "Accord", "yr": [2018, 2021], "color": ["Radiant Red", "#8c2a1c"], "shots": [["honda-accord/1.jpg", "Front 3/4"], ["honda-accord/5.jpg", "Front detail"], ["honda-accord/2.jpg", "Rear 3/4"], ["honda-accord/6.jpg", "Driver side"]] },
+
+    { "id": "jgc-a",  "make": "Jeep", "model": "Grand Cherokee", "yr": [2016, 2019], "color": ["Diamond Black", "#141519"], "shots": [["jeep-grand-cherokee/5.jpg", "Front 3/4"]] },
+    { "id": "tel-a",  "make": "Kia", "model": "Telluride", "yr": [2020, 2022], "color": ["Snow White Pearl", "#f0f1f2"], "shots": [["kia-telluride/3.jpg", "Rear 3/4"]] },
+    { "id": "rav-a",  "make": "Toyota", "model": "RAV4", "yr": [2018, 2018], "color": ["Ruby Flare Pearl", "#5e1f24"], "shots": [["toyota-rav4/2.jpg", "Front 3/4"]] },
+    { "id": "cam-a",  "make": "Toyota", "model": "Camry", "yr": [2018, 2020], "color": ["Midnight Black", "#16181c"], "shots": [["toyota-camry/6.jpg", "Front 3/4"]] }
+  ]
+}

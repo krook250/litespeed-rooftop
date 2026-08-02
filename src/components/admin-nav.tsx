@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from './ui';
 
-const LINKS = [
-  { href: '/admin', label: 'Dashboard', exact: true },
+const LINKS: { href: string; label: string; exact?: boolean; match?: string }[] = [
+  { href: '/admin/feed', label: 'Lot Walk' },
+  { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/admin/inventory?view=at-risk', label: 'At-risk list', match: 'at-risk' },
   { href: '/admin/syndication', label: 'Syndication' },

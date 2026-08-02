@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import {
   getChannels,
   getOverrides,
+  sessionScope,
   getStorefrontBySlug,
   getStorefronts,
   getVehicleByStock,
@@ -38,7 +39,9 @@ export default async function MockListingPage({ params }: Params) {
   const vehicle = await getVehicleByStock(stock.toUpperCase());
   if (!vehicle) notFound();
 
-  const override = (await getOverrides(vehicle.id)).find((o) => o.channelId === channel.id) ?? null;
+  const override =
+    (await getOverrides(await sessionScope(), vehicle.id)).find((o) => o.channelId === channel.id) ??
+    null;
   const title = override?.titleOverride || vehicleTitle(vehicle);
   const description = override?.descriptionOverride || vehicle.description;
   const price = override?.priceOverride ?? activePrice(vehicle);
