@@ -24,7 +24,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 const cuid = () => text().$defaultFn(() => crypto.randomUUID());
 
@@ -79,10 +79,56 @@ export const homeViewEnum = pgEnum('home_view', ['FEED', 'DASHBOARD']);
 export const feedEventKindEnum = pgEnum('feed_event_kind', [
   'acquired', 'recon_in', 'recon_out', 'photos', 'front_line', 'price_change',
   'at_risk', 'aged', 'water', 'vdp_milestone', 'sync_error', 'sold', 'team', 'note',
+  /** Website/domain lifecycle: pointed, verifying, live, expiring, failed. */
+  'domain',
 ]);
 
 /** Two reactions, deliberately. 👍 acknowledges, 🔥 says "this one is hot." */
 export const feedReactionKindEnum = pgEnum('feed_reaction_kind', ['THUMB', 'FIRE']);
+
+/**
+ * Storefront layouts. Three shapes that differ by *sales posture*, not by mood —
+ * see `src/components/store/layouts/index.ts`. Adding a fourth is one file, one
+ * value here, and one migration; nothing in the route or the queries changes.
+ */
+export const storefrontLayoutEnum = pgEnum('storefront_layout', [
+  'CLASSIC',
+  'SHOWCASE',
+  'LOT_LIST',
+]);
+
+/**
+ * Where a storefront's custom domain came from. This is not cosmetic: a
+ * PURCHASED domain sits in our Vercel team and we hold the account of record,
+ * so the transfer-out path and the renewal exposure only apply to those.
+ */
+export const domainSourceEnum = pgEnum('domain_source', ['BYO', 'PURCHASED']);
+
+/**
+ * The live status a dealer watches on the domain screen. Ordered as the dealer
+ * experiences it. BLOCKED is ours, not Vercel's — it means we ran the
+ * pre-flight (CAA, registrar hold) and know the certificate cannot issue yet,
+ * which is the whole point of checking before we promise SSL.
+ */
+export const domainStatusEnum = pgEnum('domain_status', [
+  'NONE',
+  'BLOCKED',
+  'PENDING_DNS',
+  'VERIFYING',
+  'SSL_ISSUING',
+  'LIVE',
+  'ERROR',
+]);
+
+/** Lifecycle of a domain purchase through the Vercel Registrar API. */
+export const domainOrderStatusEnum = pgEnum('domain_order_status', [
+  'QUOTED',
+  'CONTACT_PENDING',
+  'PURCHASING',
+  'PURCHASED',
+  'FAILED',
+  'REJECTED_OVER_CAP',
+]);
 
 /* ---------------------------------------------------------------- tenancy */
 
@@ -109,16 +155,84 @@ export const rooftops = pgTable('rooftops', {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A DNS challenge Vercel wants satisfied before it will serve a domain. Only
+ * appears when the domain is already claimed on another Vercel account —
+ * failure mode #5 in `claude/domains-and-syndication.md`. Stored verbatim so
+ * the UI renders exactly what Vercel asked for rather than our guess at it.
+ */
+export type DomainChallenge = {
+  type: string;
+  domain: string;
+  value: string;
+  reason?: string;
+};
+
+/**
+ * ICANN registrant contact. **The dealer's details, not Litespeed's** — see §3
+ * of `claude/billing-and-domain-economics.md`. Registering a domain that
+ * contains a dealer's business name to Litespeed hands them a trademark/UDRP
+ * argument we have no reason to create, and `buy` requires a registrant either
+ * way. Retention is protected by the account of record, not this field.
+ */
+export type RegistrantContact = {
+  firstName: string;
+  lastName: string;
+  companyName?: string;
+  email: string;
+  phone: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+};
+
 export const storefronts = pgTable('storefronts', {
   id: cuid().primaryKey(),
   groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
   name: text().notNull(),
   slug: text().notNull().unique(),
-  domain: text(),
+
+  /**
+   * The dealer's custom domain, apex form and lowercase — `cascademotorswa.com`,
+   * never `www.` and never a scheme. Unique across every tenant, because two
+   * storefronts cannot answer on one hostname.
+   *
+   * Safe to resolve in the same lookup as `slug`: slugs never contain a dot and
+   * domains always do, so the two key spaces are disjoint by construction. That
+   * is what lets `proxy.ts` rewrite a host straight into `/s/[slug]` with no
+   * database call on the request path.
+   */
+  domain: text().unique(),
+  domainSource: domainSourceEnum(),
+  domainStatus: domainStatusEnum().notNull().default('NONE'),
+  /**
+   * Verification challenges Vercel handed back from the domain-add call, stored
+   * verbatim. Only populated when the domain was already claimed on another
+   * Vercel account — failure mode #5.
+   */
+  domainVerification: jsonb().$type<DomainChallenge[]>().notNull().default([]),
+  /** Last thing that went wrong, shown to the dealer rather than swallowed. */
+  domainError: text(),
+  domainAddedAt: timestamp({ withTimezone: true }),
+  domainVerifiedAt: timestamp({ withTimezone: true }),
+  domainCheckedAt: timestamp({ withTimezone: true }),
+
   tagline: text(),
   phone: text().notNull(),
   addressLine: text(),
   hoursNote: text(),
+
+  layout: storefrontLayoutEnum().notNull().default('CLASSIC'),
+  /**
+   * Content-addressed key into `blobs`. Not a URL: the storage implementation is
+   * swappable (Postgres today, R2 when roadmap item 3 lands) and a stored URL
+   * would outlive the backend that minted it.
+   */
+  logoKey: text(),
+
   brandColor: text().notNull().default('#1d4ed8'),
   accentColor: text().notNull().default('#f97316'),
   isActive: boolean().notNull().default(true),
@@ -544,6 +658,74 @@ export const feedComments = pgTable(
 
 /* -------------------------------------------------------------- relations */
 
+/* ------------------------------------------------------------------ blobs */
+
+/**
+ * Small binary assets, content-addressed by sha256.
+ *
+ * This is deliberately the *smallest* thing that works, not the photo pipeline.
+ * Roadmap item 3 (R2 + CDN + hardened sharp) is a vehicle-photo problem: 30
+ * images per unit, variant generation, untrusted input at volume. A dealer logo
+ * is one small image, uploaded once, changed almost never — it exercises none
+ * of that. Building R2 to hold it would pay item 3's cost without its benefit.
+ *
+ * Everything above this table goes through `src/lib/storage.ts`, so swapping the
+ * implementation to R2 later is a migration script, not a refactor.
+ */
+export const blobs = pgTable('blobs', {
+  /** sha256 of the bytes. Dedupes uploads and makes the URL immutable. */
+  key: text().primaryKey(),
+  groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+  contentType: text().notNull(),
+  bytes: integer().notNull(),
+  width: integer(),
+  height: integer(),
+  data: text().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+/* ---------------------------------------------------------- domain orders */
+
+/**
+ * One row per domain purchase attempt through the Vercel Registrar API.
+ *
+ * Written *before* the `buy` call and updated after, so a purchase that fails
+ * halfway still leaves a record. `renewalPrice` is stored at purchase time on
+ * purpose: a $9 first year that renews at $40 is the real exposure, and year two
+ * should be a decision rather than a surprise on the statement.
+ */
+export const domainOrders = pgTable(
+  'domain_orders',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    storefrontId: text().notNull().references(() => storefronts.id, { onDelete: 'cascade' }),
+    domain: text().notNull(),
+    status: domainOrderStatusEnum().notNull().default('QUOTED'),
+    /** Whole dollars, both years. Quoted server-side and re-checked before buy. */
+    priceUsd: integer().notNull(),
+    renewalPriceUsd: integer(),
+    years: integer().notNull().default(1),
+    autoRenew: boolean().notNull().default(true),
+    /** The cap in force when this order was written, for the audit trail. */
+    capUsd: integer().notNull(),
+    /** ICANN registrant — the dealer, from day one. */
+    registrant: jsonb().$type<RegistrantContact>(),
+    vercelOrderId: text(),
+    error: text(),
+    /** Who clicked buy. Domains spend real money; this is not anonymous. */
+    orderedBy: text().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index('domain_orders_group_created_idx').on(t.groupId, t.createdAt),
+    uniqueIndex('domain_orders_storefront_active_uq')
+      .on(t.storefrontId)
+      .where(sql`status in ('QUOTED','CONTACT_PENDING','PURCHASING','PURCHASED')`),
+  ],
+);
+
 export const dealerGroupsRelations = relations(dealerGroups, ({ many }) => ({
   rooftops: many(rooftops),
   storefronts: many(storefronts),
@@ -668,3 +850,9 @@ export type FeedReaction = typeof feedReactions.$inferSelect;
 export type FeedEventKind = (typeof feedEventKindEnum.enumValues)[number];
 export type FeedReactionKind = (typeof feedReactionKindEnum.enumValues)[number];
 export type HomeView = (typeof homeViewEnum.enumValues)[number];
+export type StorefrontLayout = (typeof storefrontLayoutEnum.enumValues)[number];
+export type DomainStatus = (typeof domainStatusEnum.enumValues)[number];
+export type DomainSource = (typeof domainSourceEnum.enumValues)[number];
+export type DomainOrder = typeof domainOrders.$inferSelect;
+export type DomainOrderStatus = (typeof domainOrderStatusEnum.enumValues)[number];
+export type Blob = typeof blobs.$inferSelect;

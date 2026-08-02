@@ -30,6 +30,7 @@ const KIND: Record<FeedEventKind, { icon: string; label: string; accent: string 
   sold:          { icon: '🔔', label: 'Sold',           accent: 'bg-emerald-50 text-emerald-700' },
   team:          { icon: '👋', label: 'Team',           accent: 'bg-violet-50 text-violet-700' },
   note:          { icon: '📣', label: 'Note',           accent: 'bg-ink-100 text-ink-700' },
+  domain:        { icon: '🌐', label: 'Website',        accent: 'bg-blue-50 text-blue-700' },
 };
 
 export function FeedPost({ card, me }: { card: FeedCard; me: string }) {

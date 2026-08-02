@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
@@ -89,11 +89,27 @@ export async function getStorefronts() {
     .orderBy(asc(t.storefronts.name));
 }
 
-export async function getStorefrontBySlug(slug: string) {
+/**
+ * Resolve a storefront by **either** its slug or its custom domain.
+ *
+ * One lookup handles both because the two key spaces are disjoint by
+ * construction: a slug never contains a dot, a domain always does. That is what
+ * lets `proxy.ts` rewrite an incoming host straight into `/s/[slug]` without a
+ * database call on the request path — the host arrives here as the key and
+ * matches on `domain`.
+ *
+ * `storefronts.domain` is unique, so at most one storefront can ever answer for
+ * a given hostname.
+ *
+ * Deliberately unscoped: the storefront is public and has no session. It
+ * resolves its own rooftops from the key and hands them to `publicScope()`.
+ */
+export async function getStorefrontByKey(key: string) {
+  const needle = key.trim().toLowerCase().replace(/^www\./, '');
   const rows = await db
     .select()
     .from(t.storefronts)
-    .where(eq(t.storefronts.slug, slug))
+    .where(or(eq(t.storefronts.slug, needle), eq(t.storefronts.domain, needle)))
     .limit(1);
   const sf = rows[0];
   if (!sf) return null;
@@ -106,6 +122,26 @@ export async function getStorefrontBySlug(slug: string) {
     ? await db.select().from(t.rooftops).where(inArray(t.rooftops.id, rooftopIds))
     : [];
   return { ...sf, rooftopIds, rooftops: tops };
+}
+
+/** Kept as the name every existing caller already uses. */
+export const getStorefrontBySlug = getStorefrontByKey;
+
+/**
+ * Where this storefront's own links should point.
+ *
+ * On a dealer's custom domain the storefront is the whole site, so links are
+ * root-relative and `/s/` never appears in the address bar. On the shared app
+ * host it stays under `/s/<slug>`. Passing the request host in keeps this a pure
+ * function — the caller reads `headers()`, which only server components may do.
+ */
+export function storefrontBasePath(
+  sf: { slug: string; domain: string | null },
+  host: string | null,
+): string {
+  if (!sf.domain || !host) return `/s/${sf.slug}`;
+  const bare = host.split(':')[0]!.toLowerCase().replace(/^www\./, '');
+  return bare === sf.domain ? '' : `/s/${sf.slug}`;
 }
 
 /** Live inventory with photos. Sold units never come back from here. */

@@ -35,7 +35,7 @@ const FILTERS: { key: string; label: string; kinds?: FeedEventKind[] }[] = [
   { key: 'all', label: 'Everything' },
   { key: 'money', label: 'Money', kinds: ['sold', 'price_change', 'water', 'aged', 'at_risk'] },
   { key: 'lot', label: 'The lot', kinds: ['acquired', 'recon_in', 'recon_out', 'photos', 'front_line'] },
-  { key: 'channels', label: 'Channels', kinds: ['sync_error', 'vdp_milestone'] },
+  { key: 'channels', label: 'Channels', kinds: ['sync_error', 'vdp_milestone', 'domain'] },
   { key: 'people', label: 'People', kinds: ['team', 'note'] },
 ];
 

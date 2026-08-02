@@ -163,6 +163,56 @@ export async function getPriceHistory(scope: Scope, vehicleId: string) {
   return rows.map((r) => r.price_changes);
 }
 
+/**
+ * The storefront, if this scope owns it.
+ *
+ * Storefronts are keyed by **group**, not by rooftop, so the check goes through
+ * the rooftops the scope proved: a storefront is in scope when its `groupId` is
+ * the group that owns those rooftops. Doing it as one subquery rather than
+ * `requireGroupId()` again keeps the guarantee identical to every other helper
+ * here — the caller cannot pass a group id it did not prove.
+ *
+ * Deliberately not routed through `storefront_rooftops`: a storefront with no
+ * rooftops linked yet is still the dealer's, and must stay manageable.
+ */
+export async function assertStorefrontInScope(scope: Scope, storefrontId: string) {
+  if (!scope.rooftopIds.length) return null;
+  const rows = await db
+    .select()
+    .from(t.storefronts)
+    .where(
+      and(
+        eq(t.storefronts.id, storefrontId),
+        inArray(
+          t.storefronts.groupId,
+          db
+            .selectDistinct({ groupId: t.rooftops.groupId })
+            .from(t.rooftops)
+            .where(inArray(t.rooftops.id, scope.rooftopIds)),
+        ),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Every storefront this scope owns. Same group check as above. */
+export async function storefrontsInScope(scope: Scope) {
+  if (!scope.rooftopIds.length) return [];
+  return db
+    .select()
+    .from(t.storefronts)
+    .where(
+      inArray(
+        t.storefronts.groupId,
+        db
+          .selectDistinct({ groupId: t.rooftops.groupId })
+          .from(t.rooftops)
+          .where(inArray(t.rooftops.id, scope.rooftopIds)),
+      ),
+    );
+}
+
 /** One feed event, if the caller's scope owns the rooftop it was posted to. */
 export async function assertFeedEventInScope(scope: Scope, eventId: string) {
   if (!scope.rooftopIds.length) return null;

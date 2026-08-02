@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { getStorefrontBySlug } from '@/lib/queries';
+import { getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -9,7 +10,7 @@ const telHref = (phone: string) => `tel:+1${phone.replace(/\D/g, '')}`;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
-  const sf = await getStorefrontBySlug(slug);
+  const sf = await getStorefrontByKey(slug);
   if (!sf) return { title: 'Inventory' };
   return {
     title: { default: `${sf.name} — Used Cars, Trucks & SUVs`, template: `%s · ${sf.name}` },
@@ -22,13 +23,28 @@ export default async function StorefrontLayout({
   params,
 }: Params & { children: React.ReactNode }) {
   const { slug } = await params;
-  const sf = await getStorefrontBySlug(slug);
+  const sf = await getStorefrontByKey(slug);
   if (!sf) notFound();
 
+  /*
+   * On the dealer's own domain the storefront is the whole site, so links drop
+   * the `/s/<slug>` prefix and the address bar never shows our routing.
+   */
+  const host = (await headers()).get('host');
+  const base = storefrontBasePath(sf, host);
+  const homeHref = base || '/';
+
+  /*
+   * Brand and accent are set once here as CSS custom properties. Every layout
+   * and every primitive reads `var(--brand)` / `var(--accent)`, so no component
+   * ever takes a colour prop and a fourth layout inherits theming for free.
+   */
   const brandVars = {
     '--brand': sf.brandColor,
     '--accent': sf.accentColor,
   } as React.CSSProperties;
+
+  const logoUrl = sf.logoKey ? `/api/logo/${sf.logoKey}` : null;
 
   return (
     <div style={brandVars} className="flex min-h-screen flex-col bg-white">
@@ -36,13 +52,23 @@ export default async function StorefrontLayout({
 
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-          <Link href={`/s/${sf.slug}`} className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-black text-white"
-              style={{ background: 'var(--brand)' }}
-            >
-              {sf.name.replace(/[^A-Za-z ]/g, '').split(' ').slice(0, 2).map((w) => w[0]).join('')}
-            </span>
+          <Link href={homeHref} className="flex min-w-0 items-center gap-3">
+            {logoUrl ? (
+              /* Fixed height, auto width: a dealer's logo is whatever aspect
+                 ratio their sign shop gave them, and squashing it looks cheap. */
+              <img
+                src={logoUrl}
+                alt={sf.name}
+                className="h-9 w-auto max-w-[180px] shrink-0 object-contain"
+              />
+            ) : (
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-black text-white"
+                style={{ background: 'var(--brand)' }}
+              >
+                {sf.name.replace(/[^A-Za-z ]/g, '').split(' ').slice(0, 2).map((w) => w[0]).join('')}
+              </span>
+            )}
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-semibold leading-tight text-ink-900">
                 {sf.name}
@@ -55,7 +81,7 @@ export default async function StorefrontLayout({
 
           <nav className="ml-auto flex items-center gap-4">
             <Link
-              href={`/s/${sf.slug}`}
+              href={homeHref}
               className="hidden text-sm font-medium text-ink-700 hover:text-[var(--brand)] sm:block"
             >
               Inventory

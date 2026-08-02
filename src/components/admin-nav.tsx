@@ -10,6 +10,7 @@ const LINKS: { href: string; label: string; exact?: boolean; match?: string }[] 
   { href: '/admin/inventory', label: 'Inventory' },
   { href: '/admin/inventory?view=at-risk', label: 'At-risk list', match: 'at-risk' },
   { href: '/admin/syndication', label: 'Syndication' },
+  { href: '/admin/website', label: 'Website' },
   { href: '/admin/reporting', label: 'Reporting' },
 ];
 
