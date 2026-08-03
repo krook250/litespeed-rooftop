@@ -11,7 +11,7 @@
 import { useActionState, useState, useTransition } from 'react';
 import type { Instructions, Step, Message } from '@/lib/domains/instructions';
 import type { QuoteResult } from '@/lib/domains/vercel';
-import type { DomainStatus, StorefrontLayout } from '@/db/schema';
+import type { DomainStatus } from '@/db/schema';
 import { cn, Button } from '@/components/ui';
 import {
   attachDomain,
@@ -19,7 +19,6 @@ import {
   previewDomain,
   purchaseDomain,
   refreshDomainStatus,
-  saveStorefrontDesign,
   searchDomain,
 } from '@/lib/domains/actions';
 
@@ -350,128 +349,11 @@ export function BuyDomainPanel({
   );
 }
 
-/* ------------------------------------------------------------- design */
-
-export function DesignPanel({
-  storefrontId, layout, brandColor, accentColor, logoUrl, layouts,
-}: {
-  storefrontId: string;
-  layout: StorefrontLayout;
-  brandColor: string;
-  accentColor: string;
-  logoUrl: string | null;
-  layouts: { id: string; name: string; blurb: string; bestFor: string }[];
-}) {
-  const [state, action, saving] = useActionState(saveStorefrontDesign, null);
-  const [picked, setPicked] = useState<string>(layout);
-  const [brand, setBrand] = useState(brandColor);
-  const [accent, setAccent] = useState(accentColor);
-
-  return (
-    <form action={action} className="space-y-5">
-      <input type="hidden" name="storefrontId" value={storefrontId} />
-
-      <div>
-        <p className="text-sm font-semibold text-ink-900">Layout</p>
-        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {layouts.map((l) => (
-            <label
-              key={l.id}
-              className={cn(
-                'cursor-pointer rounded-xl border-2 p-3 transition',
-                picked === l.id ? 'border-[var(--pick)] bg-ink-50' : 'border-ink-200 hover:border-ink-300',
-              )}
-              style={{ ['--pick' as string]: brand }}
-            >
-              <input
-                type="radio" name="layout" value={l.id} className="sr-only"
-                checked={picked === l.id} onChange={() => setPicked(l.id)}
-              />
-              <LayoutThumb id={l.id} brand={brand} accent={accent} />
-              <p className="mt-2 text-sm font-semibold text-ink-900">{l.name}</p>
-              <p className="mt-0.5 text-xs text-ink-600">{l.blurb}</p>
-              <p className="mt-1 text-[11px] italic text-ink-500">{l.bestFor}</p>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label>
-          <span className="mb-1 block text-sm font-medium text-ink-800">Brand colour</span>
-          <div className="flex items-center gap-2">
-            <input type="color" value={brand} onChange={(e) => setBrand(e.target.value)}
-                   className="h-9 w-12 cursor-pointer rounded border border-ink-300" />
-            <input name="brandColor" value={brand} onChange={(e) => setBrand(e.target.value)}
-                   className="w-32 rounded-md border border-ink-300 px-2 py-1.5 font-mono text-sm" />
-          </div>
-        </label>
-        <label>
-          <span className="mb-1 block text-sm font-medium text-ink-800">Accent colour</span>
-          <div className="flex items-center gap-2">
-            <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)}
-                   className="h-9 w-12 cursor-pointer rounded border border-ink-300" />
-            <input name="accentColor" value={accent} onChange={(e) => setAccent(e.target.value)}
-                   className="w-32 rounded-md border border-ink-300 px-2 py-1.5 font-mono text-sm" />
-          </div>
-        </label>
-      </div>
-
-      <div>
-        <p className="text-sm font-medium text-ink-800">Logo</p>
-        <div className="mt-2 flex flex-wrap items-center gap-4">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Current logo" className="h-10 w-auto max-w-[160px] object-contain" />
-          ) : (
-            <span className="text-sm text-ink-500">None yet — we show your initials instead.</span>
-          )}
-          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" className="text-sm" />
-          {logoUrl ? (
-            <label className="flex items-center gap-1.5 text-sm text-ink-600">
-              <input type="checkbox" name="removeLogo" /> Remove
-            </label>
-          ) : null}
-        </div>
-        <p className="mt-1 text-xs text-ink-500">
-          PNG, JPEG or WebP, under 512KB. A transparent PNG looks best. We can&apos;t accept SVG — an SVG
-          can carry scripts, and it would be running on your own website.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save design'}</Button>
-        {state?.ok ? <span className="text-sm text-emerald-700">{state.message}</span> : null}
-        {state && !state.ok ? <span className="text-sm text-red-700">{state.error}</span> : null}
-      </div>
-    </form>
-  );
-}
-
-/** A tiny wireframe so the dealer sees the shape, not just the name. */
-function LayoutThumb({ id, brand, accent }: { id: string; brand: string; accent: string }) {
-  return (
-    <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-ink-200 bg-white p-1.5">
-      <div className="mb-1 h-1.5 w-full rounded-sm" style={{ background: brand }} />
-      {id === 'CLASSIC' ? (
-        <div className="flex h-[calc(100%-10px)] gap-1">
-          <div className="w-1/4 rounded-sm bg-ink-100" />
-          <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-1">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="rounded-sm bg-ink-200" />)}
-          </div>
-        </div>
-      ) : id === 'SHOWCASE' ? (
-        <div className="flex h-[calc(100%-10px)] flex-col gap-1">
-          <div className="h-1/2 rounded-sm" style={{ background: accent, opacity: 0.35 }} />
-          <div className="grid flex-1 grid-cols-2 gap-1">
-            {Array.from({ length: 2 }).map((_, i) => <div key={i} className="rounded-sm bg-ink-200" />)}
-          </div>
-        </div>
-      ) : (
-        <div className="flex h-[calc(100%-10px)] flex-col gap-1">
-          <div className="h-2 rounded-sm" style={{ background: brand, opacity: 0.5 }} />
-          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-2 rounded-sm bg-ink-200" />)}
-        </div>
-      )}
-    </div>
-  );
-}
+/*
+ * The Design panel moved to `src/components/website/design-card.tsx`.
+ *
+ * It stopped being a panel: logo, colours and layout are now a sequence with a
+ * logo importer and a live preview behind them, which is more code than the rest
+ * of this file put together and shares nothing with the domain work. What is left
+ * here is the domain screen, which is what this file was always about.
+ */

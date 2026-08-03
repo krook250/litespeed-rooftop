@@ -37,7 +37,6 @@ import {
   type QuoteResult,
 } from './vercel';
 import { emitDomainBlocked, emitDomainLive, emitDomainPointed, emitDomainPurchased } from './feed';
-import { MAX_LOGO_BYTES, put, sniffImage } from '@/lib/storage';
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -466,46 +465,9 @@ export async function purchaseDomain(_prev: unknown, formData: FormData): Promis
   return { ok: true, message: `${quote.domain} is yours. It'll be live in a few minutes.` };
 }
 
-/* ------------------------------------------------- 3. layout and branding */
-
-export async function saveStorefrontDesign(_prev: unknown, formData: FormData): Promise<ActionResult> {
-  const storefrontId = String(formData.get('storefrontId') ?? '');
-  const scope = await sessionScope();
-  const sf = await assertStorefrontInScope(scope, storefrontId);
-  if (!sf) return { ok: false, error: 'Storefront not found.' };
-
-  const groupId = await requireGroupId();
-  const layout = String(formData.get('layout') ?? sf.layout);
-  const brandColor = String(formData.get('brandColor') ?? sf.brandColor);
-  const accentColor = String(formData.get('accentColor') ?? sf.accentColor);
-
-  const isHex = (v: string) => /^#[0-9a-fA-F]{6}$/.test(v);
-  if (!isHex(brandColor) || !isHex(accentColor)) {
-    return { ok: false, error: 'Colours must be six-digit hex values like #1d4ed8.' };
-  }
-  if (!(['CLASSIC', 'SHOWCASE', 'LOT_LIST'] as const).includes(layout as 'CLASSIC')) {
-    return { ok: false, error: 'Unknown layout.' };
-  }
-
-  let logoKey = sf.logoKey;
-  const file = formData.get('logo');
-  if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_LOGO_BYTES) {
-      return { ok: false, error: `That image is ${Math.round(file.size / 1024)}KB. Keep it under ${Math.round(MAX_LOGO_BYTES / 1024)}KB.` };
-    }
-    const buf = Buffer.from(await file.arrayBuffer());
-    const sniff = sniffImage(buf);
-    if (!sniff.ok) return { ok: false, error: sniff.error };
-    logoKey = await put(groupId, buf, sniff.contentType, { width: sniff.width, height: sniff.height });
-  }
-  if (formData.get('removeLogo') === 'on') logoKey = null;
-
-  await db
-    .update(t.storefronts)
-    .set({ layout: layout as typeof sf.layout, brandColor, accentColor, logoKey })
-    .where(eq(t.storefronts.id, storefrontId));
-
-  revalidatePath('/admin/website');
-  revalidatePath(`/s/${sf.slug}`);
-  return { ok: true, message: 'Saved.' };
-}
+/*
+ * Layout and branding used to live here. It moved to `src/lib/branding/actions.ts`
+ * when the Design card grew a logo-import step: branding is now its own subsystem
+ * (scan a website, sniff an image, suggest a palette) and only shared this file
+ * because both surfaced on one screen.
+ */

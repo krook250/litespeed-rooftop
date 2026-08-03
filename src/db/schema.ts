@@ -272,8 +272,17 @@ export const storefronts = pgTable('storefronts', {
    */
   logoKey: text(),
 
-  brandColor: text().notNull().default('#1d4ed8'),
-  accentColor: text().notNull().default('#f97316'),
+  /**
+   * Rooftop Auto's own blue and amber, as the default a new storefront starts on.
+   *
+   * Deliberately the brand rather than a neutral grey: a dealer who skips the
+   * colour step gets a website that looks finished, and the Design card can then
+   * treat "still on these two" as "never chose" without a nullable column. Keep
+   * these in step with `ROOFTOP_BRAND` / `ROOFTOP_ACCENT` in
+   * `src/lib/branding/palette.ts` — that is what the admin screen compares against.
+   */
+  brandColor: text().notNull().default('#3d8bff'),
+  accentColor: text().notNull().default('#ffb020'),
   isActive: boolean().notNull().default(true),
 });
 
@@ -971,3 +980,141 @@ export type DomainSource = (typeof domainSourceEnum.enumValues)[number];
 export type DomainOrder = typeof domainOrders.$inferSelect;
 export type DomainOrderStatus = (typeof domainOrderStatusEnum.enumValues)[number];
 export type Blob = typeof blobs.$inferSelect;
+
+/* ------------------------------------------------------------ meta ad desk */
+
+/**
+ * Meta connection health.
+ *
+ * NEEDS_REAUTH is distinct from ERROR on purpose. A system-user token does not
+ * expire, but the dealer can revoke it from their own Business settings at any
+ * time — and per Meta's Developer Policy we are required to let them. That is a
+ * normal, expected end state, not a fault, and the dealer-facing copy differs:
+ * "reconnect Facebook" versus "something broke, we're looking at it".
+ */
+export const metaConnectionStatusEnum = pgEnum('meta_connection_status', [
+  'CONNECTED', 'NEEDS_REAUTH', 'DISCONNECTED', 'ERROR',
+]);
+
+/**
+ * Which token shape the dealer ended up with.
+ *
+ * SYSTEM_USER is the one we want: a Business Integration System User created
+ * inside the *dealer's* portfolio, scoped to the assets they ticked, and
+ * non-expiring — so a salesperson leaving the dealership does not break the
+ * integration, which is the failure mode that kills most agency setups.
+ *
+ * USER is the fallback for a dealer whose Page and ad account are not owned by
+ * the same business, or who has no business admin available. Meta's own
+ * guidance names this case. It costs a 60-day expiry and a re-auth prompt, and
+ * a lot whose Page was set up by someone who left in 2019 will land here more
+ * often than the happy path suggests.
+ */
+export const metaTokenKindEnum = pgEnum('meta_token_kind', ['SYSTEM_USER', 'USER']);
+
+/**
+ * Where the vehicles catalog came from.
+ *
+ * ADOPTED means the dealer already had one and we attached to it. CREATED means
+ * we made it. The distinction matters on disconnect: we delete nothing either
+ * way, but a catalog we created is one we can explain, and a catalog we adopted
+ * may be carrying somebody else's feed.
+ */
+export const metaCatalogSourceEnum = pgEnum('meta_catalog_source', ['ADOPTED', 'CREATED']);
+
+/**
+ * One row per dealer group: the Meta business portfolio and the token we hold
+ * against it.
+ *
+ * KEYED BY GROUP, NOT ROOFTOP, because a Business Manager is a company-level
+ * object — a two-lot dealer logs in once. The per-lot assets (Page, ad account,
+ * catalog, feed) hang off `metaRooftopAssets`, which is the level Meta itself
+ * works at: "a single auto feed to represent all vehicles, or multiple auto
+ * feeds where each feed represents a single dealership."
+ *
+ * THE CATALOG IS OWNED BY THE DEALER'S BUSINESS, NOT OURS. See
+ * `claude/meta-ad-desk-build.md` §2. We hold access; they hold title. A dealer
+ * who leaves keeps their catalog, pixel history and audiences, and needs no
+ * approval from us to do it — which is precisely the hostage dynamic they
+ * already resent about their incumbent vendors.
+ */
+export const metaConnections = pgTable('meta_connections', {
+  id: cuid().primaryKey(),
+  groupId: text().notNull().unique().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+
+  /** The dealer's Meta business portfolio id, from `GET /me?fields=client_business_id`. */
+  businessId: text().notNull(),
+  businessName: text().notNull().default(''),
+  /** The BISU Meta created inside the dealer's portfolio. Null on the USER fallback. */
+  systemUserId: text(),
+
+  /**
+   * AES-256-GCM ciphertext, never the raw token — see `src/lib/meta/tokens.ts`.
+   * A system-user token does not expire, so a database leak is *permanent*
+   * access to a dealer's ad account and ad spend. That asymmetry is why this
+   * column is encrypted when `users.password` hashing would have been enough
+   * for a credential we could simply reset.
+   */
+  accessTokenCipher: text().notNull(),
+  tokenKind: metaTokenKindEnum().notNull().default('SYSTEM_USER'),
+  /** Null for SYSTEM_USER (non-expiring). Set for the USER fallback. */
+  tokenExpiresAt: timestamp({ withTimezone: true }),
+
+  /** What Meta actually granted, which is not always what we asked for. */
+  grantedScopes: jsonb().$type<string[]>().notNull().default([]),
+
+  status: metaConnectionStatusEnum().notNull().default('CONNECTED'),
+  errorMessage: text(),
+
+  connectedByUserId: text().references(() => users.id, { onDelete: 'set null' }),
+  connectedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  lastCheckedAt: timestamp({ withTimezone: true }),
+});
+
+/**
+ * Per-lot Meta assets: the Page the ads run from, the ad account that pays, the
+ * vehicles catalog, its scheduled feed, and the pixel.
+ *
+ * All nullable, and that is the design rather than an oversight. A dealer can
+ * arrive with all five, none, or any subset, and the connect flow has to be a
+ * branch rather than a happy path — most independent lots have a Page and
+ * nothing else. Partial state is the normal state, and the UI reads these
+ * columns to decide what it still has to ask for.
+ */
+export const metaRooftopAssets = pgTable(
+  'meta_rooftop_assets',
+  {
+    id: cuid().primaryKey(),
+    connectionId: text().notNull().references(() => metaConnections.id, { onDelete: 'cascade' }),
+    rooftopId: text().notNull().unique().references(() => rooftops.id, { onDelete: 'cascade' }),
+
+    pageId: text(),
+    pageName: text(),
+
+    adAccountId: text(),
+    adAccountName: text(),
+
+    catalogId: text(),
+    catalogName: text(),
+    catalogSource: metaCatalogSourceEnum(),
+
+    /** `POST /{catalog_id}/product_feeds` — the daily full-replace feed. */
+    productFeedId: text(),
+    /**
+     * Random path segment for the public feed URL Meta fetches.
+     *
+     * Meta pulls the feed unauthenticated from a URL we hand it, and that feed
+     * carries the lot's entire inventory with prices. It is not secret data —
+     * it is on the storefront too — but it should not be *enumerable* by
+     * walking rooftop ids, which is what a predictable URL would allow.
+     */
+    feedSecret: text(),
+
+    pixelId: text(),
+
+    errorMessage: text(),
+    provisionedAt: timestamp({ withTimezone: true }),
+    lastFeedPushAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [index('meta_rooftop_assets_connection_idx').on(t.connectionId)],
+);

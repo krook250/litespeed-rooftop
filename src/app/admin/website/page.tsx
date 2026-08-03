@@ -17,10 +17,11 @@ import { buildInstructions } from '@/lib/domains/instructions';
 import {
   BringYourOwnPanel,
   BuyDomainPanel,
-  DesignPanel,
   DomainStatusPanel,
   InstructionsView,
 } from '@/components/website-panels';
+import { DesignCard } from '@/components/website/design-card';
+import { isDefaultPalette } from '@/lib/branding/palette';
 import { EmptyState } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,18 @@ export default async function WebsitePage() {
     connected && !live ? buildInstructions(await lookupDomain(sf.domain!), sf.domainVerification) : null;
 
   const previewUrl = live && sf.domain ? `https://${sf.domain}` : `/s/${sf.slug}`;
+
+  /*
+   * Has this dealer ever actually been through the design step?
+   *
+   * A logo is the honest tell — colours always hold *some* value, because the
+   * column has a default, so "not the default" is the only signal there and a
+   * dealer who genuinely wants Rooftop blue would be walked through setup for
+   * ever. With no logo and untouched colours, nothing on this storefront was
+   * chosen, so we run the guided version. Once either is set, they get the
+   * everything-at-once editor, which is what someone changing one colour wants.
+   */
+  const designConfigured = Boolean(sf.logoKey) || !isDefaultPalette(sf.brandColor, sf.accentColor);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-6 sm:px-6">
@@ -154,13 +167,15 @@ export default async function WebsitePage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">Design</h2>
         <div className="rounded-xl border border-ink-200 bg-white p-5">
-          <DesignPanel
+          <DesignCard
             storefrontId={sf.id}
+            dealerName={sf.name}
             layout={sf.layout}
             brandColor={sf.brandColor}
             accentColor={sf.accentColor}
             logoUrl={sf.logoKey ? `/api/logo/${sf.logoKey}` : null}
             layouts={LAYOUT_LIST}
+            configured={designConfigured}
           />
         </div>
       </section>

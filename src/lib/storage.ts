@@ -153,6 +153,24 @@ export async function get(key: string): Promise<StoredBlob | null> {
   };
 }
 
+/**
+ * Does this group own this key?
+ *
+ * Keys are unguessable sha256 prefixes, but unguessable is not an authorisation
+ * model. A key that leaked once — out of a log, a screenshot, a shared URL —
+ * would otherwise let one tenant mount another tenant's image on their own
+ * website. Anything that accepts a key from the client checks this first.
+ */
+export async function owns(groupId: string, key: string): Promise<boolean> {
+  if (!/^[a-f0-9]{32}$/.test(key)) return false;
+  const rows = await db
+    .select({ key: t.blobs.key })
+    .from(t.blobs)
+    .where(and(eq(t.blobs.key, key), eq(t.blobs.groupId, groupId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /** Scoped by group, so a stray key from another tenant cannot delete anything. */
 export async function del(groupId: string, key: string): Promise<void> {
   await db.delete(t.blobs).where(and(eq(t.blobs.key, key), eq(t.blobs.groupId, groupId)));
