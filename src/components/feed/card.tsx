@@ -31,6 +31,8 @@ const KIND: Record<FeedEventKind, { icon: string; label: string; accent: string 
   team:          { icon: '👋', label: 'Team',           accent: 'bg-violet-50 text-violet-700' },
   note:          { icon: '📣', label: 'Note',           accent: 'bg-ink-100 text-ink-700' },
   domain:        { icon: '🌐', label: 'Website',        accent: 'bg-blue-50 text-blue-700' },
+  transfer_out:  { icon: '🚛', label: 'Lot transfer',   accent: 'bg-violet-50 text-violet-700' },
+  transfer_in:   { icon: '📍', label: 'Arrived on lot', accent: 'bg-violet-50 text-violet-700' },
 };
 
 export function FeedPost({ card, me }: { card: FeedCard; me: string }) {

@@ -25,7 +25,7 @@
  * isolation test drives directly under plain tsx.
  */
 
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 
@@ -211,6 +211,114 @@ export async function storefrontsInScope(scope: Scope) {
           .where(inArray(t.rooftops.id, scope.rooftopIds)),
       ),
     );
+}
+
+/* ------------------------------------------------------------- transfers */
+
+/**
+ * The rooftop, if this scope owns it.
+ *
+ * This is the guard that makes a lot transfer safe. `startTransfer` takes a
+ * destination rooftop id straight off a form, and without this a crafted POST
+ * would hand another dealer's lot one of ours — or ours one of theirs. The
+ * check is the same shape as every other helper here: the id has to be inside
+ * the set the scope already proved.
+ */
+export async function assertRooftopInScope(scope: Scope, rooftopId: string) {
+  if (!scope.rooftopIds.includes(rooftopId)) return null;
+  const rows = await db
+    .select()
+    .from(t.rooftops)
+    .where(and(eq(t.rooftops.id, rooftopId), inArray(t.rooftops.id, scope.rooftopIds)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** In-flight: departed, not yet arrived, not called off. */
+const OPEN_TRANSFER = () =>
+  and(isNull(t.vehicleTransfers.arrivedAt), isNull(t.vehicleTransfers.cancelledAt));
+
+/**
+ * The open transfer for one unit, or null. Scoped through the **origin**
+ * rooftop, which is where the vehicle still lives while it is on the truck.
+ */
+export async function getOpenTransfer(scope: Scope, vehicleId: string) {
+  if (!scope.rooftopIds.length) return null;
+  const rows = await db
+    .select()
+    .from(t.vehicleTransfers)
+    .where(
+      and(
+        eq(t.vehicleTransfers.vehicleId, vehicleId),
+        OPEN_TRANSFER(),
+        inArray(t.vehicleTransfers.fromRooftopId, scope.rooftopIds),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Everything currently on a truck across this tenant, with the unit and both
+ * lot names attached. This is what the "Inbound" rail renders — the receiving
+ * lot needs to know a car is coming *before* it shows up, and a feed card at
+ * departure would be a third card for one move.
+ */
+export async function getOpenTransfers(scope: Scope) {
+  if (!scope.rooftopIds.length) return [];
+  const from = t.rooftops;
+  const rows = await db
+    .select({
+      transfer: t.vehicleTransfers,
+      vehicle: t.vehicles,
+      fromName: from.name,
+    })
+    .from(t.vehicleTransfers)
+    .innerJoin(t.vehicles, eq(t.vehicleTransfers.vehicleId, t.vehicles.id))
+    .innerJoin(from, eq(t.vehicleTransfers.fromRooftopId, from.id))
+    .where(and(OPEN_TRANSFER(), inArray(t.vehicleTransfers.fromRooftopId, scope.rooftopIds)))
+    .orderBy(asc(t.vehicleTransfers.departedAt));
+  return rows;
+}
+
+/** Every move this unit has made, newest first. Scoped like the rest. */
+export async function getTransferHistory(scope: Scope, vehicleId: string) {
+  if (!scope.rooftopIds.length) return [];
+  const rows = await db
+    .select()
+    .from(t.vehicleTransfers)
+    .innerJoin(t.vehicles, eq(t.vehicleTransfers.vehicleId, t.vehicles.id))
+    .where(
+      and(
+        eq(t.vehicleTransfers.vehicleId, vehicleId),
+        inArray(t.vehicles.rooftopId, scope.rooftopIds),
+      ),
+    )
+    .orderBy(desc(t.vehicleTransfers.departedAt));
+  return rows.map((r) => r.vehicle_transfers);
+}
+
+/**
+ * One transfer, if this scope owns both ends of it.
+ *
+ * Both ends, not either: a transfer only ever runs between two rooftops of the
+ * same group, so a row where only one side is ours is a row we should not be
+ * able to touch.
+ */
+export async function assertTransferInScope(scope: Scope, transferId: string) {
+  if (!scope.rooftopIds.length) return null;
+  const rows = await db
+    .select()
+    .from(t.vehicleTransfers)
+    .where(
+      and(
+        eq(t.vehicleTransfers.id, transferId),
+        inArray(t.vehicleTransfers.fromRooftopId, scope.rooftopIds),
+        inArray(t.vehicleTransfers.toRooftopId, scope.rooftopIds),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 /** One feed event, if the caller's scope owns the rooftop it was posted to. */

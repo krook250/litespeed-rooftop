@@ -4,8 +4,16 @@ import { Avatar, Composer } from '@/components/feed/bits';
 import { FeedPost } from '@/components/feed/card';
 import { HomePreference } from '@/components/feed/home-preference';
 import { requireSession } from '@/lib/auth';
-import { getGroup, getLiveInventory, getRooftops, getSalesSince, sessionScope } from '@/lib/queries';
+import {
+  getGroup,
+  getLiveInventory,
+  getOpenTransfers,
+  getRooftops,
+  getSalesSince,
+  sessionScope,
+} from '@/lib/queries';
 import { getFeed, sweepDerivedFeedEvents } from '@/lib/feed';
+import { markTransferArrived } from '@/lib/actions';
 import type { FeedEventKind } from '@/db/schema';
 import { db } from '@/db';
 import * as t from '@/db/schema';
@@ -14,6 +22,7 @@ import {
   daysInStock,
   isAtRisk,
   isWaterUnit,
+  relativeTime,
   shortRooftopName,
   shortTitle,
   totalCost,
@@ -34,7 +43,14 @@ export const dynamic = 'force-dynamic';
 const FILTERS: { key: string; label: string; kinds?: FeedEventKind[] }[] = [
   { key: 'all', label: 'Everything' },
   { key: 'money', label: 'Money', kinds: ['sold', 'price_change', 'water', 'aged', 'at_risk'] },
-  { key: 'lot', label: 'The lot', kinds: ['acquired', 'recon_in', 'recon_out', 'photos', 'front_line'] },
+  {
+    key: 'lot',
+    label: 'The lot',
+    kinds: [
+      'acquired', 'recon_in', 'recon_out', 'photos', 'front_line',
+      'transfer_out', 'transfer_in',
+    ],
+  },
   { key: 'channels', label: 'Channels', kinds: ['sync_error', 'vdp_milestone', 'domain'] },
   { key: 'people', label: 'People', kinds: ['team', 'note'] },
 ];
@@ -55,12 +71,13 @@ export default async function LotWalkPage({
   // does not duplicate a card. At scale this becomes roadmap item 6's worker.
   await sweepDerivedFeedEvents(scope.rooftopIds);
 
-  const [group, rooftops, inventory, sales, cards] = await Promise.all([
+  const [group, rooftops, inventory, sales, cards, inTransit] = await Promise.all([
     getGroup(),
     getRooftops(),
     getLiveInventory(),
     getSalesSince(30),
     getFeed({ rooftopIds: scope.rooftopIds, viewerId: me.id, limit: 40, kinds: filter.kinds }),
+    getOpenTransfers(scope),
   ]);
 
   const staff = await db
@@ -148,6 +165,44 @@ export default async function LotWalkPage({
 
         {/* ------------------------------------------------------- right rail */}
         <aside className="hidden space-y-4 lg:block">
+          {/*
+            On a truck right now. This is a rail and not a feed card on purpose:
+            one move is already two cards (left / arrived) and a third at
+            departure would be the activity theater section 2 warns about. But
+            the receiving lot needs to know a unit is coming *before* it shows
+            up, and this is where a porter finds out.
+          */}
+          {inTransit.length ? (
+            <Card>
+              <CardHeader
+                title="On the way"
+                subtitle="Left one lot, not yet marked arrived at the other."
+              />
+              <div className="divide-y divide-ink-100">
+                {inTransit.map(({ transfer, vehicle, fromName }) => (
+                  <div key={transfer.id} className="px-4 py-2.5">
+                    <Link href={`/admin/inventory/${vehicle.id}`} className="block hover:opacity-80">
+                      <div className="truncate text-xs font-bold text-ink-900">
+                        {shortTitle(vehicle)}
+                      </div>
+                      <div className="tnum truncate text-[11px] text-ink-500">
+                        STK {vehicle.stockNumber} · from{' '}
+                        {shortRooftopName(fromName, group.name)} ·{' '}
+                        {relativeTime(transfer.departedAt)}
+                      </div>
+                    </Link>
+                    <form action={markTransferArrived} className="mt-1.5">
+                      <input type="hidden" name="transferId" value={transfer.id} />
+                      <button className="rounded-md bg-ink-900 px-2 py-1 text-[11px] font-semibold text-white hover:bg-ink-800">
+                        Mark arrived
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader title="At-risk list" subtitle="30–45 days. The window where a price move still works." />
             {atRisk.length === 0 ? (

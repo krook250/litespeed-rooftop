@@ -81,6 +81,13 @@ export const feedEventKindEnum = pgEnum('feed_event_kind', [
   'at_risk', 'aged', 'water', 'vdp_milestone', 'sync_error', 'sold', 'team', 'note',
   /** Website/domain lifecycle: pointed, verifying, live, expiring, failed. */
   'domain',
+  /**
+   * A unit moving between two of the group's own lots. Two kinds rather than
+   * one because a transfer is the only event that belongs to **two** rooftops,
+   * and `feed_events.rooftopId` is single-valued: the departure posts to the
+   * origin, the arrival posts to the destination. See `vehicleTransfers`.
+   */
+  'transfer_out', 'transfer_in',
 ]);
 
 /** Two reactions, deliberately. 👍 acknowledges, 🔥 says "this one is hot." */
@@ -414,6 +421,62 @@ export const priceChanges = pgTable(
     changedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('price_changes_vehicle_idx').on(t.vehicleId, t.changedAt)],
+);
+
+/**
+ * A unit moving from one of the group's lots to another.
+ *
+ * Three decisions worth keeping:
+ *
+ * **The row is the in-transit state — there is no `IN_TRANSIT` vehicle status.**
+ * `vehicles.status` is the recon/merchandising workflow, and a unit can be
+ * front-line ready *and* on a truck at the same time. Overloading the enum
+ * would clobber the workflow state on departure and lose it on arrival. A unit
+ * is in transit exactly when it has a row here with no `arrivedAt` and no
+ * `cancelledAt`, which the partial unique index below allows at most one of.
+ *
+ * **`vehicles.rooftopId` moves on arrival, not on departure.** The car stays on
+ * the origin lot's books, storefront and channel connections for the whole
+ * trip. The address is briefly stale; the alternative is a unit going dark
+ * mid-move, and a delist/relist cycle costs real ranking on the marketplaces.
+ *
+ * **Both timestamps are recorded, so transit time is a fact rather than a
+ * guess.** `departedAt` defaults to now and `arrivedAt` stays null until
+ * somebody says the car is there — which is the whole point of the two-step.
+ * The "it's already there" shortcut sets both in one write for a fifteen-minute
+ * hop across town; it does not skip the row.
+ *
+ * Days in stock deliberately does **not** reset on transfer: the money has been
+ * tied up since `acquiredDate` wherever the car was parked.
+ */
+export const vehicleTransfers = pgTable(
+  'vehicle_transfers',
+  {
+    id: cuid().primaryKey(),
+    vehicleId: text().notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    fromRooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    toRooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    departedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /** Null while the unit is on the truck. Set by a human at the far end. */
+    arrivedAt: timestamp({ withTimezone: true }),
+    /** The move was called off and the unit never left / came back. */
+    cancelledAt: timestamp({ withTimezone: true }),
+    departedBy: text().references(() => users.id, { onDelete: 'set null' }),
+    arrivedBy: text().references(() => users.id, { onDelete: 'set null' }),
+    note: text().notNull().default(''),
+  },
+  (t) => [
+    index('vehicle_transfers_vehicle_idx').on(t.vehicleId, t.departedAt),
+    index('vehicle_transfers_to_idx').on(t.toRooftopId, t.departedAt),
+    /**
+     * One open move per unit. Without this, a double-submitted form puts the
+     * same car on two trucks and the second arrival silently overwrites the
+     * first — the database refuses instead.
+     */
+    uniqueIndex('vehicle_transfers_open_uq')
+      .on(t.vehicleId)
+      .where(sql`"arrivedAt" is null and "cancelledAt" is null`),
+  ],
 );
 
 /* ------------------------------------------------------------ syndication */
@@ -762,6 +825,15 @@ export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
   priceChanges: many(priceChanges),
   dailyStats: many(vehicleDailyStats),
   events: many(syncEvents),
+  transfers: many(vehicleTransfers),
+}));
+
+export const vehicleTransfersRelations = relations(vehicleTransfers, ({ one }) => ({
+  vehicle: one(vehicles, { fields: [vehicleTransfers.vehicleId], references: [vehicles.id] }),
+  from: one(rooftops, { fields: [vehicleTransfers.fromRooftopId], references: [rooftops.id] }),
+  to: one(rooftops, { fields: [vehicleTransfers.toRooftopId], references: [rooftops.id] }),
+  departedByUser: one(users, { fields: [vehicleTransfers.departedBy], references: [users.id] }),
+  arrivedByUser: one(users, { fields: [vehicleTransfers.arrivedBy], references: [users.id] }),
 }));
 
 export const vehiclePhotosRelations = relations(vehiclePhotos, ({ one }) => ({
@@ -843,6 +915,7 @@ export type Storefront = typeof storefronts.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type SyncStatus = (typeof syncStatusEnum.enumValues)[number];
 export type VehicleStatus = (typeof vehicleStatusEnum.enumValues)[number];
+export type VehicleTransfer = typeof vehicleTransfers.$inferSelect;
 export type FeedEvent = typeof feedEvents.$inferSelect;
 export type NewFeedEvent = typeof feedEvents.$inferInsert;
 export type FeedComment = typeof feedComments.$inferSelect;

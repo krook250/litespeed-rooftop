@@ -218,10 +218,24 @@ export function monthlyPayment(price: number, down: number, apr: number, months:
  * prefix. Works for any tenant; the old hardcoded "Evergreen Motors — " did not.
  */
 export function shortRooftopName(rooftopName: string, groupName?: string) {
-  if (!groupName) return rooftopName;
-  for (const dash of [' — ', ' - ', ' ']) {
-    const prefix = `${groupName}${dash}`;
-    if (rooftopName.startsWith(prefix)) return rooftopName.slice(prefix.length) || rooftopName;
+  if (groupName) {
+    for (const dash of [' — ', ' - ', ' ']) {
+      const prefix = `${groupName}${dash}`;
+      if (rooftopName.startsWith(prefix)) return rooftopName.slice(prefix.length) || rooftopName;
+    }
+  }
+  /**
+   * The exact-prefix test above only fires when the group name is a literal
+   * prefix of the rooftop name, and real data does not cooperate: the seeded
+   * group is "Evergreen Motors Group" while its lots are "Evergreen Motors —
+   * Vancouver", so every caller was rendering the full name. Fall back to the
+   * separator the naming convention itself defines — "<Group> — <Location>" —
+   * which gets "Vancouver" out of that pair and leaves an undashed name like
+   * "Bob's Autos" alone.
+   */
+  for (const dash of [' — ', ' – ', ' - ']) {
+    const at = rooftopName.indexOf(dash);
+    if (at > 0) return rooftopName.slice(at + dash.length) || rooftopName;
   }
   return rooftopName;
 }

@@ -4,9 +4,13 @@ import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
 import {
   getChannels,
+  getGroup,
+  getOpenTransfer,
   getOverrides,
   getPriceHistory,
+  getRooftops,
   getSyncStatesForVehicle,
+  getTransferHistory,
   sessionScope,
   getVehicleById,
   getVehicleTraffic,
@@ -21,22 +25,27 @@ import {
   num,
   priceToMarket,
   relativeTime,
+  shortRooftopName,
   totalCost,
   usd,
   vehicleTitle,
 } from '@/lib/domain';
 import {
   addPhoto,
+  cancelTransfer,
   deletePhoto,
   markFrontLineReady,
+  markTransferArrived,
   reorderPhoto,
   retryListing,
   saveOverride,
   saveVehicle,
   setPrimaryPhoto,
+  startTransfer,
   toggleChannel,
 } from '@/lib/actions';
 import { VehicleForm } from '@/components/vehicle-form';
+import { TRANSFER_REFUSAL_MESSAGE, type TransferRefusal } from '@/lib/transfers';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,19 +60,42 @@ const DOT: Record<string, string> = {
   REMOVED: 'bg-ink-300',
 };
 
-export default async function VehiclePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function VehiclePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ move?: string }>;
+}) {
   const { id } = await params;
+  const { move } = await searchParams;
   const vehicle = await getVehicleById(id);
   if (!vehicle) notFound();
 
+  const moveError = move ? TRANSFER_REFUSAL_MESSAGE[move as TransferRefusal] : undefined;
+
   const scope = await sessionScope();
-  const [syncStates, channels, overrides, prices, traffic] = await Promise.all([
-    getSyncStatesForVehicle(scope, id),
-    getChannels(),
-    getOverrides(scope, id),
-    getPriceHistory(scope, id),
-    getVehicleTraffic(scope, id, 30),
-  ]);
+  const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers] =
+    await Promise.all([
+      getSyncStatesForVehicle(scope, id),
+      getChannels(),
+      getOverrides(scope, id),
+      getPriceHistory(scope, id),
+      getVehicleTraffic(scope, id, 30),
+      getGroup(),
+      getRooftops(),
+      getOpenTransfer(scope, id),
+      getTransferHistory(scope, id),
+    ]);
+
+  const lotName = (rooftopId: string) => {
+    const r = rooftops.find((x) => x.id === rooftopId);
+    return r ? shortRooftopName(r.name, group.name) : 'another lot';
+  };
+  /** Sold and wholesaled units are gone; everything on the ground can move. */
+  const canMove =
+    rooftops.length > 1 && vehicle.status !== 'SOLD' && vehicle.status !== 'WHOLESALED';
+  const otherLots = rooftops.filter((r) => r.id !== vehicle.rooftopId);
 
   const dis = daysInStock(vehicle, 'dateIn');
   const flDays = vehicle.frontLineDate ? daysInStock(vehicle, 'frontLine') : null;
@@ -137,6 +169,38 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       </header>
+
+      {/*
+        In transit. This banner is the whole reason a transfer is a row rather
+        than an UPDATE: between "it left" and "it's here" the unit is somewhere
+        neither lot can see it, and that is exactly the window where somebody
+        walks the lot looking for a car that isn't there.
+      */}
+      {openTransfer ? (
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <span aria-hidden className="text-lg">🚛</span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-violet-900">
+              On the way to {lotName(openTransfer.toRooftopId)}
+            </div>
+            <div className="text-xs text-violet-700">
+              Left {lotName(openTransfer.fromRooftopId)} {relativeTime(openTransfer.departedAt)}
+              {openTransfer.note ? ` · ${openTransfer.note}` : ''} · still listed at{' '}
+              {lotName(openTransfer.fromRooftopId)} until it is marked arrived.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <form action={markTransferArrived}>
+              <input type="hidden" name="transferId" value={openTransfer.id} />
+              <Button size="sm">Mark arrived</Button>
+            </form>
+            <form action={cancelTransfer}>
+              <input type="hidden" name="transferId" value={openTransfer.id} />
+              <Button size="sm" variant="secondary">Call it off</Button>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {/* money strip */}
       <div className="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -364,6 +428,93 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
               </p>
             </div>
           </Card>
+
+          {/*
+            Moving a unit between the group's own lots. Only rendered for a
+            multi-rooftop dealer, because for a single-lot store there is
+            nowhere to move it to and the control would be noise.
+          */}
+          {canMove && !openTransfer && otherLots.length ? (
+            <Card>
+              <CardHeader
+                title="Move to another lot"
+                subtitle="Stays listed here until it's marked arrived, so the unit never goes dark mid-move."
+              />
+              {moveError ? (
+                <p className="border-b border-red-200 bg-red-50 px-5 py-2 text-[11px] font-medium text-red-700">
+                  {moveError}
+                </p>
+              ) : null}
+              <form action={startTransfer} className="space-y-3 px-5 py-4">
+                <input type="hidden" name="vehicleId" value={vehicle.id} />
+                <label className="block text-[11px] font-medium text-ink-600">
+                  Sending it to
+                  <select
+                    name="toRooftopId"
+                    className="mt-1 w-full rounded-md border border-ink-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-ink-900"
+                  >
+                    {otherLots.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {shortRooftopName(r.name, group.name)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-[11px] font-medium text-ink-600">
+                  Why (optional)
+                  <input
+                    name="note"
+                    placeholder="Better traffic for trucks on that lot"
+                    className="mt-1 w-full rounded-md border border-ink-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-ink-900"
+                  />
+                </label>
+                <label className="flex items-start gap-2 text-[11px] text-ink-600">
+                  <input type="checkbox" name="arriveNow" className="mt-0.5" />
+                  <span>
+                    It&rsquo;s already there — close the move out now instead of marking it
+                    arrived later.
+                  </span>
+                </label>
+                <Button size="sm" className="w-full">
+                  Start the move
+                </Button>
+              </form>
+            </Card>
+          ) : null}
+
+          {transfers.length ? (
+            <Card>
+              <CardHeader title="Lot history" />
+              <ul className="divide-y divide-ink-100">
+                {transfers.map((tr) => (
+                  <li key={tr.id} className="px-5 py-2.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate text-ink-700">
+                        {lotName(tr.fromRooftopId)} → {lotName(tr.toRooftopId)}
+                      </span>
+                      <span
+                        className={cn(
+                          'shrink-0 text-[10px] font-semibold',
+                          tr.cancelledAt
+                            ? 'text-ink-400'
+                            : tr.arrivedAt
+                              ? 'text-emerald-700'
+                              : 'text-violet-700',
+                        )}
+                      >
+                        {tr.cancelledAt ? 'Called off' : tr.arrivedAt ? 'Arrived' : 'In transit'}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-ink-500">
+                      Left {relativeTime(tr.departedAt)}
+                      {tr.arrivedAt ? ` · arrived ${relativeTime(tr.arrivedAt)}` : ''}
+                      {tr.note ? ` · ${tr.note}` : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader title="Channel status" />

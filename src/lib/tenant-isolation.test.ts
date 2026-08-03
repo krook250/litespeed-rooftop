@@ -21,15 +21,22 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import {
   assertFeedEventInScope,
+  assertRooftopInScope,
+  assertTransferInScope,
   assertVehicleInScope,
+  getOpenTransfer,
+  getOpenTransfers,
   getOverrides,
   getPriceHistory,
   getSyncMatrix,
   getSyncStatesForVehicle,
+  getTransferHistory,
   publicScope,
   vehicleIdsInScope,
   type Scope,
 } from '@/lib/scoped-db';
+import { cancelTransfer, markTransferArrived, startTransfer } from '@/lib/transfers';
+import { daysInStock } from '@/lib/domain';
 import { isLocalDatabase, forceRequested } from '@/db/guard';
 
 const RUN = `iso${Date.now().toString(36)}`;
@@ -37,11 +44,17 @@ const RUN = `iso${Date.now().toString(36)}`;
 type Tenant = {
   groupId: string;
   rooftopId: string;
+  /** A second lot, so lot-to-lot transfers have somewhere to go. */
+  rooftop2Id: string;
+  userId: string;
   vehicleId: string;
   channelId: string;
   connectionId: string;
   eventId: string;
+  /** Just the first lot — the scope the pre-transfer tests were written against. */
   scope: Scope;
+  /** Both lots, which is what a real multi-rooftop session resolves to. */
+  bothLots: Scope;
 };
 
 async function buildTenant(label: string): Promise<Tenant> {
@@ -62,6 +75,21 @@ async function buildTenant(label: string): Promise<Tenant> {
       postalCode: '98665',
       phone: '(360) 555-0100',
       email: `${RUN}-${label}@example.test`,
+    })
+    .returning();
+
+  const [rooftop2] = await db
+    .insert(t.rooftops)
+    .values({
+      groupId: group!.id,
+      name: `${label} ${RUN} — Second`,
+      slug: `${RUN}-${label}-second`,
+      addressLine1: '2 Test Way',
+      city: 'Battle Ground',
+      state: 'WA',
+      postalCode: '98604',
+      phone: '(360) 555-0200',
+      email: `${RUN}-${label}-2@example.test`,
     })
     .returning();
 
@@ -152,6 +180,8 @@ async function buildTenant(label: string): Promise<Tenant> {
   return {
     groupId: group!.id,
     rooftopId: rooftop!.id,
+    rooftop2Id: rooftop2!.id,
+    userId: user!.id,
     vehicleId: vehicle!.id,
     channelId: channel!.id,
     connectionId: connection!.id,
@@ -159,7 +189,34 @@ async function buildTenant(label: string): Promise<Tenant> {
     // The admin path builds this from the session's groupId; here we build it
     // from the same rooftop ids that path would resolve.
     scope: publicScope([rooftop!.id]),
+    bothLots: publicScope([rooftop!.id, rooftop2!.id]),
   };
+}
+
+/** A spare unit on tenant A's first lot, so a transfer test can have its own. */
+async function spareVehicle(tenant: Tenant, tag: string) {
+  const [v] = await db
+    .insert(t.vehicles)
+    .values({
+      rooftopId: tenant.rooftopId,
+      vin: `${RUN.toUpperCase().padEnd(10, 'X').slice(0, 10)}${tag.toUpperCase().padEnd(7, '0')}`.slice(0, 17),
+      stockNumber: `SPARE-${tag}`,
+      year: 2019,
+      make: 'Toyota',
+      model: 'Tacoma',
+      bodyStyle: 'TRUCK',
+      mileage: 71_000,
+      price: 29_500,
+      cost: 24_000,
+      pack: 795,
+      reconCost: 1_100,
+      marketValue: 30_000,
+      status: 'FRONT_LINE_READY',
+      acquiredDate: new Date(Date.now() - 52 * 86_400_000),
+      frontLineDate: new Date(Date.now() - 44 * 86_400_000),
+    })
+    .returning();
+  return v!;
 }
 
 let A: Tenant;
@@ -245,6 +302,256 @@ describe('tenant isolation — dealer A cannot read dealer B', () => {
       .from(t.vehicles)
       .where(inArray(t.vehicles.rooftopId, B.scope.rooftopIds));
     assert.notEqual(a!.id, b!.id);
+  });
+});
+
+/**
+ * Lot-to-lot transfers.
+ *
+ * A transfer takes a **destination rooftop id straight off a form**, which is a
+ * new shape of untrusted input: every other write path in the app takes a
+ * vehicle id and resolves it. So the first three tests here are the ones that
+ * matter — a crafted POST must not be able to hand another dealer's lot one of
+ * our units, or park one of theirs on ours.
+ *
+ * The rest pin the behaviour the schema comment promises: the vehicle does not
+ * move until somebody says it arrived, days in stock does not reset when it
+ * does, and one unit cannot be on two trucks.
+ */
+describe('lot transfers', () => {
+  it('refuses a destination rooftop belonging to another tenant', async () => {
+    const r = await startTransfer(A.bothLots, {
+      vehicleId: A.vehicleId,
+      toRooftopId: B.rooftopId,
+      actorId: A.userId,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.ok === false && r.reason, 'destination-not-in-scope');
+
+    // …and the unit did not move.
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, A.vehicleId));
+    assert.equal(v!.rooftopId, A.rooftopId);
+  });
+
+  it('refuses to move another tenant’s vehicle onto our lot', async () => {
+    const r = await startTransfer(A.bothLots, {
+      vehicleId: B.vehicleId,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.ok === false && r.reason, 'vehicle-not-in-scope');
+
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, B.vehicleId));
+    assert.equal(v!.rooftopId, B.rooftopId);
+  });
+
+  it('refuses a move to the lot the unit is already on', async () => {
+    const r = await startTransfer(A.bothLots, {
+      vehicleId: A.vehicleId,
+      toRooftopId: A.rooftopId,
+      actorId: A.userId,
+    });
+    assert.equal(r.ok === false && r.reason, 'same-rooftop');
+  });
+
+  it('departure posts to the origin lot and does NOT move the unit yet', async () => {
+    const car = await spareVehicle(A, 'dep');
+    const started = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      note: 'Trucks sell better on the other lot',
+      actorId: A.userId,
+    });
+    assert.equal(started.ok, true);
+
+    // The whole point of the row: the car is on a truck, not on either lot's
+    // books yet. It stays listed at the origin so it never goes dark mid-move.
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, car.id));
+    assert.equal(v!.rooftopId, A.rooftopId);
+
+    const open = await getOpenTransfer(A.bothLots, car.id);
+    assert.ok(open, 'the unit should read as in transit');
+    assert.equal(open!.toRooftopId, A.rooftop2Id);
+    assert.equal(open!.arrivedAt, null);
+
+    const cards = await db
+      .select()
+      .from(t.feedEvents)
+      .where(eq(t.feedEvents.vehicleId, car.id));
+    const out = cards.find((c) => c.kind === 'transfer_out');
+    assert.ok(out, 'the origin lot gets a card');
+    assert.equal(out!.rooftopId, A.rooftopId);
+    assert.ok(out!.stats.length > 0, 'every card carries a number');
+    assert.equal(cards.some((c) => c.kind === 'transfer_in'), false);
+  });
+
+  it('one unit cannot be on two trucks', async () => {
+    const car = await spareVehicle(A, 'two');
+    assert.equal(
+      (await startTransfer(A.bothLots, {
+        vehicleId: car.id,
+        toRooftopId: A.rooftop2Id,
+        actorId: A.userId,
+      })).ok,
+      true,
+    );
+
+    const second = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(second.ok === false && second.reason, 'already-in-transit');
+
+    // And the guard is the database, not the check above it: bypassing the
+    // helper and inserting straight into the table has to fail too.
+    await assert.rejects(() =>
+      db.insert(t.vehicleTransfers).values({
+        vehicleId: car.id,
+        fromRooftopId: A.rooftopId,
+        toRooftopId: A.rooftop2Id,
+      }),
+    );
+  });
+
+  it('the other tenant cannot mark our move arrived', async () => {
+    const car = await spareVehicle(A, 'arr');
+    const started = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(started.ok, true);
+    const transferId = started.ok ? started.transfer.id : '';
+
+    const hijack = await markTransferArrived(B.bothLots, { transferId, actorId: B.userId });
+    assert.equal(hijack.ok === false && hijack.reason, 'transfer-not-in-scope');
+    assert.equal(await assertTransferInScope(B.bothLots, transferId), null);
+
+    // Ours still works, so this is isolation and not breakage.
+    const mine = await markTransferArrived(A.bothLots, { transferId, actorId: A.userId });
+    assert.equal(mine.ok, true);
+  });
+
+  it('arrival moves the unit, posts to the receiving lot, and keeps the clock running', async () => {
+    const car = await spareVehicle(A, 'clk');
+    const daysBefore = daysInStock(car);
+
+    const started = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(started.ok, true);
+    const transferId = started.ok ? started.transfer.id : '';
+
+    const arrived = await markTransferArrived(A.bothLots, { transferId, actorId: A.userId });
+    assert.equal(arrived.ok, true);
+
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, car.id));
+    assert.equal(v!.rooftopId, A.rooftop2Id, 'the unit is now on the receiving lot');
+
+    // Days in stock is measured from acquiredDate, and a transfer must not
+    // touch it — resetting the clock is how aged inventory gets laundered into
+    // fresh inventory.
+    assert.equal(v!.acquiredDate.getTime(), car.acquiredDate.getTime());
+    assert.equal(daysInStock(v!), daysBefore);
+
+    const inCard = (
+      await db.select().from(t.feedEvents).where(eq(t.feedEvents.vehicleId, car.id))
+    ).find((c) => c.kind === 'transfer_in');
+    assert.ok(inCard, 'the receiving lot gets a card');
+    assert.equal(inCard!.rooftopId, A.rooftop2Id);
+    assert.ok(inCard!.stats.some((s) => s.k === 'In transit'));
+
+    // The move is closed, so nothing reads as in transit any more.
+    assert.equal(await getOpenTransfer(A.bothLots, car.id), null);
+
+    const again = await markTransferArrived(A.bothLots, { transferId, actorId: A.userId });
+    assert.equal(again.ok === false && again.reason, 'transfer-not-open');
+  });
+
+  it('“it’s already there” closes the move in one call and still records it', async () => {
+    const car = await spareVehicle(A, 'now');
+    const r = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+      arriveNow: true,
+    });
+    assert.equal(r.ok, true);
+
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, car.id));
+    assert.equal(v!.rooftopId, A.rooftop2Id);
+    assert.equal(await getOpenTransfer(A.bothLots, car.id), null);
+
+    // A short hop is still a transfer: it leaves a row and both cards, so it
+    // shows up in the unit's history like any other move.
+    const history = await getTransferHistory(A.bothLots, car.id);
+    assert.equal(history.length, 1);
+    assert.ok(history[0]!.arrivedAt);
+
+    const kinds = (
+      await db.select().from(t.feedEvents).where(eq(t.feedEvents.vehicleId, car.id))
+    ).map((c) => c.kind);
+    assert.ok(kinds.includes('transfer_out'));
+    assert.ok(kinds.includes('transfer_in'));
+  });
+
+  it('calling a move off leaves the unit exactly where it was', async () => {
+    const car = await spareVehicle(A, 'cxl');
+    const started = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(started.ok, true);
+
+    const cancelled = await cancelTransfer(A.bothLots, {
+      transferId: started.ok ? started.transfer.id : '',
+      actorId: A.userId,
+    });
+    assert.equal(cancelled.ok, true);
+
+    const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, car.id));
+    assert.equal(v!.rooftopId, A.rooftopId);
+    assert.equal(await getOpenTransfer(A.bothLots, car.id), null);
+
+    // The row survives, so a cancelled move is still auditable…
+    assert.equal((await getTransferHistory(A.bothLots, car.id)).length, 1);
+    // …and the unit is free to be moved again.
+    const retry = await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+    assert.equal(retry.ok, true);
+  });
+
+  it('transfer reads are scoped like every other read', async () => {
+    const car = await spareVehicle(A, 'scp');
+    await startTransfer(A.bothLots, {
+      vehicleId: car.id,
+      toRooftopId: A.rooftop2Id,
+      actorId: A.userId,
+    });
+
+    assert.equal(await getOpenTransfer(B.bothLots, car.id), null);
+    assert.deepEqual(await getTransferHistory(B.bothLots, car.id), []);
+    assert.equal(
+      (await getOpenTransfers(B.bothLots)).some((r) => r.vehicle.id === car.id),
+      false,
+    );
+    assert.equal(
+      (await getOpenTransfers(A.bothLots)).some((r) => r.vehicle.id === car.id),
+      true,
+    );
+
+    const nobody = publicScope([]);
+    assert.equal(await getOpenTransfer(nobody, car.id), null);
+    assert.deepEqual(await getOpenTransfers(nobody), []);
+    assert.equal(await assertRooftopInScope(nobody, A.rooftopId), null);
   });
 });
 

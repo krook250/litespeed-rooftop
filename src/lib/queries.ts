@@ -17,6 +17,11 @@ export {
   getSyncMatrix,
   getSyncStatesForVehicle,
   assertFeedEventInScope,
+  assertRooftopInScope,
+  assertTransferInScope,
+  getOpenTransfer,
+  getOpenTransfers,
+  getTransferHistory,
   publicScope,
   type Scope,
 } from '@/lib/scoped-db';

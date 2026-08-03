@@ -27,6 +27,11 @@ import {
   feedReconOut,
   feedSold,
 } from '@/lib/feed';
+import {
+  cancelTransfer as cancelTransferCore,
+  markTransferArrived as markTransferArrivedCore,
+  startTransfer as startTransferCore,
+} from '@/lib/transfers';
 
 /** Dealership name stamped on generated placeholder photos, per tenant. */
 async function dealerLabelForRooftop(rooftopId: string) {
@@ -384,6 +389,75 @@ export async function markFrontLineReady(formData: FormData) {
 
   await enqueueChange(id, 'CREATE', { status: { from: 'recon', to: 'front line' } }, 'Marked front-line ready — listing everywhere');
   refreshAll(id);
+}
+
+/* ------------------------------------------------------------- transfers */
+
+/**
+ * Lot-to-lot moves. These are thin on purpose: every guard, every write and
+ * both feed cards live in `src/lib/transfers.ts`, which takes a `Scope` it
+ * cannot be called without and is driven directly by the isolation test. All
+ * this layer does is turn a session into a scope and a FormData into arguments.
+ */
+
+/**
+ * Send a unit to another lot.
+ *
+ * A refusal here is not an exceptional condition — it is somebody picking the
+ * lot the car is already on, or double-submitting a form. Every other action in
+ * this file answers that with a bare `return`, which is fine when the form is a
+ * price field and the value simply does not change. It is not fine here: the
+ * dealer clicks "Start the move" and the page comes back looking identical.
+ * So the reason rides back on the query string and the page renders it.
+ */
+export async function startTransfer(formData: FormData) {
+  const vehicleId = String(formData.get('vehicleId') ?? '');
+  const me = await requireSession();
+  const scope = await sessionScope();
+  const result = await startTransferCore(scope, {
+    vehicleId,
+    toRooftopId: String(formData.get('toRooftopId') ?? ''),
+    note: String(formData.get('note') ?? ''),
+    actorId: me.id,
+    // "It's already there" — the porter drove it over before opening the app.
+    arriveNow: formData.get('arriveNow') === 'on',
+  });
+
+  refreshAll(vehicleId);
+  if (!result.ok && vehicleId) {
+    redirect(`/admin/inventory/${vehicleId}?move=${result.reason}`);
+  }
+}
+
+export async function markTransferArrived(formData: FormData) {
+  const me = await requireSession();
+  const scope = await sessionScope();
+  const result = await markTransferArrivedCore(scope, {
+    transferId: String(formData.get('transferId') ?? ''),
+    actorId: me.id,
+  });
+  if (!result.ok) return;
+
+  // The unit's address changed, and the address is listing data. The sync rows
+  // themselves still hang off the *origin* rooftop's connections — re-pointing
+  // those is its own task, noted in `claude/lot-walk.md`.
+  await enqueueChange(
+    result.transfer.vehicleId,
+    'UPDATE_DETAILS',
+    { rooftopId: { from: result.transfer.fromRooftopId, to: result.transfer.toRooftopId } },
+    'Unit moved to another lot — location updated on every live listing',
+  );
+  refreshAll(result.transfer.vehicleId);
+}
+
+export async function cancelTransfer(formData: FormData) {
+  const me = await requireSession();
+  const scope = await sessionScope();
+  const result = await cancelTransferCore(scope, {
+    transferId: String(formData.get('transferId') ?? ''),
+    actorId: me.id,
+  });
+  if (result.ok) refreshAll(result.transfer.vehicleId);
 }
 
 /* ----------------------------------------------------------- photo mgmt */

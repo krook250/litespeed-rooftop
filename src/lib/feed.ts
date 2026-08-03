@@ -261,6 +261,114 @@ export async function feedSold(
   });
 }
 
+/* ------------------------------------------------------------- transfers */
+
+/**
+ * Moving a unit between two of the group's own lots is the one event that
+ * belongs to **two** rooftops, and `feed_events.rooftopId` holds one. So a
+ * transfer is two cards, not one: the departure posts to the origin lot, the
+ * arrival posts to the destination. Both hang off the same `vehicle_transfers`
+ * row and dedupe on its id, so a double-submitted form cannot double-post.
+ *
+ * Rooftop display names arrive already shortened — the emitter has no group
+ * context, exactly like `feedSyncError` takes the channel's name rather than
+ * looking it up. See `src/lib/transfers.ts`.
+ */
+
+/** How long the car was actually on the road, in the words a porter would use. */
+export function transitLabel(ms: number) {
+  const hours = ms / 3_600_000;
+  if (hours < 1) return 'Under an hour';
+  if (hours < 36) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+/** The unit left the origin lot. Posted to the lot it left. */
+export async function feedTransferOut(
+  v: VehicleLike,
+  opts: { transferId: string; toRooftopName: string; note?: string | null; actorId?: string | null },
+) {
+  return emitFeedEvent({
+    rooftopId: v.rooftopId,
+    kind: 'transfer_out',
+    vehicleId: v.id,
+    actorId: opts.actorId,
+    title: `${shortTitle(v)} left for ${opts.toRooftopName}`,
+    body:
+      (opts.note?.trim() ? `${opts.note.trim()} ` : '') +
+      `Stock #${v.stockNumber} stays on this lot's books and stays listed until somebody marks it ` +
+      `arrived — a unit that goes dark mid-move loses its ranking on the marketplaces.`,
+    stats: [daysStat(v), tiedUpStat(v), { k: 'Headed to', v: opts.toRooftopName }],
+    dedupeKey: `transfer_out:${opts.transferId}`,
+  });
+}
+
+/**
+ * The unit landed at the far end. Posted to the receiving lot, and the only
+ * card whose stats include how long the move actually took.
+ *
+ * Days in stock is on this card on purpose, and it does not restart: a unit that
+ * was 52 days old at the old lot is 52 days old at the new one. Resetting the
+ * clock on transfer is how aged inventory gets laundered into fresh inventory,
+ * and the whole point of the feed is that it does not lie about where the money
+ * is sitting.
+ */
+export async function feedTransferIn(
+  v: VehicleLike,
+  opts: {
+    transferId: string;
+    fromRooftopName: string;
+    toRooftopName: string;
+    transitMs: number;
+    actorId?: string | null;
+  },
+) {
+  return emitFeedEvent({
+    // The vehicle row has already been moved by the time this is called, but
+    // pass it explicitly rather than trusting call order.
+    rooftopId: v.rooftopId,
+    kind: 'transfer_in',
+    vehicleId: v.id,
+    actorId: opts.actorId,
+    title: `${shortTitle(v)} arrived from ${opts.fromRooftopName}`,
+    body:
+      `Stock #${v.stockNumber} is on the ground at ${opts.toRooftopName} and its listings now point ` +
+      `here. Days in stock did not reset — the money has been tied up since the day it was bought.`,
+    stats: [
+      { k: 'In transit', v: transitLabel(opts.transitMs) },
+      daysStat(v),
+      tiedUpStat(v),
+    ],
+    dedupeKey: `transfer_in:${opts.transferId}`,
+  });
+}
+
+/**
+ * The move was called off. Posted back to the origin lot, because that is the
+ * feed where the departure card is sitting and where somebody is otherwise
+ * about to go looking for a car that never left.
+ */
+export async function feedTransferCancelled(
+  v: VehicleLike,
+  opts: {
+    transferId: string;
+    fromRooftopName: string;
+    toRooftopName: string;
+    actorId?: string | null;
+  },
+) {
+  return emitFeedEvent({
+    rooftopId: v.rooftopId,
+    kind: 'transfer_out',
+    vehicleId: v.id,
+    actorId: opts.actorId,
+    title: `The move to ${opts.toRooftopName} is off — ${shortTitle(v)} is staying put`,
+    body: `Stock #${v.stockNumber} never changed hands. Nothing about its listings changed either.`,
+    stats: [daysStat(v), tiedUpStat(v), { k: 'Staying at', v: opts.fromRooftopName }],
+    dedupeKey: `transfer_cancelled:${opts.transferId}`,
+  });
+}
+
 /**
  * A channel rejected the unit. Emitted from the sync engine, which is the only
  * place that knows a change failed to land.
