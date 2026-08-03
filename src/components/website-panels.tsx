@@ -311,7 +311,7 @@ export function BuyDomainPanel({
               ['firstName', 'First name'], ['lastName', 'Last name'],
               ['companyName', 'Dealership (optional)'], ['email', 'Email'],
               ['phone', 'Phone'], ['address1', 'Street address'],
-              ['city', 'City'], ['state', 'State'], ['postalCode', 'ZIP'], ['country', 'Country'],
+              ['city', 'City'], ['state', 'State'], ['zip', 'ZIP'], ['country', 'Country'],
             ] as const).map(([name, label]) => (
               <label key={name} className="block">
                 <span className="mb-1 block text-xs font-medium text-ink-700">{label}</span>

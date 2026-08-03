@@ -207,40 +207,70 @@ export async function getDomainConfig(domain: string): Promise<DomainConfig> {
 
 /* ------------------------------------------------ registrar (spends money) */
 
+/**
+ * ENDPOINT HISTORY, because this bit was already rebuilt once: the original
+ * implementation used `/v4/domains/status`, `/v4/domains/price` and
+ * `/v5/domains/buy`. Vercel **sunsetted all three on 9 Nov 2025** and replaced
+ * them with the `/v1/registrar/*` API. The old paths now return a sunset notice
+ * rather than data. Everything below is the current contract, taken from the
+ * endpoint reference — including the field names, which changed too
+ * (`postalCode` → `zip`, flat contact fields → nested `contactInformation`).
+ */
+
 export type Availability = { available: boolean };
-export type PriceInfo = { price: number; period: number };
+
+/**
+ * One call gives all three prices, which is why the renewal guardrail is cheap:
+ * we do not have to ask twice, and we can never end up with a first-year price
+ * and no renewal to check it against.
+ */
+export type DomainPrice = {
+  years: number;
+  purchasePrice: number | string;
+  renewalPrice: number | string;
+  transferPrice: number | string;
+};
+
+/** Prices come back as number or string depending on TLD. Normalise once. */
+function toNumber(v: number | string | undefined | null): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 export async function checkAvailability(domain: string): Promise<boolean> {
-  const r = await vercelFetch<Availability>(`/v4/domains/status?name=${encodeURIComponent(domain)}`);
+  const r = await vercelFetch<Availability>(
+    `/v1/registrar/domains/${encodeURIComponent(domain)}/availability`,
+  );
   return Boolean(r.available);
 }
 
-/**
- * `type` distinguishes the promotional first year from the recurring price.
- * We always ask for both — see guardrail 4.
- */
-export async function getPrice(domain: string, type: 'new' | 'renewal' = 'new'): Promise<PriceInfo> {
-  return vercelFetch<PriceInfo>(
-    `/v4/domains/price?name=${encodeURIComponent(domain)}&type=${type}`,
+export async function getPrice(domain: string, years = 1): Promise<DomainPrice> {
+  return vercelFetch<DomainPrice>(
+    `/v1/registrar/domains/${encodeURIComponent(domain)}/price?years=${years}`,
   );
 }
 
-/** TLD-specific required contact fields, so the ICANN form asks for the right things. */
-export async function getTldContactSchema(tld: string): Promise<unknown> {
-  return vercelFetch(`/v4/domains/tlds/${encodeURIComponent(tld)}`);
+/** TLD-specific required contact fields, so the ICANN form asks the right things. */
+export async function getContactInfoSchema(tld: string): Promise<unknown> {
+  return vercelFetch(`/v1/registrar/tlds/${encodeURIComponent(tld)}/contact-info-schema`);
+}
+
+export async function getSupportedTlds(): Promise<unknown> {
+  return vercelFetch('/v1/registrar/tlds/supported');
 }
 
 /* ------------------------------------------------------------- the quote */
 
 export type QuoteRejection = {
   ok: false;
-  /** Machine-readable so the UI can branch; every one is dealer-visible copy. */
   reason:
     | 'unavailable'
     | 'tld-not-allowed'
     | 'premium'
     | 'over-price-cap'
     | 'over-renewal-cap'
+    | 'no-price'
     | 'api-error';
   message: string;
   priceUsd?: number;
@@ -266,22 +296,22 @@ export function tldOf(domain: string): string {
 /**
  * The single chokepoint for "may we buy this, and for how much".
  *
- * Everything the buy path needs to know is decided here, on the server, from
- * Vercel's own numbers. The client never supplies a price — it supplies a
- * domain name, and gets back a quote it cannot influence.
+ * Everything the buy path needs is decided here, on the server, from Vercel's
+ * own numbers. The client supplies a domain name and receives a quote it cannot
+ * influence.
  */
 export async function quoteDomain(rawDomain: string, years = 1): Promise<QuoteResult> {
   const domain = rawDomain.trim().toLowerCase();
   const tld = tldOf(domain);
 
-  // Guardrail 2a: allowlisted TLDs only, checked before we spend an API call.
+  // Guardrail 2a: allowlisted TLDs only, before we spend an API call.
   if (!ALLOWED_TLDS.has(tld)) {
     return {
       ok: false,
       reason: 'tld-not-allowed',
       message:
-        `We don't sell .${tld} domains. Stick to .com if you can — it's what customers type by default, ` +
-        `and it's the one that still wins a tie.`,
+        `We don't sell .${tld} domains. Stick to .com if you can — it's what customers type by ` +
+        `default, and it's the one that still wins a tie.`,
     };
   }
 
@@ -290,57 +320,79 @@ export async function quoteDomain(rawDomain: string, years = 1): Promise<QuoteRe
       return {
         ok: false,
         reason: 'unavailable',
-        message: `${domain} is already registered. Try a variation, or use the "I already own a domain" option if it's yours.`,
+        message:
+          `${domain} is already registered. Try a variation, or use "I already own a domain" if it's yours.`,
       };
     }
 
-    const [newPrice, renewalPrice] = await Promise.all([
-      getPrice(domain, 'new'),
-      getPrice(domain, 'renewal').catch(() => null),
-    ]);
+    const price = await getPrice(domain, years);
+    const priceUsd = toNumber(price.purchasePrice);
+    const renewalUsd = toNumber(price.renewalPrice);
 
-    const priceUsd = Math.ceil(newPrice.price * years);
-    // If Vercel won't quote a renewal, assume the worst rather than the best.
-    const renewalPriceUsd = renewalPrice ? Math.ceil(renewalPrice.price) : DOMAIN_RENEWAL_CAP_USD + 1;
-
-    /*
-     * Guardrail 2b: premium detection. Vercel does not always flag a premium
-     * explicitly, but it always prices one — a .com quoted well above the
-     * standard registration fee is a premium by definition. Treating "expensive"
-     * as "premium" is the conservative direction to be wrong in.
-     */
-    if (priceUsd > DOMAIN_PRICE_CAP_USD) {
+    if (priceUsd === null) {
       return {
         ok: false,
-        reason: priceUsd > DOMAIN_PRICE_CAP_USD * 3 ? 'premium' : 'over-price-cap',
-        message:
-          `${domain} costs $${priceUsd} for the first year, which is above what we register ` +
-          `automatically. It's likely a premium name held for resale. Pick another one, or ask us and ` +
-          `we'll look at it by hand.`,
-        priceUsd,
-        renewalPriceUsd,
+        reason: 'no-price',
+        message: `We couldn't get a price for ${domain}. Try another name.`,
       };
     }
 
-    // Guardrail 4: the renewal is the real cost.
-    if (renewalPriceUsd > DOMAIN_RENEWAL_CAP_USD) {
+    /*
+     * Guardrail 4 first, and fail closed: if Vercel will not quote a renewal we
+     * refuse rather than assume it is cheap. An unknown recurring cost on
+     * Litespeed's card is the exact thing the cap exists to prevent.
+     */
+    if (renewalUsd === null) {
       return {
         ok: false,
         reason: 'over-renewal-cap',
         message:
-          `${domain} is $${priceUsd} for the first year but renews at $${renewalPriceUsd} a year after ` +
-          `that. That's above what we register automatically. Pick a name with a normal renewal price.`,
-        priceUsd,
-        renewalPriceUsd,
+          `We couldn't get a renewal price for ${domain}, so we won't register it automatically. ` +
+          `Pick another name, or ask us to look at it by hand.`,
+        priceUsd: Math.ceil(priceUsd),
+      };
+    }
+
+    const first = Math.ceil(priceUsd);
+    const renewal = Math.ceil(renewalUsd);
+
+    /*
+     * Guardrail 2b: premium detection. Vercel does not always flag a premium
+     * explicitly, but it always prices one — a domain quoted well above the
+     * standard registration fee is a premium by definition. Treating
+     * "expensive" as "premium" is the conservative direction to be wrong in.
+     */
+    if (first > DOMAIN_PRICE_CAP_USD) {
+      return {
+        ok: false,
+        reason: first > DOMAIN_PRICE_CAP_USD * 3 ? 'premium' : 'over-price-cap',
+        message:
+          `${domain} costs $${first} for the first year, which is above what we register ` +
+          `automatically. It's likely a premium name held for resale. Pick another one, or ask us ` +
+          `and we'll look at it by hand.`,
+        priceUsd: first,
+        renewalPriceUsd: renewal,
+      };
+    }
+
+    if (renewal > DOMAIN_RENEWAL_CAP_USD) {
+      return {
+        ok: false,
+        reason: 'over-renewal-cap',
+        message:
+          `${domain} is $${first} for the first year but renews at $${renewal} a year after that. ` +
+          `That's above what we register automatically. Pick a name with a normal renewal price.`,
+        priceUsd: first,
+        renewalPriceUsd: renewal,
       };
     }
 
     return {
       ok: true,
       domain,
-      priceUsd,
-      renewalPriceUsd,
-      years,
+      priceUsd: first,
+      renewalPriceUsd: renewal,
+      years: price.years ?? years,
       capUsd: DOMAIN_PRICE_CAP_USD,
       renewalCapUsd: DOMAIN_RENEWAL_CAP_USD,
     };
@@ -357,6 +409,40 @@ export async function quoteDomain(rawDomain: string, years = 1): Promise<QuoteRe
 }
 
 /* --------------------------------------------------------------- the buy */
+
+/**
+ * Vercel requires E.164 with an optional dot separator:
+ *   ^(?=(?:\D*\d){8,15}$)\+[1-9]\d{0,2}\.?\d+$
+ *
+ * A dealer types "(360) 555-0142". That is rejected outright, and the rejection
+ * would arrive *after* they filled in a ten-field ICANN form — so normalise it
+ * here rather than making them guess the format.
+ */
+export function toE164(raw: string, defaultCountryCode = '1'): string | null {
+  const trimmed = raw.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return null;
+
+  let cc: string;
+  let rest: string;
+  if (trimmed.startsWith('+')) {
+    // Already international: assume 1–3 digit country code.
+    cc = digits.slice(0, digits.length > 11 ? 2 : 1);
+    rest = digits.slice(cc.length);
+  } else if (digits.length === 10) {
+    cc = defaultCountryCode;
+    rest = digits;
+  } else if (digits.length === 11 && digits.startsWith('1')) {
+    cc = '1';
+    rest = digits.slice(1);
+  } else {
+    cc = defaultCountryCode;
+    rest = digits;
+  }
+
+  const out = `+${cc}.${rest}`;
+  return /^(?=(?:\D*\d){8,15}$)\+[1-9]\d{0,2}\.?\d+$/.test(out) ? out : null;
+}
 
 export type BuyInput = {
   domain: string;
@@ -377,15 +463,14 @@ export type BuyResult =
  * Buy a domain. **This spends money.**
  *
  * Re-quotes from scratch immediately before purchase and refuses if the price
- * moved or the caps are breached — the caller's quote may be minutes old and a
- * stale quote is exactly how you end up buying something expensive. `expectedPrice`
- * then gives Vercel a second, independent chance to reject on mismatch.
+ * moved or a cap is breached — the caller's quote may be minutes old, and a
+ * stale quote is exactly how you end up buying something expensive.
+ * `expectedPrice` then gives Vercel a second, independent chance to reject.
  */
 export async function buyDomain(input: BuyInput): Promise<BuyResult> {
   const fresh = await quoteDomain(input.domain, input.years);
-  if (!fresh.ok) {
-    return { ok: false, reason: fresh.reason, message: fresh.message };
-  }
+  if (!fresh.ok) return { ok: false, reason: fresh.reason, message: fresh.message };
+
   if (fresh.priceUsd !== input.expectedPriceUsd) {
     return {
       ok: false,
@@ -396,31 +481,45 @@ export async function buyDomain(input: BuyInput): Promise<BuyResult> {
     };
   }
 
+  const phone = toE164(input.registrant.phone);
+  if (!phone) {
+    return {
+      ok: false,
+      reason: 'invalid-phone',
+      message: `"${input.registrant.phone}" isn't a phone number we can register a domain with. Use a 10-digit US number.`,
+    };
+  }
+
   try {
-    const res = await vercelFetch<{ orderId?: string; domain?: { name?: string } }>('/v5/domains/buy', {
-      method: 'POST',
-      timeoutMs: 60_000, // registry round-trips are slow; a timeout here is ambiguous, not free
-      body: {
-        name: fresh.domain,
-        expectedPrice: fresh.priceUsd,
-        renew: input.autoRenew,
-        years: input.years,
-        country: input.registrant.country,
-        orgName: input.registrant.companyName || undefined,
-        firstName: input.registrant.firstName,
-        lastName: input.registrant.lastName,
-        address1: input.registrant.address1,
-        city: input.registrant.city,
-        state: input.registrant.state,
-        postalCode: input.registrant.postalCode,
-        phone: input.registrant.phone,
-        email: input.registrant.email,
+    const res = await vercelFetch<{ orderId?: string }>(
+      `/v1/registrar/domains/${encodeURIComponent(fresh.domain)}/buy`,
+      {
+        method: 'POST',
+        timeoutMs: 60_000, // registry round-trips are slow; a timeout here is ambiguous, not free
+        body: {
+          autoRenew: input.autoRenew,
+          years: input.years,
+          expectedPrice: fresh.priceUsd,
+          contactInformation: {
+            firstName: input.registrant.firstName,
+            lastName: input.registrant.lastName,
+            email: input.registrant.email,
+            phone,
+            address1: input.registrant.address1,
+            ...(input.registrant.address2 ? { address2: input.registrant.address2 } : {}),
+            city: input.registrant.city,
+            state: input.registrant.state,
+            zip: input.registrant.zip,
+            country: input.registrant.country,
+            ...(input.registrant.companyName ? { companyName: input.registrant.companyName } : {}),
+          },
+        },
       },
-    });
+    );
     return {
       ok: true,
       orderId: res.orderId ?? null,
-      domain: res.domain?.name ?? fresh.domain,
+      domain: fresh.domain,
       pricePaidUsd: fresh.priceUsd,
     };
   } catch (err) {
@@ -440,10 +539,23 @@ export async function buyDomain(input: BuyInput): Promise<BuyResult> {
           message: `${input.domain} costs more than we register automatically. Nothing was charged.`,
         };
       }
+      if (err.code === 'additional_contact_info_required' || err.code === 'invalid_additional_contact_info') {
+        return {
+          ok: false,
+          reason: 'contact-info',
+          message:
+            `.${tldOf(input.domain)} needs extra owner details we don't collect yet. Pick a .com, or ask us to register it by hand.`,
+        };
+      }
       return { ok: false, reason: err.code ?? 'api-error', message: err.message };
     }
     return { ok: false, reason: 'api-error', message: 'The purchase could not be completed.' };
   }
+}
+
+/** Order status, for a purchase that did not complete synchronously. */
+export async function getDomainOrder(orderId: string): Promise<unknown> {
+  return vercelFetch(`/v1/registrar/orders/${encodeURIComponent(orderId)}`);
 }
 
 /**
@@ -453,7 +565,7 @@ export async function buyDomain(input: BuyInput): Promise<BuyResult> {
  */
 export async function getTransferAuthCode(domain: string): Promise<string | null> {
   const r = await vercelFetch<{ authCode?: string }>(
-    `/v4/domains/${encodeURIComponent(domain)}/auth-code`,
+    `/v1/registrar/domains/${encodeURIComponent(domain)}/auth-code`,
   );
   return r.authCode ?? null;
 }

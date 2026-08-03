@@ -138,7 +138,7 @@ export default async function WebsitePage() {
                     address1: rooftop?.addressLine1 ?? '',
                     city: rooftop?.city ?? '',
                     state: rooftop?.state ?? '',
-                    postalCode: rooftop?.postalCode ?? '',
+                    zip: rooftop?.postalCode ?? '',
                     country: 'US',
                   }}
                 />

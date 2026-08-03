@@ -191,8 +191,9 @@ export type RegistrantContact = {
   address1: string;
   address2?: string;
   city: string;
+  /** Vercel calls this `zip`, and the field name is part of their contract. */
+  zip: string;
   state: string;
-  postalCode: string;
   country: string;
 };
 

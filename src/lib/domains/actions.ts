@@ -380,11 +380,11 @@ export async function purchaseDomain(_prev: unknown, formData: FormData): Promis
     address1: String(formData.get('address1') ?? '').trim(),
     city: String(formData.get('city') ?? '').trim(),
     state: String(formData.get('state') ?? '').trim(),
-    postalCode: String(formData.get('postalCode') ?? '').trim(),
-    country: String(formData.get('country') ?? 'US').trim(),
+    zip: String(formData.get('zip') ?? '').trim(),
+    country: String(formData.get('country') ?? 'US').trim().toUpperCase(),
   };
 
-  const missing = (['firstName', 'lastName', 'email', 'phone', 'address1', 'city', 'state', 'postalCode'] as const)
+  const missing = (['firstName', 'lastName', 'email', 'phone', 'address1', 'city', 'state', 'zip'] as const)
     .filter((k) => !registrant[k]);
   if (missing.length) {
     return { ok: false, error: 'ICANN requires a full contact address for the domain owner. Fill in every field.' };
