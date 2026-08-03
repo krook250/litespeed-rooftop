@@ -45,6 +45,12 @@ export type SiteScanResult = {
   title: string | null;
   logos: ScannedLogo[];
   suggestion: Suggestion;
+  /**
+   * How many images we found and tried to download. Zero and "four, all refused"
+   * are the same empty grid to look at and completely different problems to fix,
+   * so the screen gets to say which one happened.
+   */
+  attempted: number;
 };
 
 /**
@@ -67,10 +73,14 @@ export async function scanSiteForBranding(
   if (!scan.ok) return { ok: false, error: scan.error };
 
   const logos: ScannedLogo[] = [];
+  let attempted = 0;
   for (const candidate of scan.candidates) {
     if (logos.length >= MAX_CANDIDATE_DOWNLOADS) break;
+    attempted++;
     try {
-      const buf = await fetchImage(candidate.url, MAX_LOGO_BYTES);
+      // The page URL as Referer: a logo usually lives on the platform's CDN,
+      // and CDNs hotlink-protect by checking where the request came from.
+      const buf = await fetchImage(candidate.url, MAX_LOGO_BYTES, scan.url);
       const sniff = sniffImage(buf);
       // A favicon is usually an .ico and a banner is sometimes an SVG; both fail
       // the sniff, and both failing quietly is correct — we just show fewer.
@@ -96,6 +106,7 @@ export async function scanSiteForBranding(
       host: scan.host,
       title: scan.title,
       logos,
+      attempted,
       suggestion: suggestPalette(scan.colors, 'site'),
     },
   };

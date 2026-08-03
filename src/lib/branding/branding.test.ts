@@ -27,7 +27,15 @@ import {
   suggestPalette,
 } from './palette';
 
-import { findLogoCandidates, findSiteColors, isPrivateAddress, parseSiteUrl } from './site-scan';
+import {
+  FetchFailure,
+  altWwwHost,
+  explain,
+  findLogoCandidates,
+  findSiteColors,
+  isPrivateAddress,
+  parseSiteUrl,
+} from './site-scan';
 
 /* ---------------------------------------------------------------- colours */
 
@@ -270,5 +278,42 @@ describe('findSiteColors', () => {
   it('drops an out-of-range rgb() rather than wrapping it', () => {
     const out = findSiteColors(['.a{color:rgb(300, 16, 46)}'], null);
     assert.equal(out.length, 0);
+  });
+});
+
+/* -------------------------------------------------------- failure reporting */
+
+describe('altWwwHost', () => {
+  it('flips between the apex and www, keeping everything else', () => {
+    assert.equal(altWwwHost(new URL('https://malabartruckandtrade.com/x'))?.toString(),
+      'https://www.malabartruckandtrade.com/x');
+    assert.equal(altWwwHost(new URL('https://www.malabartruckandtrade.com/'))?.hostname,
+      'malabartruckandtrade.com');
+  });
+
+  it('refuses to strip www off something that would stop being a domain', () => {
+    assert.equal(altWwwHost(new URL('https://www.com/')), null);
+  });
+});
+
+describe('explain', () => {
+  it('only blames the address when the address is actually the suspect', () => {
+    const dns = explain(new FetchFailure('dns', ''), 'malabartruckandtrade.com');
+    assert.match(dns, /Check the spelling/);
+
+    // A WAF refusal is the case that sent a dealer to re-read a correct URL.
+    const blocked = explain(new FetchFailure('blocked', '', 403), 'malabartruckandtrade.com');
+    assert.doesNotMatch(blocked, /Check the/);
+    assert.match(blocked, /blocking automated visits/);
+  });
+
+  it('always leaves the dealer somewhere to go', () => {
+    for (const kind of ['dns', 'network', 'timeout', 'blocked', 'status', 'too-big', 'redirect'] as const) {
+      assert.match(explain(new FetchFailure(kind, '', 500), 'example.com'), /upload your logo file/i, kind);
+    }
+  });
+
+  it('names the host, so the message is about their site and not ours', () => {
+    assert.match(explain(new FetchFailure('timeout', ''), 'malabartruckandtrade.com'), /malabartruckandtrade\.com/);
   });
 });

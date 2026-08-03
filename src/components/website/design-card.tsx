@@ -79,7 +79,7 @@ export function DesignCard(props: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [siteUrl, setSiteUrl] = useState('');
-  const [scan, setScan] = useState<{ host: string; logos: ScannedLogo[]; suggestion: Suggestion } | null>(null);
+  const [scan, setScan] = useState<{ host: string; logos: ScannedLogo[]; attempted: number; suggestion: Suggestion } | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanning, startScan] = useTransition();
 
@@ -277,8 +277,9 @@ export function DesignCard(props: Props) {
 
             {scan && !scan.logos.length && !scanError ? (
               <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                We reached {scan.host} but couldn&apos;t find an image we could use. Upload the file instead,
-                or skip this and come back to it.
+                {scan.attempted > 0
+                  ? `We found ${scan.attempted === 1 ? 'an image' : scan.attempted + ' images'} on ${scan.host} but couldn't download ${scan.attempted === 1 ? 'it' : 'any of them'} — the host is refusing us. Upload the file instead.`
+                  : `We reached ${scan.host} but couldn't find an image we could use. Upload the file instead, or skip this and come back to it.`}
               </p>
             ) : null}
 

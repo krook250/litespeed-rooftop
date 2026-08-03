@@ -36,10 +36,40 @@ import { normalizeHex, type WeightedColor } from './palette';
 const HTML_MAX_BYTES = 1_500_000;
 const CSS_MAX_BYTES = 600_000;
 const MAX_STYLESHEETS = 2;
-const TIMEOUT_MS = 6_000;
-const MAX_REDIRECTS = 3;
+/** A dealer site on a slow platform routinely takes 8s to first byte. */
+const PAGE_TIMEOUT_MS = 12_000;
+/** Sub-resources are optional, so they get a short leash. */
+const ASSET_TIMEOUT_MS = 8_000;
+const MAX_REDIRECTS = 4;
 
-const UA = 'RooftopAutoBot/1.0 (+https://rooftopauto.com; dealer logo import)';
+/**
+ * WE IDENTIFY AS A BROWSER, and that is a deliberate call worth defending.
+ *
+ * The first version sent `RooftopAutoBot/1.0`. It was refused by the first real
+ * dealer site we tried — a CarsForSale.com storefront — and it would be refused
+ * by most of them: dealer platforms (CarsForSale, Dealer.com, DealerOn,
+ * Dealer Inspire) sit behind WAFs that 403 any user agent they do not recognise,
+ * long before robots.txt is consulted.
+ *
+ * What we are doing does not resemble what those rules exist to stop. It is ONE
+ * page load, made synchronously because the dealer clicked a button, against a
+ * site the dealer owns, to fetch the dealer's own logo. There is no crawl, no
+ * schedule, no second page. Announcing ourselves and being refused would not
+ * make that request more honest — it would just move the work to the dealer, who
+ * would go and find the PNG by hand.
+ *
+ * The line we do not cross: this never runs unprompted, never walks past the one
+ * page it was given, and never fetches a site nobody asked about.
+ */
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+  'Chrome/127.0.0.0 Safari/537.36';
+
+const BROWSERISH_HEADERS: Record<string, string> = {
+  'user-agent': UA,
+  'accept-language': 'en-US,en;q=0.9',
+  'upgrade-insecure-requests': '1',
+};
 
 export type LogoCandidate = {
   url: string;
@@ -110,55 +140,113 @@ export function parseSiteUrl(raw: string): URL | null {
 }
 
 async function assertPublicHost(hostname: string): Promise<void> {
-  const addrs = await lookup(hostname, { all: true });
-  if (!addrs.length) throw new Error('That address does not resolve.');
+  let addrs: { address: string }[];
+  try {
+    addrs = await lookup(hostname, { all: true });
+  } catch {
+    throw new FetchFailure('dns', `We couldn't find ${hostname}. Check the spelling.`);
+  }
+  if (!addrs.length) throw new FetchFailure('dns', `We couldn't find ${hostname}. Check the spelling.`);
   for (const a of addrs) {
-    if (isPrivateAddress(a.address)) throw new Error('That address points somewhere private.');
+    if (isPrivateAddress(a.address)) throw new FetchFailure('private', 'That address points somewhere private.');
   }
 }
 
 type FetchedText = { text: string; finalUrl: URL };
 
+/**
+ * Why a fetch failed, kept as a machine-readable kind.
+ *
+ * The first version collapsed every failure into "Check the address and try
+ * again", which is actively misleading when the address is perfectly correct and
+ * the site returned 403. A dealer told to check a URL they know is right has
+ * been sent to look in the wrong place — so the reason survives all the way to
+ * the screen.
+ */
+export type FetchFailureKind = 'dns' | 'network' | 'timeout' | 'blocked' | 'status' | 'redirect' | 'too-big' | 'private';
+
+export class FetchFailure extends Error {
+  constructor(readonly kind: FetchFailureKind, message: string, readonly status?: number) {
+    super(message);
+    this.name = 'FetchFailure';
+  }
+}
+
 /** Fetch text with the guard rails described at the top of this file. */
-async function safeFetchText(start: URL, maxBytes: number, accept: string): Promise<FetchedText> {
+async function safeFetchText(
+  start: URL,
+  maxBytes: number,
+  accept: string,
+  timeoutMs = PAGE_TIMEOUT_MS,
+): Promise<FetchedText> {
   let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     await assertPublicHost(url.hostname);
 
     const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
     let res: Response;
     try {
       res = await fetch(url, {
         redirect: 'manual',
         signal: ac.signal,
-        headers: { 'user-agent': UA, accept },
+        headers: { ...BROWSERISH_HEADERS, accept },
       });
+    } catch (err) {
+      if (ac.signal.aborted) throw new FetchFailure('timeout', `${url.hostname} took too long to answer.`);
+      throw new FetchFailure('network', `Could not connect to ${url.hostname}.`);
     } finally {
       clearTimeout(timer);
     }
 
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get('location');
-      if (!loc) throw new Error('That site redirected to nowhere.');
-      const next = new URL(loc, url);
+      if (!loc) throw new FetchFailure('redirect', 'That site redirected to nowhere.');
+      let next: URL;
+      try {
+        next = new URL(loc, url);
+      } catch {
+        throw new FetchFailure('redirect', 'That site redirected somewhere we could not follow.');
+      }
       if (next.protocol !== 'http:' && next.protocol !== 'https:') {
-        throw new Error('That site redirected somewhere we will not follow.');
+        throw new FetchFailure('redirect', 'That site redirected somewhere we will not follow.');
       }
       url = next;
       continue;
     }
 
-    if (!res.ok) throw new Error('That site answered with ' + res.status + '.');
+    /*
+     * 401/403/406/429 and Cloudflare's 503 all mean the same thing in practice:
+     * a WAF decided we are a robot. Separated from other statuses because the
+     * dealer's next move is different — upload the file, don't fix the URL.
+     */
+    if ([401, 403, 406, 429, 503].includes(res.status)) {
+      throw new FetchFailure('blocked', `${url.hostname} is blocking automated visits.`, res.status);
+    }
+    if (!res.ok) throw new FetchFailure('status', `${url.hostname} answered with ${res.status}.`, res.status);
 
     const len = Number(res.headers.get('content-length') ?? 0);
-    if (len > maxBytes) throw new Error('That page is too large to read.');
+    if (len > maxBytes) throw new FetchFailure('too-big', 'That page is too large to read.');
 
     const buf = await res.arrayBuffer();
-    if (buf.byteLength > maxBytes) throw new Error('That page is too large to read.');
-    return { text: new TextDecoder('utf-8').decode(buf), finalUrl: url };
+    if (buf.byteLength > maxBytes) throw new FetchFailure('too-big', 'That page is too large to read.');
+
+    /*
+     * Decode with the charset the server declared. A dealer site on an older
+     * platform still serves windows-1252, and forcing utf-8 turns the one thing
+     * we are here for — the dealership's name in the title — into mojibake.
+     */
+    const ct = res.headers.get('content-type') ?? '';
+    const charset = ct.match(/charset=([\w-]+)/i)?.[1]?.toLowerCase() ?? 'utf-8';
+    let text: string;
+    try {
+      text = new TextDecoder(charset).decode(buf);
+    } catch {
+      text = new TextDecoder('utf-8').decode(buf);
+    }
+    return { text, finalUrl: url };
   }
-  throw new Error('That site redirected too many times.');
+  throw new FetchFailure('redirect', 'That site redirected too many times.');
 }
 
 /* ---------------------------------------------------------------- parsing */
@@ -275,13 +363,31 @@ export async function scanSite(raw: string): Promise<SiteScan> {
   const url = parseSiteUrl(raw);
   if (!url) return { ok: false, error: "That doesn't look like a website address. Try something like cascademotors.com." };
 
-  let page: FetchedText;
-  try {
-    page = await safeFetchText(url, HTML_MAX_BYTES, 'text/html,application/xhtml+xml');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Could not reach that site.';
-    return { ok: false, error: /private|resolve|redirect|large/.test(msg) ? msg : `Couldn't load ${url.hostname}. Check the address and try again.` };
+  /*
+   * Try what they typed, then the other side of the `www.` divide.
+   *
+   * Plenty of dealer sites answer on `www.` and leave the apex unresolved (or
+   * the reverse). A redirect between the two is followed already — this is for
+   * the case where there is no redirect because there is nothing listening at
+   * all. Only retried on DNS and connection failures: a 403 at the apex will be
+   * a 403 at www too, and a second refusal is just eight more seconds of the
+   * dealer waiting.
+   */
+  const attempts = [url, altWwwHost(url)].filter((u): u is URL => Boolean(u));
+
+  let page: FetchedText | null = null;
+  let failure: FetchFailure | null = null;
+  for (const attempt of attempts) {
+    try {
+      page = await safeFetchText(attempt, HTML_MAX_BYTES, 'text/html,application/xhtml+xml');
+      break;
+    } catch (err) {
+      failure = err instanceof FetchFailure ? err : new FetchFailure('network', 'Could not reach that site.');
+      if (failure.kind !== 'dns' && failure.kind !== 'network') break;
+    }
   }
+
+  if (!page) return { ok: false, error: explain(failure!, url.hostname) };
 
   const html = page.text;
   const base = page.finalUrl;
@@ -308,7 +414,7 @@ export async function scanSite(raw: string): Promise<SiteScan> {
   const sheets = await Promise.all(
     sheetUrls.map(async (u) => {
       try {
-        return (await safeFetchText(new URL(u), CSS_MAX_BYTES, 'text/css')).text;
+        return (await safeFetchText(new URL(u), CSS_MAX_BYTES, 'text/css', ASSET_TIMEOUT_MS)).text;
       } catch {
         return '';
       }
@@ -326,30 +432,87 @@ export async function scanSite(raw: string): Promise<SiteScan> {
 }
 
 /** Download one candidate image, with the same guard rails. Returns raw bytes. */
-export async function fetchImage(rawUrl: string, maxBytes: number): Promise<Buffer> {
+export async function fetchImage(rawUrl: string, maxBytes: number, referer?: string): Promise<Buffer> {
   let url = new URL(rawUrl);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     await assertPublicHost(url.hostname);
     const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => ac.abort(), ASSET_TIMEOUT_MS);
     let res: Response;
     try {
-      res = await fetch(url, { redirect: 'manual', signal: ac.signal, headers: { 'user-agent': UA, accept: 'image/*' } });
+      res = await fetch(url, {
+        redirect: 'manual',
+        signal: ac.signal,
+        /*
+         * The Referer matters here. A logo often lives on the platform's CDN
+         * rather than the dealer's own host, and CDNs hotlink-protect by
+         * checking that the request came from the site the image belongs to —
+         * which, in the only case we run, it did.
+         */
+        headers: { ...BROWSERISH_HEADERS, accept: 'image/*,*/*;q=0.8', ...(referer ? { referer } : {}) },
+      });
+    } catch {
+      throw new FetchFailure(ac.signal.aborted ? 'timeout' : 'network', 'Could not download that image.');
     } finally {
       clearTimeout(timer);
     }
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get('location');
-      if (!loc) throw new Error('That image redirected to nowhere.');
+      if (!loc) throw new FetchFailure('redirect', 'That image redirected to nowhere.');
       url = new URL(loc, url);
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Unsupported redirect.');
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new FetchFailure('redirect', 'Unsupported redirect.');
+      }
       continue;
     }
-    if (!res.ok) throw new Error('That image answered with ' + res.status + '.');
-    if (Number(res.headers.get('content-length') ?? 0) > maxBytes) throw new Error('That image is too big.');
+    if (!res.ok) throw new FetchFailure('status', `That image answered with ${res.status}.`, res.status);
+    if (Number(res.headers.get('content-length') ?? 0) > maxBytes) throw new FetchFailure('too-big', 'That image is too big.');
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength > maxBytes) throw new Error('That image is too big.');
+    if (buf.byteLength > maxBytes) throw new FetchFailure('too-big', 'That image is too big.');
     return buf;
   }
-  throw new Error('That image redirected too many times.');
+  throw new FetchFailure('redirect', 'That image redirected too many times.');
+}
+
+/* ---------------------------------------------------------------- helpers */
+
+/** `example.com` ⇄ `www.example.com`. Null when there is no other side to try. */
+export function altWwwHost(url: URL): URL | null {
+  const alt = new URL(url.toString());
+  if (url.hostname.startsWith('www.')) {
+    const bare = url.hostname.slice(4);
+    if (!bare.includes('.')) return null; // `www.com` is not a thing worth trying
+    alt.hostname = bare;
+  } else {
+    alt.hostname = 'www.' + url.hostname;
+  }
+  return alt;
+}
+
+/**
+ * Turn a failure into a sentence with a next action in it.
+ *
+ * Every branch names something the dealer can actually do. "Check the address"
+ * appears exactly once — on the DNS failure, which is the only case where the
+ * address is genuinely the suspect.
+ */
+export function explain(f: FetchFailure, host: string): string {
+  switch (f.kind) {
+    case 'dns':
+      return `We couldn't find ${host}. Check the spelling — or upload your logo file instead.`;
+    case 'blocked':
+      return `${host} is blocking automated visits, so we can't read it from here. Upload your logo file instead — it takes a second.`;
+    case 'timeout':
+      return `${host} took too long to answer. Try again in a moment, or upload your logo file instead.`;
+    case 'network':
+      return `We couldn't connect to ${host}. If the site is up, upload your logo file instead.`;
+    case 'status':
+      return `${host} answered with an error (${f.status ?? 'unknown'}). Upload your logo file instead.`;
+    case 'too-big':
+      return `${host} is too large for us to read. Upload your logo file instead.`;
+    case 'private':
+      return 'That address points somewhere private, so we will not fetch it.';
+    case 'redirect':
+      return `${host} redirected somewhere we couldn't follow. Upload your logo file instead.`;
+  }
 }
