@@ -140,6 +140,23 @@ export async function disconnectMeta(): Promise<ActionResult> {
   };
 }
 
+/**
+ * Form-shaped wrapper around `disconnectMeta`.
+ *
+ * A `<form action={...}>` must resolve to void — React has nowhere to put a
+ * return value on a plain form post. `disconnectMeta` returns an `ActionResult`
+ * because it is also worth calling from a `useActionState` client component, so
+ * this adapter swallows the shape and carries the outcome back through the URL
+ * instead. Same result on screen, no client component required for one button.
+ */
+export async function disconnectMetaForm(): Promise<void> {
+  const res = await disconnectMeta();
+  const q = new URLSearchParams(
+    res.ok ? { msg: res.message ?? 'Disconnected from Facebook.' } : { err: res.error },
+  );
+  redirect(`/admin/ad-desk?${q.toString()}`);
+}
+
 /** Used by the connect screen to show who did it, without a second query. */
 export async function currentUserId(): Promise<string | null> {
   return (await getSessionUser())?.id ?? null;

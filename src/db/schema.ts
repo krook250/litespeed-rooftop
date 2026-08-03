@@ -223,8 +223,20 @@ export type RegistrantContact = {
   address1: string;
   address2?: string;
   city: string;
+  /**
+   * Vercel calls this `zip`, and the field name is part of their contract —
+   * `contactInformation.zip` on `/v1/registrar/domains/{d}/buy`. It is spelled
+   * their way here, not ours, because this type is the *wire* shape: it is
+   * serialised straight into the purchase body and stored verbatim in
+   * `domainOrders.registrant`. Renaming it to `postalCode` to match
+   * `rooftops.postalCode` breaks the build in four places and, worse, would
+   * silently mismatch any registrant JSON already written.
+   *
+   * It has been renamed away twice by accident during unrelated work
+   * (`5943870 lot walk feed`). If you are about to do it again: don't.
+   */
+  zip: string;
   state: string;
-  postalCode: string;
   country: string;
 };
 
@@ -796,6 +808,85 @@ export const blobs = pgTable('blobs', {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
+/* ----------------------------------------------------------- vehicle intake */
+
+/**
+ * NHTSA vPIC responses, cached forever by VIN.
+ *
+ * A VIN's decode is a property of the VIN, not of the moment it was asked about,
+ * so there is no TTL and no invalidation — the row is correct the day it is
+ * written and correct in five years. vPIC is free, so this is not a cost cache;
+ * it is an availability and latency cache. Re-scanning the same title after a
+ * retake should not wait on a government API, and vPIC does go down.
+ */
+export const vinDecodes = pgTable('vin_decodes', {
+  vin: text().primaryKey(),
+  /** The vPIC row verbatim. Kept whole so new fields can be read without a refetch. */
+  payload: jsonb().notNull(),
+  decodedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One row per document scan, whether or not it produced a vehicle.
+ *
+ * WHY THIS TABLE EARNS ITS KEEP
+ * Document extraction is the feature that generates support tickets shaped like
+ * "it read the wrong mileage that one time". Without a record, answering that
+ * means asking a dealer to reproduce a photo they took three days ago on a lot
+ * in the rain. With one, it is a lookup: what did the reader return, which
+ * reader was it, did it escalate, what did the VIN check digit say. The scan id
+ * is surfaced in the UI so a dealer can quote it.
+ *
+ * PII, DELIBERATELY GATED
+ * A title's transcript contains the previous owner's name and address, and an
+ * auction sheet can carry a dealer's cost. That is exactly the data an FTC
+ * Safeguards questionnaire asks about, and keeping it by default would mean
+ * answering for it. So `transcript` and `rawResponse` are only written when
+ * INTAKE_RETAIN_RAW is set — on in development, off in production unless a
+ * specific bug needs it. The structured extraction is always kept: it is small,
+ * it is about the car rather than about a person, and it is what most debugging
+ * actually needs.
+ */
+export const intakeScans = pgTable(
+  'intake_scans',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    /** Set once the scan is turned into a unit. Null for abandoned scans. */
+    vehicleId: text().references(() => vehicles.id, { onDelete: 'set null' }),
+    userId: text().references(() => users.id, { onDelete: 'set null' }),
+
+    /** 'barcode' | 'claude' | 'ocr' | 'none' — which path produced the read. */
+    reader: text().notNull(),
+    /** True when the check digit failed the first read and a better model was tried. */
+    escalated: boolean().notNull().default(false),
+    documentKind: text().notNull().default('UNKNOWN'),
+    pageCount: integer().notNull().default(1),
+    blobKeys: text().array().notNull().default([]),
+
+    /** The VIN settled on, and whether it satisfied its own check digit. */
+    vin: text(),
+    vinChecksums: boolean(),
+
+    extraction: jsonb().notNull(),
+    warnings: jsonb().notNull().default([]),
+
+    /** Gated on INTAKE_RETAIN_RAW — see the note above. */
+    transcript: text(),
+    rawResponse: jsonb(),
+
+    readMs: integer().notNull().default(0),
+    totalMs: integer().notNull().default(0),
+    error: text(),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (s) => [
+    index('intake_scans_rooftop_idx').on(s.rooftopId, s.createdAt),
+    index('intake_scans_vin_idx').on(s.vin),
+  ],
+);
+
 /* ---------------------------------------------------------- domain orders */
 
 /**
@@ -980,6 +1071,9 @@ export type DomainSource = (typeof domainSourceEnum.enumValues)[number];
 export type DomainOrder = typeof domainOrders.$inferSelect;
 export type DomainOrderStatus = (typeof domainOrderStatusEnum.enumValues)[number];
 export type Blob = typeof blobs.$inferSelect;
+export type IntakeScan = typeof intakeScans.$inferSelect;
+export type NewIntakeScan = typeof intakeScans.$inferInsert;
+export type TitleStatus = (typeof titleStatusEnum.enumValues)[number];
 
 /* ------------------------------------------------------------ meta ad desk */
 

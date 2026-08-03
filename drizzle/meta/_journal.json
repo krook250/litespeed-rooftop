@@ -43,6 +43,13 @@
       "when": 1785735214371,
       "tag": "0005_lowly_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785772210297,
+      "tag": "0006_great_boomer",
+      "breakpoints": true
     }
   ]
 }

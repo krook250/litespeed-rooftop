@@ -176,7 +176,12 @@ export async function saveVehicle(formData: FormData) {
     exteriorColorHex: str('exteriorColorHex') || '#9ca3af',
     interiorColor: str('interiorColor'),
     mileage: int('mileage') ?? 0,
+    // Only ever what a brand word on the document said, or what a human picked.
+    // Absence of a brand is not evidence of a clean title, but CLEAN is the
+    // column default and the dealer owns that call either way.
+    titleStatus: (str('titleStatus') || 'CLEAN') as typeof t.titleStatusEnum.enumValues[number],
     price: int('price') ?? 0,
+    msrp: int('msrp'),
     cost: int('cost') ?? 0,
     pack: int('pack') ?? 0,
     reconCost: int('reconCost') ?? 0,
