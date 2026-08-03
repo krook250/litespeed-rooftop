@@ -71,6 +71,25 @@ export const userRoleEnum = pgEnum('user_role', ['OWNER', 'MANAGER', 'SALES', 'L
 export const homeViewEnum = pgEnum('home_view', ['FEED', 'DASHBOARD']);
 
 /**
+ * How the event stream is *rendered*. Not what is in it.
+ *
+ * `feed_events` is a dealer log — a timestamped, tenant-scoped record of
+ * everything that moved money, with a number attached to each row. Lot Walk's
+ * social feel is a presentation layer on top of it: avatars, 👍/🔥, the comment
+ * thread, the composer, the card chrome. Strip those and the same rows read as
+ * a dense activity log that looks like the management software these dealers
+ * already use.
+ *
+ * That split is the product decision. A twenty-person store gets a morale
+ * feature; the owner-plus-two-reps store gets a log and never sees an emoji.
+ * Same table, same emitters, same sweep, same backfill — so a store that grows
+ * into the social view flips a setting rather than migrating anything.
+ *
+ * SOCIAL is the default because it is the differentiation bet.
+ */
+export const feedStyleEnum = pgEnum('feed_style', ['SOCIAL', 'LOG']);
+
+/**
  * Lot Walk event kinds. The list grows as the product does — a lead becomes
  * another `kind` when the CRM lands, with no re-architecture.
  * `team` and `note` are the two human-authored kinds; everything else is
@@ -86,8 +105,13 @@ export const feedEventKindEnum = pgEnum('feed_event_kind', [
    * one because a transfer is the only event that belongs to **two** rooftops,
    * and `feed_events.rooftopId` is single-valued: the departure posts to the
    * origin, the arrival posts to the destination. See `vehicleTransfers`.
+   *
+   * `transfer_inbound` is the third: the *destination* hearing at departure
+   * that something is on its way. It exists because the porter at the far end
+   * is the person who most needs the warning, and he needs it before the truck
+   * shows up rather than after.
    */
-  'transfer_out', 'transfer_in',
+  'transfer_out', 'transfer_in', 'transfer_inbound',
 ]);
 
 /** Two reactions, deliberately. 👍 acknowledges, 🔥 says "this one is hot." */
@@ -143,6 +167,14 @@ export const dealerGroups = pgTable('dealer_groups', {
   id: cuid().primaryKey(),
   name: text().notNull(),
   slug: text().notNull().unique(),
+  /**
+   * The house default for how this dealership reads its own event stream.
+   * Style is more a house trait than a personal one — a two-person lot sets it
+   * once at signup and never thinks about it again — but `users.feedStyle`
+   * overrides it, because the controller at a twenty-person store should not be
+   * forced into the same view as the receptionist.
+   */
+  feedStyle: feedStyleEnum().notNull().default('SOCIAL'),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -191,9 +223,8 @@ export type RegistrantContact = {
   address1: string;
   address2?: string;
   city: string;
-  /** Vercel calls this `zip`, and the field name is part of their contract. */
-  zip: string;
   state: string;
+  postalCode: string;
   country: string;
 };
 
@@ -269,6 +300,14 @@ export const users = pgTable('users', {
   role: userRoleEnum().notNull().default('MANAGER'),
   /** Landing screen. Lot Walk is the bet, so it is the default. */
   homeView: homeViewEnum().notNull().default('FEED'),
+  /**
+   * Personal override of the house feed style. **Nullable on purpose** — null
+   * means "whatever the dealership uses", which is different from having picked
+   * SOCIAL. Without the null the owner could never change the house default for
+   * anyone who had already signed in, because every row would already hold a
+   * value that looks like a choice.
+   */
+  feedStyle: feedStyleEnum(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   /* ---- Better Auth core fields ---- */
   emailVerified: boolean().notNull().default(false),
@@ -924,6 +963,8 @@ export type FeedReaction = typeof feedReactions.$inferSelect;
 export type FeedEventKind = (typeof feedEventKindEnum.enumValues)[number];
 export type FeedReactionKind = (typeof feedReactionKindEnum.enumValues)[number];
 export type HomeView = (typeof homeViewEnum.enumValues)[number];
+export type FeedStyle = (typeof feedStyleEnum.enumValues)[number];
+export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type StorefrontLayout = (typeof storefrontLayoutEnum.enumValues)[number];
 export type DomainStatus = (typeof domainStatusEnum.enumValues)[number];
 export type DomainSource = (typeof domainSourceEnum.enumValues)[number];

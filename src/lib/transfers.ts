@@ -37,7 +37,13 @@ import {
   getOpenTransfer,
   type Scope,
 } from '@/lib/scoped-db';
-import { feedTransferCancelled, feedTransferIn, feedTransferOut } from '@/lib/feed';
+import {
+  feedTransferCancelled,
+  feedTransferIn,
+  feedTransferInbound,
+  feedTransferInboundCancelled,
+  feedTransferOut,
+} from '@/lib/feed';
 import { shortRooftopName } from '@/lib/domain';
 
 /**
@@ -154,8 +160,19 @@ export async function startTransfer(
   });
 
   if (input.arriveNow) {
+    // No inbound card: warning the far end that a car is coming is noise when
+    // the car is already parked outside. The arrival card covers it.
     return markTransferArrived(scope, { transferId: transfer.id, actorId: input.actorId });
   }
+
+  // The receiving lot hears now, not when somebody remembers to mention it.
+  await feedTransferInbound(vehicle, {
+    transferId: transfer.id,
+    toRooftopId: destination.id,
+    fromRooftopName: nameFor(vehicle.rooftopId),
+    note: input.note,
+    actorId: input.actorId,
+  });
 
   return { ok: true, transfer };
 }
@@ -238,6 +255,15 @@ export async function cancelTransfer(
     transferId: transfer.id,
     fromRooftopName: nameFor(transfer.fromRooftopId),
     toRooftopName: nameFor(transfer.toRooftopId),
+    actorId: input.actorId,
+  });
+
+  // Both lots were told something, so both get the correction. A lot that was
+  // promised a car and never told otherwise sends somebody out to look for it.
+  await feedTransferInboundCancelled(vehicle, {
+    transferId: transfer.id,
+    toRooftopId: transfer.toRooftopId,
+    fromRooftopName: nameFor(transfer.fromRooftopId),
     actorId: input.actorId,
   });
 

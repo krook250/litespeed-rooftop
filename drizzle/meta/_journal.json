@@ -36,6 +36,13 @@
       "when": 1785731482259,
       "tag": "0004_slippery_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785735214371,
+      "tag": "0005_lowly_guardian",
+      "breakpoints": true
     }
   ]
 }

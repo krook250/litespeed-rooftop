@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { AgeBadge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
 import { Avatar, Composer } from '@/components/feed/bits';
 import { FeedPost } from '@/components/feed/card';
+import { LogRow } from '@/components/feed/log-row';
+import { FeedStyleSwitch } from '@/components/feed/feed-style';
 import { HomePreference } from '@/components/feed/home-preference';
 import { requireSession } from '@/lib/auth';
 import {
@@ -10,6 +12,7 @@ import {
   getOpenTransfers,
   getRooftops,
   getSalesSince,
+  resolveFeedStyle,
   sessionScope,
 } from '@/lib/queries';
 import { getFeed, sweepDerivedFeedEvents } from '@/lib/feed';
@@ -48,7 +51,7 @@ const FILTERS: { key: string; label: string; kinds?: FeedEventKind[] }[] = [
     label: 'The lot',
     kinds: [
       'acquired', 'recon_in', 'recon_out', 'photos', 'front_line',
-      'transfer_out', 'transfer_in',
+      'transfer_out', 'transfer_inbound', 'transfer_in',
     ],
   },
   { key: 'channels', label: 'Channels', kinds: ['sync_error', 'vdp_milestone', 'domain'] },
@@ -71,12 +74,29 @@ export default async function LotWalkPage({
   // does not duplicate a card. At scale this becomes roadmap item 6's worker.
   await sweepDerivedFeedEvents(scope.rooftopIds);
 
+  /**
+   * Lot Walk and the activity log are the same query. Everything below this
+   * line — the events, the filters, the numbers, the rail — is shared; only the
+   * component that draws a row changes, and `withSocial` drops two queries the
+   * log would never render. That is the whole point of the split: a store that
+   * grows into the social view flips a setting rather than migrating anything.
+   */
+  const { style, houseStyle, isOverride } = await resolveFeedStyle(me);
+  const isLog = style === 'LOG';
+
   const [group, rooftops, inventory, sales, cards, inTransit] = await Promise.all([
     getGroup(),
     getRooftops(),
     getLiveInventory(),
     getSalesSince(30),
-    getFeed({ rooftopIds: scope.rooftopIds, viewerId: me.id, limit: 40, kinds: filter.kinds }),
+    getFeed({
+      rooftopIds: scope.rooftopIds,
+      viewerId: me.id,
+      // A log is scanned, a feed is read. Denser rows earn a longer page.
+      limit: isLog ? 120 : 40,
+      kinds: filter.kinds,
+      withSocial: !isLog,
+    }),
     getOpenTransfers(scope),
   ]);
 
@@ -97,16 +117,26 @@ export default async function LotWalkPage({
   ).length;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-5 lg:px-6">
+    <div className={cn('mx-auto px-4 py-5 lg:px-6', isLog ? 'max-w-[1650px]' : 'max-w-[1400px]')}>
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-ink-900">Lot Walk</h1>
+          <h1 className="text-xl font-bold tracking-tight text-ink-900">
+            {isLog ? 'Activity' : 'Lot Walk'}
+          </h1>
           <p className="text-sm text-ink-500">
             {group.name} · {withDays.length} units on the ground across{' '}
             {rooftops.length} rooftop{rooftops.length === 1 ? '' : 's'}
           </p>
         </div>
-        <HomePreference current={me.homeView} thisView="FEED" />
+        <div className="flex flex-col items-end gap-1.5">
+          <FeedStyleSwitch
+            style={style}
+            houseStyle={houseStyle}
+            isOverride={isOverride}
+            role={me.role}
+          />
+          <HomePreference current={me.homeView} thisView="FEED" />
+        </div>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -119,13 +149,18 @@ export default async function LotWalkPage({
             <Tile label="Money on the ground" value={usd(tiedUp)} />
           </div>
 
-          <Composer
-            me={me.name}
-            rooftops={rooftops.map((r) => ({
-              id: r.id,
-              name: shortRooftopName(r.name, group.name),
-            }))}
-          />
+          {/* The composer is the social layer, not the record. A log-mode store
+              still gets every system event; what it does not get is a box
+              inviting people to post to each other. */}
+          {isLog ? null : (
+            <Composer
+              me={me.name}
+              rooftops={rooftops.map((r) => ({
+                id: r.id,
+                name: shortRooftopName(r.name, group.name),
+              }))}
+            />
+          )}
 
           <div className="flex flex-wrap gap-1.5">
             {FILTERS.map((x) => (
@@ -148,8 +183,23 @@ export default async function LotWalkPage({
             <Card>
               <EmptyState
                 title="Nothing on the lot yet"
-                body="Add a unit and the feed starts writing itself — acquired, into recon, photos up, front-line ready, priced, sold."
+                body={
+                  isLog
+                    ? 'Add a unit and the log starts writing itself — acquired, into recon, photos up, front-line ready, priced, sold.'
+                    : 'Add a unit and the feed starts writing itself — acquired, into recon, photos up, front-line ready, priced, sold.'
+                }
               />
+            </Card>
+          ) : isLog ? (
+            <Card className="overflow-hidden">
+              <div className="divide-y divide-ink-100">
+                {cards.map((card) => (
+                  <LogRow key={card.event.id} card={card} />
+                ))}
+              </div>
+              <p className="border-t border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] text-ink-500">
+                Last {cards.length} entries. Same record as Lot Walk — only the layout differs.
+              </p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -247,22 +297,30 @@ export default async function LotWalkPage({
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader title="On the lot today" />
-            <div className="flex flex-wrap gap-3 px-4 py-3.5">
-              {staff.map((p) => (
-                <div key={p.id} className="flex items-center gap-2">
-                  <Avatar name={p.name} size={28} />
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-ink-900">{p.name.split(' ')[0]}</div>
-                    <div className="text-[10px] text-ink-500">
-                      {p.role.toLowerCase().replace('_', ' ')}
+          {/* Faces are the morale feature, and the morale feature is the thing
+              the small store did not ask for. Everything else in this rail —
+              at-risk, water, recon, inbound — is management information and
+              stays in both views. */}
+          {isLog ? null : (
+            <Card>
+              <CardHeader title="On the lot today" />
+              <div className="flex flex-wrap gap-3 px-4 py-3.5">
+                {staff.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <Avatar name={p.name} size={28} />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-ink-900">
+                        {p.name.split(' ')[0]}
+                      </div>
+                      <div className="text-[10px] text-ink-500">
+                        {p.role.toLowerCase().replace('_', ' ')}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+          )}
         </aside>
       </div>
     </div>

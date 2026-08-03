@@ -125,3 +125,54 @@ export async function setHomeView(formData: FormData) {
   await db.update(t.users).set({ homeView: view }).where(eq(t.users.id, me.id));
   revalidatePath('/admin', 'layout');
 }
+
+function isFeedStyle(v: string): v is t.FeedStyle {
+  return v === 'SOCIAL' || v === 'LOG';
+}
+
+/**
+ * How *this user* reads the stream.
+ *
+ * `style=inherit` clears the override and hands the user back to the house
+ * default — which is a real thing to want, not a reset button. Once the owner
+ * sets the dealership to LOG, a user sitting on an explicit SOCIAL would never
+ * see that change; clearing is how they rejoin it.
+ */
+export async function setFeedStyle(formData: FormData) {
+  const raw = String(formData.get('style') ?? '');
+  const me = await requireSession();
+
+  if (raw === 'inherit') {
+    await db.update(t.users).set({ feedStyle: null }).where(eq(t.users.id, me.id));
+  } else if (isFeedStyle(raw)) {
+    await db.update(t.users).set({ feedStyle: raw }).where(eq(t.users.id, me.id));
+  } else {
+    return;
+  }
+
+  revalidatePath('/admin', 'layout');
+}
+
+/**
+ * The house default, for the whole dealership.
+ *
+ * Owners and managers only — this changes what the rest of the staff opens in
+ * the morning, and a salesperson should not be able to do that to everyone.
+ * Deliberately does **not** clear anyone's personal override: a user who chose
+ * a view chose it, and silently overwriting that is how a setting stops being
+ * trusted. The switcher tells them the house moved and offers the one click.
+ */
+export async function setHouseFeedStyle(formData: FormData) {
+  const raw = String(formData.get('style') ?? '');
+  if (!isFeedStyle(raw)) return;
+
+  const me = await requireSession();
+  if (me.role !== 'OWNER' && me.role !== 'MANAGER') return;
+
+  await db.update(t.dealerGroups).set({ feedStyle: raw }).where(eq(t.dealerGroups.id, me.groupId));
+  // The person flipping the house default means it for themselves too, and
+  // leaving them on a stale override is a confusing first impression of the
+  // control they just used.
+  await db.update(t.users).set({ feedStyle: null }).where(eq(t.users.id, me.id));
+  revalidatePath('/admin', 'layout');
+}

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireSession, signOut } from '@/lib/auth';
-import { getGroup, getStorefronts } from '@/lib/queries';
+import { getGroup, getStorefronts, resolveFeedStyle } from '@/lib/queries';
 import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/admin-nav';
 
@@ -13,7 +13,11 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
-  const [group, storefronts] = await Promise.all([getGroup(), getStorefronts()]);
+  const [group, storefronts, feed] = await Promise.all([
+    getGroup(),
+    getStorefronts(),
+    resolveFeedStyle(user),
+  ]);
 
   async function doSignOut() {
     'use server';
@@ -34,7 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <AdminNav />
+        <AdminNav feedLabel={feed.style === 'LOG' ? 'Activity' : 'Lot Walk'} />
 
         <div className="mt-auto border-t border-ink-800 px-3 py-4">
           <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">

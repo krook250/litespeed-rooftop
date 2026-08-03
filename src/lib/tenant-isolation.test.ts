@@ -36,6 +36,7 @@ import {
   type Scope,
 } from '@/lib/scoped-db';
 import { cancelTransfer, markTransferArrived, startTransfer } from '@/lib/transfers';
+import { getFeed, resolveFeedStyle } from '@/lib/feed';
 import { daysInStock } from '@/lib/domain';
 import { isLocalDatabase, forceRequested } from '@/db/guard';
 
@@ -379,10 +380,20 @@ describe('lot transfers', () => {
       .select()
       .from(t.feedEvents)
       .where(eq(t.feedEvents.vehicleId, car.id));
+
     const out = cards.find((c) => c.kind === 'transfer_out');
     assert.ok(out, 'the origin lot gets a card');
     assert.equal(out!.rooftopId, A.rooftopId);
     assert.ok(out!.stats.length > 0, 'every card carries a number');
+
+    // …and the far end hears at departure, not at arrival. This is the card
+    // the porter expecting the car actually needs.
+    const inbound = cards.find((c) => c.kind === 'transfer_inbound');
+    assert.ok(inbound, 'the receiving lot is told it is coming');
+    assert.equal(inbound!.rooftopId, A.rooftop2Id);
+    assert.ok(inbound!.stats.length > 0);
+
+    // The arrival card is the one thing that has not happened yet.
     assert.equal(cards.some((c) => c.kind === 'transfer_in'), false);
   });
 
@@ -497,6 +508,9 @@ describe('lot transfers', () => {
     ).map((c) => c.kind);
     assert.ok(kinds.includes('transfer_out'));
     assert.ok(kinds.includes('transfer_in'));
+    // No "it's on its way" card: the car is already parked outside, so the
+    // warning would be noise and the arrival card says everything.
+    assert.equal(kinds.includes('transfer_inbound'), false);
   });
 
   it('calling a move off leaves the unit exactly where it was', async () => {
@@ -517,6 +531,21 @@ describe('lot transfers', () => {
     const [v] = await db.select().from(t.vehicles).where(eq(t.vehicles.id, car.id));
     assert.equal(v!.rooftopId, A.rooftopId);
     assert.equal(await getOpenTransfer(A.bothLots, car.id), null);
+
+    // Both lots were told something, so both get the correction. A lot that was
+    // promised a car and never told otherwise sends somebody out to look.
+    const cards = await db
+      .select()
+      .from(t.feedEvents)
+      .where(eq(t.feedEvents.vehicleId, car.id));
+    assert.ok(
+      cards.some((c) => c.kind === 'transfer_out' && c.rooftopId === A.rooftopId && /staying put/.test(c.title)),
+      'the origin lot is told the move is off',
+    );
+    assert.ok(
+      cards.some((c) => c.kind === 'transfer_inbound' && c.rooftopId === A.rooftop2Id && /not coming/.test(c.title)),
+      'the receiving lot is told not to expect it',
+    );
 
     // The row survives, so a cancelled move is still auditable…
     assert.equal((await getTransferHistory(A.bothLots, car.id)).length, 1);
@@ -552,6 +581,106 @@ describe('lot transfers', () => {
     assert.equal(await getOpenTransfer(nobody, car.id), null);
     assert.deepEqual(await getOpenTransfers(nobody), []);
     assert.equal(await assertRooftopInScope(nobody, A.rooftopId), null);
+  });
+});
+
+/**
+ * Feed style — one event stream, two presentations.
+ *
+ * The thing worth testing is not that a component renders differently. It is
+ * that **null in `users.feedStyle` is load-bearing**: it is the difference
+ * between "I chose Lot Walk" and "I never chose", and only the second follows
+ * the owner when they change the house default. Get that wrong and the setting
+ * either cannot be changed for existing staff, or silently overwrites choices
+ * people made — and both failures look fine in a screenshot.
+ */
+describe('feed style — house default with a personal override', () => {
+  it('a user who has never chosen inherits the dealership', async () => {
+    const r = await resolveFeedStyle({ groupId: A.groupId, feedStyle: null });
+    assert.equal(r.style, 'SOCIAL', 'SOCIAL is the default bet');
+    assert.equal(r.houseStyle, 'SOCIAL');
+    assert.equal(r.isOverride, false);
+  });
+
+  it('the house default moves everyone who never chose, and nobody who did', async () => {
+    await db
+      .update(t.dealerGroups)
+      .set({ feedStyle: 'LOG' })
+      .where(eq(t.dealerGroups.id, A.groupId));
+
+    // The owner-plus-two-reps case: nobody picked anything, the house says LOG,
+    // so everybody gets the log.
+    const inherits = await resolveFeedStyle({ groupId: A.groupId, feedStyle: null });
+    assert.equal(inherits.style, 'LOG');
+    assert.equal(inherits.isOverride, false);
+
+    // The person who explicitly asked for Lot Walk keeps it, and is told that
+    // it is theirs rather than the dealership's.
+    const chose = await resolveFeedStyle({ groupId: A.groupId, feedStyle: 'SOCIAL' });
+    assert.equal(chose.style, 'SOCIAL');
+    assert.equal(chose.houseStyle, 'LOG');
+    assert.equal(chose.isOverride, true);
+
+    // Choosing the same thing the house chose is not an override — otherwise
+    // the UI would nag about a difference that does not exist.
+    const agrees = await resolveFeedStyle({ groupId: A.groupId, feedStyle: 'LOG' });
+    assert.equal(agrees.isOverride, false);
+
+    await db
+      .update(t.dealerGroups)
+      .set({ feedStyle: 'SOCIAL' })
+      .where(eq(t.dealerGroups.id, A.groupId));
+  });
+
+  it('style is per tenant — one dealership’s choice does not reach another', async () => {
+    await db
+      .update(t.dealerGroups)
+      .set({ feedStyle: 'LOG' })
+      .where(eq(t.dealerGroups.id, A.groupId));
+    assert.equal((await resolveFeedStyle({ groupId: B.groupId, feedStyle: null })).style, 'SOCIAL');
+    await db
+      .update(t.dealerGroups)
+      .set({ feedStyle: 'SOCIAL' })
+      .where(eq(t.dealerGroups.id, A.groupId));
+  });
+
+  it('the log fetches no threads but still knows they exist', async () => {
+    await db.insert(t.feedComments).values({
+      eventId: A.eventId,
+      userId: A.userId,
+      body: 'Comment that the log must not silently swallow',
+    });
+
+    const social = await getFeed({
+      rooftopIds: A.scope.rooftopIds,
+      viewerId: A.userId,
+      withSocial: true,
+    });
+    const socialCard = social.find((c) => c.event.id === A.eventId)!;
+    assert.equal(socialCard.comments.length, 1);
+    assert.equal(socialCard.commentCount, 1);
+
+    const log = await getFeed({
+      rooftopIds: A.scope.rooftopIds,
+      viewerId: A.userId,
+      withSocial: false,
+    });
+    const logCard = log.find((c) => c.event.id === A.eventId)!;
+    // The thread is not fetched — that is the saving — but the count is, so a
+    // conversation never disappears without a trace. The two views are one
+    // stream, and a row that reads as "nothing here" in the log would be a lie.
+    assert.equal(logCard.comments.length, 0);
+    assert.equal(logCard.commentCount, 1);
+    assert.deepEqual(
+      logCard.reactions.map((r) => r.count),
+      [0, 0],
+    );
+
+    // Same events, same order, either way. Only the drawing differs.
+    assert.deepEqual(
+      log.map((c) => c.event.id),
+      social.map((c) => c.event.id),
+    );
   });
 });
 

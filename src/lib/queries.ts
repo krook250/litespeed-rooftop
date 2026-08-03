@@ -4,6 +4,9 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
 import { AGING_BUCKETS, bucketFor, daysInStock, type DisMode } from '@/lib/domain';
+
+/** Presentation of the feed, not a query — but callers want one import. */
+export { resolveFeedStyle } from '@/lib/feed';
 import { scopeForGroup, type Scope } from '@/lib/scoped-db';
 
 /**

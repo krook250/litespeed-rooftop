@@ -304,6 +304,74 @@ export async function feedTransferOut(
 }
 
 /**
+ * Something is coming. Posted to the **destination** lot the moment the unit
+ * leaves the other one.
+ *
+ * This is the third card in a move, and the one that carries the most useful
+ * information to the person reading it: the porter at the far end needs a spot
+ * cleared and needs to know to expect keys, and he needs that before the truck
+ * turns up rather than after. The "On the way" rail says the same thing, but a
+ * rail is scrolled past and a card can be replied to — "put it in the front
+ * row" is a comment on this card and nowhere else.
+ *
+ * Deliberately **not** emitted on the "it's already there" shortcut: a warning
+ * that a car is coming is noise when the car is already parked outside.
+ */
+export async function feedTransferInbound(
+  v: VehicleLike,
+  opts: {
+    transferId: string;
+    toRooftopId: string;
+    fromRooftopName: string;
+    note?: string | null;
+    actorId?: string | null;
+  },
+) {
+  return emitFeedEvent({
+    // The unit still belongs to the origin lot until it arrives, so the target
+    // rooftop is passed in rather than read off the vehicle.
+    rooftopId: opts.toRooftopId,
+    kind: 'transfer_inbound',
+    vehicleId: v.id,
+    actorId: opts.actorId,
+    title: `${shortTitle(v)} is on its way here from ${opts.fromRooftopName}`,
+    body:
+      (opts.note?.trim() ? `${opts.note.trim()} ` : '') +
+      `Stock #${v.stockNumber}. Mark it arrived when it is on the ground and its listings move here.`,
+    stats: [daysStat(v), askingStat(v), { k: 'Coming from', v: opts.fromRooftopName }],
+    dedupeKey: `transfer_inbound:${opts.transferId}`,
+  });
+}
+
+/**
+ * The inbound unit is not coming after all.
+ *
+ * Only emitted when the destination was actually told to expect it. A lot that
+ * was promised a car and never told otherwise goes looking for it, which is a
+ * worse failure than one more card.
+ */
+export async function feedTransferInboundCancelled(
+  v: VehicleLike,
+  opts: {
+    transferId: string;
+    toRooftopId: string;
+    fromRooftopName: string;
+    actorId?: string | null;
+  },
+) {
+  return emitFeedEvent({
+    rooftopId: opts.toRooftopId,
+    kind: 'transfer_inbound',
+    vehicleId: v.id,
+    actorId: opts.actorId,
+    title: `${shortTitle(v)} is not coming after all`,
+    body: `The move was called off. Stock #${v.stockNumber} is staying at ${opts.fromRooftopName}.`,
+    stats: [daysStat(v), askingStat(v), { k: 'Staying at', v: opts.fromRooftopName }],
+    dedupeKey: `transfer_inbound_cancelled:${opts.transferId}`,
+  });
+}
+
+/**
  * The unit landed at the far end. Posted to the receiving lot, and the only
  * card whose stats include how long the move actually took.
  *
@@ -519,7 +587,39 @@ export async function sweepDerivedFeedEvents(rooftopIds: string[]) {
   return { created };
 }
 
-/* ----------------------------------------------------------------- reads */
+/* --------------------------------------------------------------- reads */
+
+/**
+ * How this user reads the event stream: their own choice if they made one, the
+ * dealership's otherwise.
+ *
+ * The null in `users.feedStyle` is the whole mechanism — it is the difference
+ * between "I picked Lot Walk" and "I never picked", and only the second follows
+ * the owner when they change the house default. Resolved in one place so the
+ * page, the switcher and any future per-rooftop rule cannot disagree.
+ *
+ * Lives here rather than in `queries.ts` for the same reason the emitters do:
+ * `queries.ts` imports `server-only`, and this has to be callable from the test
+ * runner under plain tsx.
+ */
+export async function resolveFeedStyle(user: {
+  groupId: string;
+  feedStyle: t.FeedStyle | null;
+}): Promise<{ style: t.FeedStyle; houseStyle: t.FeedStyle; isOverride: boolean }> {
+  const rows = await db
+    .select({ feedStyle: t.dealerGroups.feedStyle })
+    .from(t.dealerGroups)
+    .where(eq(t.dealerGroups.id, user.groupId))
+    .limit(1);
+  const houseStyle = rows[0]?.feedStyle ?? 'SOCIAL';
+  return {
+    style: user.feedStyle ?? houseStyle,
+    houseStyle,
+    // Choosing the same thing the house chose is not an override — otherwise
+    // the switcher nags about a difference that does not exist.
+    isOverride: user.feedStyle != null && user.feedStyle !== houseStyle,
+  };
+}
 
 export type FeedCard = {
   event: typeof t.feedEvents.$inferSelect;
@@ -529,6 +629,13 @@ export type FeedCard = {
   subject: { id: string; name: string; role: string } | null;
   reactions: { kind: t.FeedReactionKind; count: number; mine: boolean }[];
   comments: { id: string; body: string; createdAt: Date; author: string }[];
+  /**
+   * Always populated, even when the thread itself was not fetched. The log
+   * presentation renders a count rather than the conversation, and a row whose
+   * thread is invisible *with no trace* would mean the two views disagree about
+   * what happened — which breaks the premise that they are one stream.
+   */
+  commentCount: number;
 };
 
 /**
@@ -541,8 +648,19 @@ export async function getFeed(opts: {
   viewerId: string;
   limit?: number;
   kinds?: FeedEventKind[];
+  /**
+   * Reactions and comments. The log presentation does not render either, and
+   * fetching them to throw them away is two queries per page view for nothing.
+   * Defaults to true so the social path is unchanged.
+   *
+   * The rows are never *deleted* when this is false — a store that switches
+   * from the log back to Lot Walk finds its old threads intact, because the
+   * two views are presentations of one stream and not two products.
+   */
+  withSocial?: boolean;
 }): Promise<FeedCard[]> {
   const { rooftopIds, viewerId } = opts;
+  const withSocial = opts.withSocial ?? true;
   if (!rooftopIds.length) return [];
   const limit = opts.limit ?? 40;
 
@@ -565,7 +683,7 @@ export async function getFeed(opts: {
     ...new Set([...events.map((e) => e.actorId), ...events.map((e) => e.subjectUserId)].filter(Boolean)),
   ] as string[];
 
-  const [vehicles, photos, people, reactions, comments] = await Promise.all([
+  const [vehicles, photos, people, reactions, comments, counts] = await Promise.all([
     vehicleIds.length
       ? db.select().from(t.vehicles).where(inArray(t.vehicles.id, vehicleIds))
       : Promise.resolve([]),
@@ -579,20 +697,38 @@ export async function getFeed(opts: {
       .select({ id: t.users.id, name: t.users.name, role: t.users.role })
       .from(t.users)
       .where(userIds.length ? inArray(t.users.id, userIds) : sql`false`),
-    db.select().from(t.feedReactions).where(inArray(t.feedReactions.eventId, eventIds)),
-    db
-      .select({
-        id: t.feedComments.id,
-        eventId: t.feedComments.eventId,
-        body: t.feedComments.body,
-        createdAt: t.feedComments.createdAt,
-        author: t.users.name,
-      })
-      .from(t.feedComments)
-      .innerJoin(t.users, eq(t.feedComments.userId, t.users.id))
-      .where(inArray(t.feedComments.eventId, eventIds))
-      .orderBy(t.feedComments.createdAt),
+    withSocial
+      ? db.select().from(t.feedReactions).where(inArray(t.feedReactions.eventId, eventIds))
+      : Promise.resolve([]),
+    withSocial
+      ? db
+          .select({
+            id: t.feedComments.id,
+            eventId: t.feedComments.eventId,
+            body: t.feedComments.body,
+            createdAt: t.feedComments.createdAt,
+            author: t.users.name,
+          })
+          .from(t.feedComments)
+          .innerJoin(t.users, eq(t.feedComments.userId, t.users.id))
+          .where(inArray(t.feedComments.eventId, eventIds))
+          .orderBy(t.feedComments.createdAt)
+      : Promise.resolve([]),
+    // Counts only, for the log. Cheaper than the thread — no join to users and
+    // no bodies over the wire — but still enough that nothing goes missing.
+    withSocial
+      ? Promise.resolve([])
+      : db
+          .select({
+            eventId: t.feedComments.eventId,
+            n: sql<number>`count(*)::int`,
+          })
+          .from(t.feedComments)
+          .where(inArray(t.feedComments.eventId, eventIds))
+          .groupBy(t.feedComments.eventId),
   ]);
+
+  const commentCountByEvent = new Map(counts.map((c) => [c.eventId, c.n]));
 
   const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
   const photoByVehicle = new Map(photos.map((p) => [p.vehicleId, p.url]));
@@ -600,11 +736,15 @@ export async function getFeed(opts: {
 
   return events.map((event) => {
     const mine = reactions.filter((r) => r.eventId === event.id);
-    const counts: FeedCard['reactions'] = (['THUMB', 'FIRE'] as const).map((kind) => ({
+    const reactionCounts: FeedCard['reactions'] = (['THUMB', 'FIRE'] as const).map((kind) => ({
       kind,
       count: mine.filter((r) => r.kind === kind).length,
       mine: mine.some((r) => r.kind === kind && r.userId === viewerId),
     }));
+
+    const thread = comments
+      .filter((c) => c.eventId === event.id)
+      .map(({ id, body, createdAt, author }) => ({ id, body, createdAt, author }));
 
     return {
       event,
@@ -612,10 +752,9 @@ export async function getFeed(opts: {
       photo: event.vehicleId ? photoByVehicle.get(event.vehicleId) ?? null : null,
       actor: event.actorId ? personById.get(event.actorId) ?? null : null,
       subject: event.subjectUserId ? personById.get(event.subjectUserId) ?? null : null,
-      reactions: counts,
-      comments: comments
-        .filter((c) => c.eventId === event.id)
-        .map(({ id, body, createdAt, author }) => ({ id, body, createdAt, author })),
+      reactions: reactionCounts,
+      comments: thread,
+      commentCount: withSocial ? thread.length : commentCountByEvent.get(event.id) ?? 0,
     };
   });
 }

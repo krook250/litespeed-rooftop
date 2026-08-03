@@ -78,6 +78,13 @@ export const auth = betterAuth({
       // *is* user-settable, but through the `setHomeView` server action rather
       // than through a signup body, so `input: false` still applies.
       homeView: { type: 'string', required: false, input: false, defaultValue: 'FEED' },
+      // Same trap as homeView, one step worse: this column is *nullable*, and
+      // null is load-bearing — it means "inherit the dealership's style". An
+      // undeclared column comes back undefined, which is indistinguishable from
+      // the inherit case, so the bug would hide rather than show. No
+      // defaultValue for exactly that reason: null is the intended initial
+      // state, not a value waiting to be filled in.
+      feedStyle: { type: 'string', required: false, input: false },
     },
   },
   session: { modelName: 'sessions' },
