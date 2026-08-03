@@ -188,10 +188,13 @@ export function InstructionsView({ result }: { result: Instructions }) {
 
 /* ------------------------------------------------------- bring your own */
 
-export function BringYourOwnPanel({ storefrontId }: { storefrontId: string }) {
+export function BringYourOwnPanel({
+  storefrontId,
+  initialDomain = '',
+}: { storefrontId: string; initialDomain?: string }) {
   const [preview, previewAction, previewing] = useActionState(previewDomain, null);
   const [attach, attachAction, attaching] = useActionState(attachDomain, null);
-  const [domain, setDomain] = useState('');
+  const [domain, setDomain] = useState(initialDomain);
 
   const ready = preview?.ok && preview.data?.ok && preview.data.state !== 'blocked' && preview.data.state !== 'not-registered';
 

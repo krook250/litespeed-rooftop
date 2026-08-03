@@ -48,9 +48,22 @@ export default async function WebsitePage() {
    * whatever we cached when they first entered it. This is the screen they come
    * back to precisely because something has not happened yet.
    */
+  /*
+   * `domain` is only meaningful together with `domainStatus`. A row can carry a
+   * domain string that was never actually connected to anything — seeded rows do,
+   * and so would any storefront whose domain was set directly in the database.
+   * `NONE` is the tell: no code path sets it while leaving a domain in place
+   * (`detachDomain` nulls both), so domain + NONE means "written down, never set up".
+   *
+   * Treating that as connected is what produced a status panel and a Disconnect
+   * button for a connection that did not exist.
+   */
+  const connected = Boolean(sf.domain) && sf.domainStatus !== 'NONE';
+  const unconnectedDomain = sf.domain && sf.domainStatus === 'NONE' ? sf.domain : null;
+
   const live = sf.domainStatus === 'LIVE';
   const instructions =
-    sf.domain && !live ? buildInstructions(await lookupDomain(sf.domain), sf.domainVerification) : null;
+    connected && !live ? buildInstructions(await lookupDomain(sf.domain!), sf.domainVerification) : null;
 
   const previewUrl = live && sf.domain ? `https://${sf.domain}` : `/s/${sf.slug}`;
 
@@ -80,11 +93,11 @@ export default async function WebsitePage() {
           </p>
         ) : null}
 
-        {sf.domain ? (
+        {connected ? (
           <div className="mt-3 space-y-4">
             <DomainStatusPanel
               storefrontId={sf.id}
-              domain={sf.domain}
+              domain={sf.domain!}
               status={sf.domainStatus}
               error={sf.domainError}
               checkedAt={sf.domainCheckedAt ? new Date(sf.domainCheckedAt).toLocaleString('en-US') : null}
@@ -102,7 +115,13 @@ export default async function WebsitePage() {
               <p className="mt-0.5 mb-3 text-xs text-ink-500">
                 Keep it where it is. You&apos;ll add two records — we never touch your email.
               </p>
-              <BringYourOwnPanel storefrontId={sf.id} />
+              {unconnectedDomain ? (
+                <p className="mb-3 rounded-md bg-ink-50 px-3 py-2 text-xs text-ink-600">
+                  We have <strong>{unconnectedDomain}</strong> on file for this storefront, but it has
+                  never been connected. Look it up to pick up where that left off.
+                </p>
+              ) : null}
+              <BringYourOwnPanel storefrontId={sf.id} initialDomain={unconnectedDomain ?? ''} />
             </div>
             <div className="rounded-xl border border-ink-200 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink-900">I need a domain</h3>
