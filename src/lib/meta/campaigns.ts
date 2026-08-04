@@ -43,13 +43,20 @@
  * bet the demo on which one the API accepts today, we send the modern value and
  * fall back once. Which one worked is reported back and is worth knowing.
  *
- * **Everything is PAUSED and the ad account is a sandbox.** A sandbox ad
- * account takes no payment method and never delivers, so this costs nothing and
- * cannot accidentally spend a dealer's money. The cost of that is that Insights
- * returns no rows — Meta's own 2023 note says "no spend, clicks or impressions
- * are generated and there are no insights to be evaluated." A demo that depends
- * on a non-zero number would therefore be a demo that lies; `readInsights`
- * below reports an empty result as an empty result.
+ * **Everything is PAUSED and the ad account has no payment method.** A paused
+ * campaign in an unfunded account cannot deliver, so this costs nothing and
+ * cannot accidentally spend a dealer's money.
+ *
+ * We deliberately do NOT use a Marketing API sandbox account, despite it being
+ * the obvious choice: Meta's 2023 note on the re-enabled sandbox says Insights
+ * "is currently not supported… there are no insights to be evaluated", which
+ * would break `readInsights` and the `ads_read` demo outright. Sandbox accounts
+ * are also invisible in Ads Manager, and a reviewer following our test
+ * instructions connects their own real ad account anyway.
+ *
+ * Insights on a paused campaign still returns nothing, and that is correct. A
+ * demo that depends on a non-zero number would be a demo that lies;
+ * `readInsights` below reports an empty result as an empty result.
  */
 
 import 'server-only';
@@ -139,7 +146,7 @@ export async function ensureProductSet(
 
 export type DemoCampaignInput = {
   token: string;
-  /** `act_<id>`. A sandbox account, created under Marketing API → Tools. */
+  /** `act_<id>`. An ad account with no payment method, so it cannot deliver. */
   adAccountId: string;
   catalogId: string;
   /** The dealer's Page. This is the field that exercises `pages_manage_ads`. */
@@ -237,8 +244,8 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
   /*
    * `LINK_CLICKS` rather than `OFFSITE_CONVERSIONS`, on purpose.
    *
-   * Conversion optimisation needs a pixel with signal behind it. On a sandbox
-   * account with no delivery there is none, and the ad set either fails
+   * Conversion optimisation needs a pixel with signal behind it. On an account
+   * that never delivers there is none, and the ad set either fails
    * validation or enters a learning phase that will never leave. Link clicks is
    * the honest optimisation goal for a demo, and it is the one the resulting
    * screencast can describe without overstating what was built.
@@ -355,11 +362,11 @@ export type InsightsRow = {
 export type InsightsResult = {
   rows: InsightsRow[];
   /**
-   * True when the read succeeded and returned nothing, which on a sandbox
-   * account is the *expected* outcome rather than a failure. The distinction
-   * matters: "we read your spend and it is zero because these ads have never
-   * run" and "we could not read your spend" are different sentences, and only
-   * one of them is honest about a sandbox.
+   * True when the read succeeded and returned nothing, which for a paused
+   * campaign in an unfunded account is the *expected* outcome rather than a
+   * failure. The distinction matters: "we read your spend and it is zero
+   * because these ads have never run" and "we could not read your spend" are
+   * different sentences, and only one of them is honest.
    */
   emptyByDesign: boolean;
 };

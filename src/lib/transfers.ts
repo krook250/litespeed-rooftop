@@ -86,7 +86,7 @@ const MOVEABLE: t.VehicleStatus[] = [
 /**
  * Lot names for the cards. Rooftops are stored as "<Group> — <Location>" so
  * they read on their own; inside the app the group is already in the chrome,
- * so a card that says "left for Evergreen Motors — Battle Ground" is noise.
+ * so a card that says "left for Rooftop Demo Motors — Battle Ground" is noise.
  */
 async function lotNames(rooftopIds: string[]) {
   const rows = rooftopIds.length

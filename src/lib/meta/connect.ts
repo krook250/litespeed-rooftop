@@ -55,10 +55,18 @@ export const STATE_COOKIE = 'rooftop_meta_state';
  * Meta. Must be the real hostname: Meta rejects a redirect_uri that is not in
  * the app's allowlist, and it will not fetch a feed from localhost.
  */
+export const DEFAULT_APP_HOST = 'app.rooftopauto.com';
+
 export function appOrigin(): string {
   const host = process.env.NEXT_PUBLIC_APP_HOST;
-  if (!host) return 'http://localhost:3000';
-  return host.startsWith('http') ? host : `https://${host}`;
+  if (host) return host.startsWith('http') ? host : `https://${host}`;
+  // NEXT_PUBLIC_APP_HOST is unset. Falling back to localhost here was a live
+  // production bug: Meta blocks a localhost redirect_uri and can never fetch a
+  // localhost feed, and nothing looked broken because proxy.ts and
+  // demo-actions.ts both default to the real host. Match them in production;
+  // localhost stays the default for local dev only.
+  if (process.env.NODE_ENV === 'production') return `https://${DEFAULT_APP_HOST}`;
+  return 'http://localhost:3000';
 }
 
 export function redirectUri(): string {

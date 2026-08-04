@@ -215,7 +215,7 @@ export function monthlyPayment(price: number, down: number, apr: number, months:
 /**
  * Rooftops are named "<Group> — <Location>" so they read correctly on their
  * own. Inside the admin, where the group is already in the chrome, strip the
- * prefix. Works for any tenant; the old hardcoded "Evergreen Motors — " did not.
+ * prefix. Works for any tenant; the old hardcoded "Rooftop Demo Motors — " did not.
  */
 export function shortRooftopName(rooftopName: string, groupName?: string) {
   if (groupName) {
@@ -227,7 +227,7 @@ export function shortRooftopName(rooftopName: string, groupName?: string) {
   /**
    * The exact-prefix test above only fires when the group name is a literal
    * prefix of the rooftop name, and real data does not cooperate: the seeded
-   * group is "Evergreen Motors Group" while its lots are "Evergreen Motors —
+   * group is "Rooftop Demo Motors Group" while its lots are "Rooftop Demo Motors —
    * Vancouver", so every caller was rendering the full name. Fall back to the
    * separator the naming convention itself defines — "<Group> — <Location>" —
    * which gets "Vancouver" out of that pair and leaves an undashed name like

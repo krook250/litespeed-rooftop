@@ -229,12 +229,15 @@ export function evaluate(
   // Lot-level problems. These repeat on every unit at the lot, which is the
   // point: the UI groups them and shows one card, but the reason has to live on
   // the vehicle or a per-vehicle export loses it.
+  // TODO: there is no lot settings screen yet, so a dealer cannot self-serve
+  // this. Point them at support until one exists — telling them to use a screen
+  // that does not exist is worse than telling them to ask.
   if (lot.latitude == null || lot.longitude == null) {
     issues.push({
       code: 'NO_STORE_COORDINATES',
       scope: 'FEED',
       reason: `${lot.name} has no map location set, and Facebook requires one on every vehicle.`,
-      fix: 'Set the lot’s latitude and longitude in Settings.',
+      fix: 'Contact Rooftop support to set this lot’s map location.',
     });
   }
 

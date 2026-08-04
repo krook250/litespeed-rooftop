@@ -40,8 +40,8 @@ const DAY = 86_400_000;
 const NOW = new Date('2026-08-04T12:00:00Z');
 
 const LOT: FeedRooftop = {
-  id: 'lot_evergreen',
-  name: 'Evergreen Motors',
+  id: 'lot_demo',
+  name: 'Rooftop Demo Motors',
   addressLine1: '550 Auto Center Dr',
   city: 'Watsonville',
   state: 'CA',
@@ -85,7 +85,7 @@ function vehicle(over: Partial<FeedVehicle> = {}): FeedVehicle {
 }
 
 const build = (vs: FeedVehicle[], lot: FeedRooftop = LOT) =>
-  buildFeed(vs, lot, { siteBase: 'https://evergreenmotors.com', now: NOW });
+  buildFeed(vs, lot, { siteBase: 'https://demo.rooftopauto.com', now: NOW });
 
 /* ------------------------------------------------------------------ enums */
 
@@ -311,6 +311,6 @@ describe('aging buckets and images', () => {
   });
 
   it('builds the VDP url off the stock number', () => {
-    assert.equal(build([vehicle()]).rows[0]!.url, 'https://evergreenmotors.com/N8990');
+    assert.equal(build([vehicle()]).rows[0]!.url, 'https://demo.rooftopauto.com/N8990');
   });
 });

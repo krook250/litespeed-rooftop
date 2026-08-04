@@ -1,5 +1,5 @@
 /**
- * Demo dealer: Evergreen Motors — two rooftops, two storefronts.
+ * Demo dealer: Rooftop Demo Motors — two rooftops, two storefronts.
  * Pricing, mileage and cost structure are set to what a PNW independent lot
  * would actually be carrying. Aging is spread across every bucket on purpose.
  */

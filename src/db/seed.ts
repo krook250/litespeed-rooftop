@@ -1,5 +1,5 @@
 /**
- * Seeds the Evergreen Motors demo dealer.
+ * Seeds the Rooftop Demo Motors demo dealer.
  * Idempotent: wipes and rebuilds every table. `npm run db:seed`
  */
 
@@ -15,7 +15,7 @@ import { assertSafeToWipe } from './guard';
 import { backfillFeed } from './backfill-feed';
 
 /** Sign-in for the seeded demo dealership. Printed at the end of a seed run. */
-export const DEMO_LOGIN = { email: 'dave@evergreenmotorswa.com', password: 'lotwalk2026' };
+export const DEMO_LOGIN = { email: 'dave@rooftopauto.com', password: 'lotwalk2026' };
 
 /* deterministic RNG so every reseed produces the same demo */
 function mulberry32(a: number) {
@@ -66,7 +66,7 @@ async function main() {
   /* ------------------------------------------------------------- tenancy */
   const [group] = await db
     .insert(t.dealerGroups)
-    .values({ name: 'Evergreen Motors Group', slug: 'evergreen' })
+    .values({ name: 'Rooftop Demo Motors Group', slug: 'rooftop-demo' })
     .returning();
 
   const [vanRooftop, bgRooftop] = await db
@@ -74,11 +74,11 @@ async function main() {
     .values([
       {
         groupId: group!.id,
-        name: 'Evergreen Motors — Vancouver',
-        slug: 'evergreen-vancouver',
+        name: 'Rooftop Demo Motors — Vancouver',
+        slug: 'rooftop-demo-vancouver',
         addressLine1: '8215 NE Highway 99',
         city: 'Vancouver', state: 'WA', postalCode: '98665',
-        phone: '(360) 555-0142', email: 'sales@evergreenmotorswa.com',
+        phone: '(360) 555-0142', email: 'sales@rooftopauto.com',
         // Meta's vehicle feed marks latitude/longitude required on every item,
         // so the demo lot has to carry real ones or its whole inventory is
         // ineligible — see `src/lib/meta/feed-spec.ts`.
@@ -86,11 +86,11 @@ async function main() {
       },
       {
         groupId: group!.id,
-        name: 'Evergreen Motors — Battle Ground',
-        slug: 'evergreen-battle-ground',
+        name: 'Rooftop Demo Motors — Battle Ground',
+        slug: 'rooftop-demo-battle-ground',
         addressLine1: '1104 W Main St',
         city: 'Battle Ground', state: 'WA', postalCode: '98604',
-        phone: '(360) 555-0177', email: 'bg@evergreenmotorswa.com',
+        phone: '(360) 555-0177', email: 'bg@rooftopauto.com',
         latitude: 45.780_9, longitude: -122.545_1,
       },
     ])
@@ -101,9 +101,9 @@ async function main() {
     .values([
       {
         groupId: group!.id,
-        name: 'Evergreen Motors Vancouver',
+        name: 'Rooftop Demo Motors Vancouver',
         slug: 'vancouver',
-        domain: 'evergreenmotorswa.com',
+        domain: 'demo.rooftopauto.com',
         tagline: 'Straight pricing on clean Northwest cars since 2009.',
         phone: '(360) 555-0142',
         addressLine: '8215 NE Highway 99, Vancouver, WA 98665',
@@ -113,9 +113,9 @@ async function main() {
       },
       {
         groupId: group!.id,
-        name: 'Evergreen Motors Battle Ground',
+        name: 'Rooftop Demo Motors Battle Ground',
         slug: 'battle-ground',
-        domain: 'evergreenbg.com',
+        domain: 'demo-bg.rooftopauto.com',
         tagline: 'Trucks, wagons and the occasional minivan. No games.',
         phone: '(360) 555-0177',
         addressLine: '1104 W Main St, Battle Ground, WA 98604',
@@ -159,10 +159,10 @@ async function main() {
   const staff = await db
     .insert(t.users)
     .values([
-      { groupId: group!.id, email: 'mike@evergreenmotorswa.com', name: 'Mike Ruiz', role: 'SALES' as const },
-      { groupId: group!.id, email: 'tina@evergreenmotorswa.com', name: 'Tina Alvarez', role: 'SALES' as const },
-      { groupId: group!.id, email: 'rob@evergreenmotorswa.com', name: 'Rob Chen', role: 'LOT_PORTER' as const },
-      { groupId: group!.id, email: 'tim@evergreenmotorswa.com', name: 'Tim Boyd', role: 'SALES' as const },
+      { groupId: group!.id, email: 'mike@rooftopauto.com', name: 'Mike Ruiz', role: 'SALES' as const },
+      { groupId: group!.id, email: 'tina@rooftopauto.com', name: 'Tina Alvarez', role: 'SALES' as const },
+      { groupId: group!.id, email: 'rob@rooftopauto.com', name: 'Rob Chen', role: 'LOT_PORTER' as const },
+      { groupId: group!.id, email: 'tim@rooftopauto.com', name: 'Tim Boyd', role: 'SALES' as const },
     ])
     .returning();
   const [mike, tina, rob, tim] = staff;
@@ -175,10 +175,10 @@ async function main() {
   const acct = (key: string, lot: 'VAN' | 'BG') => {
     const n = lot === 'VAN' ? '4821' : '7702';
     switch (key) {
-      case 'dealer_site': return lot === 'VAN' ? 'evergreenmotorswa.com' : 'evergreenbg.com';
-      case 'meta_catalog': return `Catalog #10${n}9 · Evergreen Motors`;
+      case 'dealer_site': return lot === 'VAN' ? 'demo.rooftopauto.com' : 'demo-bg.rooftopauto.com';
+      case 'meta_catalog': return `Catalog #10${n}9 · Rooftop Demo Motors`;
       case 'google_vla': return `Merchant Center 5${n}31`;
-      case 'fb_marketplace': return `Page: Evergreen Motors ${lot === 'VAN' ? 'Vancouver' : 'Battle Ground'}`;
+      case 'fb_marketplace': return `Page: Rooftop Demo Motors ${lot === 'VAN' ? 'Vancouver' : 'Battle Ground'}`;
       case 'cargurus': return `Dealer ID CG-${n}`;
       case 'cars_com': return `Account ${n}-A`;
       case 'autotrader': return `Cox Dealer ${n}`;
@@ -276,7 +276,7 @@ async function main() {
   const photoRows: (typeof t.vehiclePhotos.$inferInsert)[] = [];
   vehicles.forEach((veh, i) => {
     const seed = SEED_VEHICLES[i]!;
-    const dealerLabel = seed.lot === 'VAN' ? 'Evergreen Motors' : 'Evergreen Motors BG';
+    const dealerLabel = seed.lot === 'VAN' ? 'Rooftop Demo Motors' : 'Rooftop Demo Motors BG';
     // A unit that is still in recon genuinely has no photo set yet.
     const scenes = veh.status === 'IN_RECON' || veh.status === 'ARRIVED'
       ? PHOTO_SET.slice(0, 1)

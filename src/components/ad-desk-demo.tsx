@@ -14,8 +14,8 @@
  * `CampaignDemoPanel` is scaffolding, and is labelled as such on screen. It
  * exists because three of the permissions under App Review — `ads_management`,
  * `ads_read`, `pages_manage_ads` — cannot be shown working by a connect flow
- * that never creates an ad. It builds one paused campaign against a sandbox ad
- * account and reads the result back. It is deliberately not dressed up as a
+ * that never creates an ad. It builds one paused campaign against an ad account
+ * with no payment method and reads the result back. It is deliberately not dressed up as a
  * campaign manager, because it isn't one, and a reviewer who feels oversold is
  * a reviewer looking harder.
  */
@@ -134,15 +134,15 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
     <Card>
       <CardHeader
         title="Campaign demo"
-        subtitle="One paused campaign off the Lot Walk aging buckets, in a sandbox ad account."
-        action={<Badge tone="neutral">Sandbox</Badge>}
+        subtitle="One paused campaign off the Lot Walk aging buckets, in an unfunded ad account."
+        action={<Badge tone="neutral">Demo</Badge>}
       />
 
       <div className="space-y-4 px-5 py-4">
         <p className="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600">
           This builds a real campaign, ad set, creative and ad through the Marketing API and then
-          reads the result back — against a <strong>sandbox ad account</strong>, which has no payment
-          method and never delivers. Everything lands paused. It costs nothing and cannot spend.
+          reads the result back — against an ad account with <strong>no payment method</strong>, so
+          it cannot deliver. Everything lands paused. It costs nothing and cannot spend.
         </p>
 
         {!row.ready ? (

@@ -120,7 +120,7 @@ export async function readCampaignInsightsAction(
       ok: true,
       data: result,
       message: result.emptyByDesign
-        ? 'Read back from Facebook: no spend, impressions or clicks. Expected — this campaign is paused and the ad account is a sandbox, so it has never delivered.'
+        ? 'Read back from Facebook: no spend, impressions or clicks. Expected — this campaign is paused and the ad account has no payment method, so it has never delivered.'
         : `Read back ${result.rows.length} row(s) of delivery from Facebook.`,
     };
   } catch (err) {
