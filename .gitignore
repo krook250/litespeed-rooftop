@@ -47,3 +47,9 @@ next-env.d.ts
 # build info
 tsconfig.tsbuildinfo
 _to_delete/
+
+# Credentials that are not .env files.
+# `.env*` above does not catch a stray .txt.
+*.key
+*.secret
+META_TOKEN_KEY*
