@@ -2,6 +2,8 @@
  * Shared chrome for /login and /signup. Server components — no client JS.
  */
 
+import { RooftopLockup } from './brand';
+
 export function AuthShell({
   title,
   subtitle,
@@ -18,16 +20,8 @@ export function AuthShell({
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-950 px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-lg font-black text-ink-950">
-            R
-          </div>
-          <div>
-            <div className="text-lg font-semibold leading-tight text-white">Rooftop Auto</div>
-            <div className="text-[11px] uppercase tracking-widest text-ink-400">
-              Inventory · Merchandising · Syndication
-            </div>
-          </div>
+        <div className="mb-8">
+          <RooftopLockup />
         </div>
 
         <div className="rounded-2xl border border-ink-800 bg-ink-900 p-6">
