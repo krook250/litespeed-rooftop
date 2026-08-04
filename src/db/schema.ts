@@ -17,6 +17,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -190,6 +191,25 @@ export const rooftops = pgTable('rooftops', {
   phone: text().notNull(),
   email: text().notNull(),
   timezone: text().notNull().default('America/Los_Angeles'),
+
+  /**
+   * Where the lot actually is, in coordinates.
+   *
+   * Nullable because a lot exists in this system long before anyone geocodes
+   * it, and refusing to create one without a map pin would be the wrong trade.
+   * But Meta's vehicle feed marks `latitude` and `longitude` **required** on
+   * every item — not merely recommended, and not satisfied by supplying a
+   * street address — so a lot with these unset cannot be advertised at all.
+   * `src/lib/meta/feed-spec.ts` surfaces that as a dealer-facing reason rather
+   * than dropping the lot's inventory on the floor.
+   *
+   * `numeric` rather than `real`: 7 decimal places is roughly a centimetre, and
+   * float rounding on a coordinate is the kind of thing that is invisible until
+   * someone compares two systems and finds they disagree.
+   */
+  latitude: numeric({ precision: 10, scale: 7, mode: 'number' }),
+  longitude: numeric({ precision: 10, scale: 7, mode: 'number' }),
+
   isActive: boolean().notNull().default(true),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

@@ -19,9 +19,11 @@ import { requireGroupId } from '@/lib/auth';
 import { getRooftops } from '@/lib/queries';
 import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
 import { RooftopPanel, type AssetOption, type RooftopRow } from '@/components/ad-desk-panels';
+import { CampaignDemoPanel, FeedHealthPanel } from '@/components/ad-desk-demo';
 import { disconnectMetaForm, startMetaConnect } from '@/lib/meta/actions';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
+import { previewFeed, type FeedPreview } from '@/lib/meta/feed-preview';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +96,29 @@ export default async function AdDeskPage({
   const pixels: AssetOption[] = (discovery?.pixels ?? []).map((p) => opt(p.id, p.name ?? p.id));
 
   const missing = sp.partial ? sp.partial.split(',').filter(Boolean) : [];
+
+  /*
+   * Feed health, per lot, computed from the same builder the live endpoint uses.
+   * Only for lots that are actually provisioned — a lot with no catalog has no
+   * feed to be healthy or unhealthy about, and showing it an eligibility report
+   * would be answering a question nobody asked.
+   */
+  const previews = new Map<string, FeedPreview>();
+  if (connected) {
+    const provisioned = rooftops.filter((r) => byRooftop.get(r.id)?.catalogId);
+    const results = await Promise.all(provisioned.map((r) => previewFeed(r.id)));
+    results.forEach((p, i) => {
+      if (p) previews.set(provisioned[i]!.id, p);
+    });
+  }
+
+  /** Why a lot cannot run the campaign demo yet, in the order it has to be fixed. */
+  const demoBlocker = (a: (typeof assetRows)[number] | undefined): string | null => {
+    if (!a?.catalogId) return 'Set this lot up above first — the campaign needs a vehicles catalog.';
+    if (!a.adAccountId) return 'Pick an ad account for this lot above. A campaign has to live in one.';
+    if (!a.pageId) return 'Pick this lot’s Facebook Page above. The ad runs from it.';
+    return null;
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-6">
@@ -224,8 +249,18 @@ export default async function AdDeskPage({
               pixelId: a?.pixelId ?? null,
               errorMessage: a?.errorMessage ?? null,
             };
+            const preview = previews.get(r.id);
+            const blocker = demoBlocker(a);
             return (
-              <RooftopPanel key={r.id} row={row} pages={pages} adAccounts={adAccounts} pixels={pixels} />
+              <div key={r.id} className="space-y-5">
+                <RooftopPanel row={row} pages={pages} adAccounts={adAccounts} pixels={pixels} />
+                {preview ? <FeedHealthPanel preview={preview} /> : null}
+                {a?.catalogId ? (
+                  <CampaignDemoPanel
+                    row={{ rooftopId: r.id, name: r.name, ready: blocker === null, blocker }}
+                  />
+                ) : null}
+              </div>
             );
           })
         : null}

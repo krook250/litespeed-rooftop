@@ -79,6 +79,10 @@ async function main() {
         addressLine1: '8215 NE Highway 99',
         city: 'Vancouver', state: 'WA', postalCode: '98665',
         phone: '(360) 555-0142', email: 'sales@evergreenmotorswa.com',
+        // Meta's vehicle feed marks latitude/longitude required on every item,
+        // so the demo lot has to carry real ones or its whole inventory is
+        // ineligible — see `src/lib/meta/feed-spec.ts`.
+        latitude: 45.687_2, longitude: -122.660_3,
       },
       {
         groupId: group!.id,
@@ -87,6 +91,7 @@ async function main() {
         addressLine1: '1104 W Main St',
         city: 'Battle Ground', state: 'WA', postalCode: '98604',
         phone: '(360) 555-0177', email: 'bg@evergreenmotorswa.com',
+        latitude: 45.780_9, longitude: -122.545_1,
       },
     ])
     .returning();
