@@ -114,6 +114,96 @@ export async function provisionRooftopAction(
 }
 
 /**
+ * Persist one lot's Page / ad account / pixel choice, and nothing else.
+ *
+ * WHY THIS EXISTS SEPARATELY FROM `provisionRooftopAction`
+ *
+ * Provisioning calls `ensureVehicleCatalog` first and bails if it fails, so
+ * until now the only way to record a dealer's Page choice was to also create a
+ * catalog and a scheduled feed in their business. That is the wrong trade in
+ * both directions: a dealer who just wants to move one lot to a different Page
+ * had to re-run catalog provisioning to do it, and a dealer still deciding had
+ * no way to save their progress without writing objects into their business.
+ *
+ * This writes three columns. It touches nothing at Meta — no Graph call, no
+ * token needed beyond confirming a connection exists — so it is safe to offer
+ * before the dealer has decided anything about catalogs.
+ *
+ * Same tenant rule as everything else here: the group comes from the session,
+ * the rooftop id arrives off the form and goes through `assertRooftopInScope`.
+ */
+export async function saveRooftopAssets(formData: FormData): Promise<ActionResult> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found.' };
+
+  const conn = await db
+    .select({ id: t.metaConnections.id })
+    .from(t.metaConnections)
+    .where(eq(t.metaConnections.groupId, groupId))
+    .limit(1);
+  const connectionId = conn[0]?.id;
+  if (!connectionId) return { ok: false, error: 'Facebook is not connected. Connect it first.' };
+
+  const str = (k: string) => {
+    const v = formData.get(k);
+    const s = v === null ? '' : String(v).trim();
+    return s === '' ? null : s;
+  };
+
+  const pageName = str('pageName');
+  const adAccountName = str('adAccountName');
+
+  // Only the columns a dealer chooses. Catalog, feed and pixel-association
+  // columns are deliberately absent from `values` so an upsert here can never
+  // blank out a provisioning result the dealer already has.
+  const values = {
+    connectionId,
+    rooftopId,
+    pageId: str('pageId'),
+    pageName,
+    adAccountId: str('adAccountId'),
+    adAccountName,
+    pixelId: str('pixelId'),
+  };
+
+  await db
+    .insert(t.metaRooftopAssets)
+    .values(values)
+    .onConflictDoUpdate({ target: t.metaRooftopAssets.rooftopId, set: values });
+
+  revalidatePath('/admin/ad-desk');
+
+  // Named rather than generic, because "Saved" tells the dealer nothing about
+  // whether they picked the Page they meant — which is the entire risk when a
+  // business holds four of them.
+  const message = pageName
+    ? adAccountName
+      ? `Saved. ${rooftop.name} advertises from ${pageName}, billed to ${adAccountName}.`
+      : `Saved. ${rooftop.name} advertises from ${pageName}.`
+    : `Saved ${rooftop.name}.`;
+
+  return { ok: true, message };
+}
+
+/**
+ * Form-shaped wrapper around `saveRooftopAssets`.
+ *
+ * Same adapter pattern as `disconnectMetaForm`, and for the same reason: this
+ * hangs off a `formAction` on a plain submit button, which must resolve to void.
+ * Carrying the outcome back through the URL also means the panel re-renders from
+ * the database rather than from client state, so what the dealer reads back is
+ * what was actually stored.
+ */
+export async function saveRooftopAssetsForm(formData: FormData): Promise<void> {
+  const res = await saveRooftopAssets(formData);
+  const q = new URLSearchParams(res.ok ? { msg: res.message ?? 'Saved.' } : { err: res.error });
+  redirect(`/admin/ad-desk?${q.toString()}`);
+}
+
+/**
  * Disconnect. Revokes at Meta, keeps every asset in the dealer's business
  * intact, and clears our per-lot mapping so a later reconnect starts clean
  * rather than half-remembering a catalog that may have moved.

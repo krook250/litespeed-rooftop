@@ -120,7 +120,25 @@ export default async function StorefrontLayout({
               Prices exclude tax, title, license and a documentary service fee. Vehicles are subject
               to prior sale.
             </p>
-            <p className="mt-2 text-ink-400">Powered by Rooftop Auto</p>
+            {/*
+              A real link, not a text label. Storefronts run on the dealer's own
+              domain, so this is the only thing on the page that says who
+              operates it — and an unattributed dealership site on a
+              days-old domain is part of what Google Safe Browsing reads as
+              deceptive. See `claude/meta-screencast-recording-guide.md` §9.
+              Do not turn this back into a plain <p>.
+            */}
+            <p className="mt-2 text-ink-400">
+              Powered by{' '}
+              <a
+                href="https://rooftopauto.com"
+                target="_blank"
+                rel="noopener"
+                className="underline hover:text-ink-600"
+              >
+                Rooftop Auto
+              </a>
+            </p>
           </div>
         </div>
       </footer>

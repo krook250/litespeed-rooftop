@@ -9,11 +9,17 @@
  * word "catalog" appears exactly once, in the past tense, after it already
  * exists — see `claude/meta-ad-desk-build.md` §2 for why that is the design and
  * not a simplification.
+ *
+ * TWO BUTTONS, ONE FORM. "Save this lot" records the dealer's Page and ad
+ * account choice and stops there; "Set up catalog ads" does that *and* creates
+ * the catalog and the feed. They were one button until 5 Aug 2026, which meant
+ * changing a lot's Page re-ran catalog provisioning against the dealer's
+ * business as a side effect. See `saveRooftopAssets` in `lib/meta/actions.ts`.
  */
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { provisionRooftopAction } from '@/lib/meta/actions';
+import { provisionRooftopAction, saveRooftopAssetsForm } from '@/lib/meta/actions';
 
 export type AssetOption = { id: string; label: string; sub?: string };
 
@@ -39,14 +45,16 @@ function Select({
   label,
   hint,
   options,
-  defaultValue,
+  value,
+  onChange,
   emptyLabel,
 }: {
   name: string;
   label: string;
   hint?: string;
   options: AssetOption[];
-  defaultValue?: string | null;
+  value: string;
+  onChange: (v: string) => void;
   emptyLabel: string;
 }) {
   return (
@@ -54,7 +62,8 @@ function Select({
       <span className="text-xs font-medium text-ink-700">{label}</span>
       <select
         name={name}
-        defaultValue={defaultValue ?? ''}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         disabled={options.length === 0}
         className="mt-1 w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900 disabled:bg-ink-50 disabled:text-ink-400"
       >
@@ -84,6 +93,25 @@ export function RooftopPanel({
 }) {
   const [state, action, busy] = useActionState(provisionRooftopAction, null);
 
+  /*
+   * The selects are controlled so the hidden name fields can follow them.
+   * They used to be uncontrolled, with the names posted from `row` — i.e. from
+   * whatever was already stored, which on a first save was nothing. Every lot's
+   * first provision therefore wrote `pageName: null`, and the stored row could
+   * not be rendered by name without a second Meta call. Do not revert these to
+   * `defaultValue`.
+   */
+  const [pageId, setPageId] = useState(row.pageId ?? '');
+  const [adAccountId, setAdAccountId] = useState(row.adAccountId ?? '');
+  const [pixelId, setPixelId] = useState(row.pixelId ?? '');
+
+  const pageName = pages.find((p) => p.id === pageId)?.label ?? '';
+  const adAccountName = adAccounts.find((a) => a.id === adAccountId)?.label ?? '';
+
+  /* What was actually stored, echoed back. `row` is server state, so this block
+     appears only after a save round-trip — never from an unsaved selection. */
+  const savedPage = row.pageId ? pages.find((p) => p.id === row.pageId) : undefined;
+
   const live = Boolean(row.catalogId) && row.feedOk;
 
   return (
@@ -106,14 +134,15 @@ export function RooftopPanel({
         <input type="hidden" name="rooftopId" value={row.rooftopId} />
         {/* Names ride along so the stored row is readable without a second Meta
             call every time we render a status screen. */}
-        <input type="hidden" name="pageName" value={row.pageName ?? ''} />
-        <input type="hidden" name="adAccountName" value={row.adAccountName ?? ''} />
+        <input type="hidden" name="pageName" value={pageName} />
+        <input type="hidden" name="adAccountName" value={adAccountName} />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Select
             name="pageId"
             label="Facebook Page"
-            defaultValue={row.pageId}
+            value={pageId}
+            onChange={setPageId}
             options={pages}
             emptyLabel="No Pages found on this business"
             hint="The Page the ads run from."
@@ -121,7 +150,8 @@ export function RooftopPanel({
           <Select
             name="adAccountId"
             label="Ad account"
-            defaultValue={row.adAccountId}
+            value={adAccountId}
+            onChange={setAdAccountId}
             options={adAccounts}
             emptyLabel="No ad account found"
             hint="Where the spend is billed. Stays in the dealer's name."
@@ -129,7 +159,8 @@ export function RooftopPanel({
           <Select
             name="pixelId"
             label="Pixel"
-            defaultValue={row.pixelId}
+            value={pixelId}
+            onChange={setPixelId}
             options={pixels}
             emptyLabel="No pixel found"
             hint="Optional, but retargeting needs it to match shoppers to vehicles."
@@ -152,6 +183,19 @@ export function RooftopPanel({
           </div>
         </div>
 
+        {savedPage ? (
+          <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-700">
+            Saved · this lot advertises from{' '}
+            <span className="font-medium text-ink-900">{row.pageName ?? savedPage.label}</span>
+            {savedPage.sub ? <span className="text-ink-500"> · {savedPage.sub}</span> : null}
+            {row.adAccountName ? (
+              <>
+                , billed to <span className="font-medium text-ink-900">{row.adAccountName}</span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+
         {row.errorMessage ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{row.errorMessage}</p>
         ) : null}
@@ -162,9 +206,14 @@ export function RooftopPanel({
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{state.message}</p>
         ) : null}
 
-        <Button type="submit" disabled={busy}>
-          {busy ? 'Setting up…' : row.catalogId ? 'Update this lot' : 'Set up catalog ads'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" variant="secondary" formAction={saveRooftopAssetsForm} disabled={busy}>
+            Save this lot
+          </Button>
+          <Button type="submit" disabled={busy}>
+            {busy ? 'Setting up…' : row.catalogId ? 'Update this lot' : 'Set up catalog ads'}
+          </Button>
+        </div>
       </form>
     </Card>
   );
