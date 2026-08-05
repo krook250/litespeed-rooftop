@@ -142,8 +142,24 @@ export const domainSourceEnum = pgEnum('domain_source', ['BYO', 'PURCHASED']);
  * pre-flight (CAA, registrar hold) and know the certificate cannot issue yet,
  * which is the whole point of checking before we promise SSL.
  */
+/*
+ * RESERVED is ours too, and it is the state the first version of this screen was
+ * missing: **we have the domain, we have checked it, and we have not asked the
+ * dealer to move anything yet.** A dealer whose domain currently serves the site
+ * they are leaving must be able to finish their storefront before their real
+ * address points at it — so capture and cutover are two moments, not one, and
+ * this is the gap between them. See the sequencing section of
+ * `claude/dealer-domains-build-log.md`.
+ *
+ * It is deliberately *not* LIVE, and that matters beyond the UI: `siteBaseFor()`
+ * in the Meta feed route and `inventoryUrlFor()` in `meta/demo-actions.ts` both
+ * pick a domain only on `status === 'LIVE'`, so a reserved domain cannot leak
+ * into the catalog as a hostname that does not resolve yet. Do not widen those
+ * checks to "has a domain".
+ */
 export const domainStatusEnum = pgEnum('domain_status', [
   'NONE',
+  'RESERVED',
   'BLOCKED',
   'PENDING_DNS',
   'VERIFYING',
@@ -260,6 +276,31 @@ export type RegistrantContact = {
   country: string;
 };
 
+/**
+ * What the dealer's DNS looked like the moment before we touched anything.
+ *
+ * Captured at RESERVED, never overwritten afterwards, and shown back to them on
+ * the cutover screen for two reasons. First, **rollback**: a dealer whose site
+ * goes wrong at 6pm needs the old A record value to put back, and "call your web
+ * guy and ask what it used to be" is not an answer. Second, **email**: the MX
+ * records are displayed unchanged next to the records they are about to add, so
+ * they can see for themselves that we are not touching their mail. That is the
+ * single biggest fear a small dealer has about this step, and the cheapest way
+ * to answer it is to show them their own data.
+ *
+ * Nullable because storefronts created before this existed have no snapshot, and
+ * because a purchased domain never had a prior state to snapshot.
+ */
+export type PriorDns = {
+  a: string[];
+  aaaa: string[];
+  mx: string[];
+  ns: string[];
+  /** Whatever `lookup.ts` fingerprinted the host as, for the rollback wording. */
+  host: string | null;
+  capturedAt: string;
+};
+
 export const storefronts = pgTable('storefronts', {
   id: cuid().primaryKey(),
   groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
@@ -287,7 +328,16 @@ export const storefronts = pgTable('storefronts', {
   domainVerification: jsonb().$type<DomainChallenge[]>().notNull().default([]),
   /** Last thing that went wrong, shown to the dealer rather than swallowed. */
   domainError: text(),
+  /** See {@link PriorDns}. Snapshotted once, at RESERVED. */
+  domainPriorDns: jsonb().$type<PriorDns | null>(),
   domainAddedAt: timestamp({ withTimezone: true }),
+  /**
+   * When the domain was captured but not yet cut over. Drives the stalled-domain
+   * nudge in `src/app/api/cron/domain-nudge/route.ts` — a dealer who reserves a
+   * domain and then forgets about it for three weeks is the exact case this
+   * whole state exists to serve, so something has to notice.
+   */
+  domainReservedAt: timestamp({ withTimezone: true }),
   domainVerifiedAt: timestamp({ withTimezone: true }),
   domainCheckedAt: timestamp({ withTimezone: true }),
 

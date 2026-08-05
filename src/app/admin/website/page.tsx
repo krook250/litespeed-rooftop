@@ -17,11 +17,15 @@ import { buildInstructions } from '@/lib/domains/instructions';
 import {
   BringYourOwnPanel,
   BuyDomainPanel,
+  CutoverPanel,
   DomainStatusPanel,
   InstructionsView,
+  InterimAddress,
 } from '@/components/website-panels';
 import { DesignCard } from '@/components/website/design-card';
 import { isDefaultPalette } from '@/lib/branding/palette';
+import { buildReadiness } from '@/lib/domains/readiness';
+import { publicUnitCount } from '@/lib/domains/units';
 import { EmptyState } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -50,23 +54,72 @@ export default async function WebsitePage() {
    * back to precisely because something has not happened yet.
    */
   /*
-   * `domain` is only meaningful together with `domainStatus`. A row can carry a
-   * domain string that was never actually connected to anything — seeded rows do,
-   * and so would any storefront whose domain was set directly in the database.
-   * `NONE` is the tell: no code path sets it while leaving a domain in place
-   * (`detachDomain` nulls both), so domain + NONE means "written down, never set up".
+   * Three phases, not two, and the middle one is the point of this screen.
    *
-   * Treating that as connected is what produced a status panel and a Disconnect
-   * button for a connection that did not exist.
+   *   none      nothing recorded — offer both paths
+   *   reserved  we hold the domain and have deliberately not touched their DNS
+   *   pointing  records are changing or changed; Vercel is the source of truth
+   *
+   * `domain` alone never meant "connected". A row can carry a domain string that
+   * was never set up — seeded rows do, and so would anything written straight into
+   * the database — which is what produced a status panel and a Disconnect button
+   * for a connection that did not exist. `RESERVED` now models that state
+   * honestly instead of inferring it from `NONE`, and legacy `domain + NONE` rows
+   * are read as reserved so nothing is stranded.
    */
-  const connected = Boolean(sf.domain) && sf.domainStatus !== 'NONE';
-  const unconnectedDomain = sf.domain && sf.domainStatus === 'NONE' ? sf.domain : null;
+  const phase: 'none' | 'reserved' | 'pointing' = !sf.domain
+    ? 'none'
+    : sf.domainStatus === 'NONE' || sf.domainStatus === 'RESERVED'
+      ? 'reserved'
+      : 'pointing';
 
   const live = sf.domainStatus === 'LIVE';
-  const instructions =
-    connected && !live ? buildInstructions(await lookupDomain(sf.domain!), sf.domainVerification) : null;
 
+  /*
+   * Re-derive instructions server-side whenever the domain is not yet live, so a
+   * dealer coming back sees the current state of *their* DNS rather than whatever
+   * we cached when they first typed it in. This is the screen they return to
+   * precisely because something has not happened yet.
+   */
+  const lookup = phase !== 'none' && !live ? await lookupDomain(sf.domain!) : null;
+  const instructions = lookup ? buildInstructions(lookup, sf.domainVerification) : null;
+
+  /*
+   * The address the dealer can use today. Absolute rather than relative, because
+   * the entire point is that they can copy it into a text message.
+   */
+  const interimUrl = `https://${host ?? 'app.rooftopauto.com'}/s/${sf.slug}`;
   const previewUrl = live && sf.domain ? `https://${sf.domain}` : `/s/${sf.slug}`;
+
+  const readiness =
+    phase === 'reserved'
+      ? buildReadiness({
+          logoKey: sf.logoKey,
+          brandColor: sf.brandColor,
+          accentColor: sf.accentColor,
+          publicUnitCount: await publicUnitCount(sf.id),
+          caaBlocks: lookup?.ok ? lookup.caa.blocksLetsEncrypt : false,
+          mx: lookup?.ok ? lookup.mx.map((m) => m.exchange) : [],
+          /*
+           * Read off the instructions rather than off `lookup.registered`.
+           *
+           * These two are rendered one above the other, so any disagreement is
+           * visible on screen — and the first version disagreed immediately: the
+           * checklist applied an "RDAP unavailable means unknown, not missing"
+           * fallback that `buildInstructions` does not, producing a green "the
+           * domain exists" directly above a panel headed "isn't registered yet".
+           *
+           * Deriving both from the same decision makes that class of bug
+           * impossible rather than fixed. If the registration rule needs to
+           * change, it changes in `instructions.ts` and both follow.
+           */
+          domainRegistered: instructions?.ok ? instructions.state !== 'not-registered' : true,
+        })
+      : null;
+
+  const daysSaved = sf.domainReservedAt
+    ? Math.max(0, Math.round((Date.now() - new Date(sf.domainReservedAt).getTime()) / 86_400_000))
+    : null;
 
   /*
    * Has this dealer ever actually been through the design step?
@@ -106,7 +159,18 @@ export default async function WebsitePage() {
           </p>
         ) : null}
 
-        {connected ? (
+        {/*
+          Shown in every phase except live-on-their-own-domain, and shown *first*.
+          A dealer arriving here for the first time should learn that they already
+          have a working website before they are asked anything about DNS.
+        */}
+        {!live ? (
+          <div className="mt-3">
+            <InterimAddress url={interimUrl} live={false} />
+          </div>
+        ) : null}
+
+        {phase === 'pointing' ? (
           <div className="mt-3 space-y-4">
             <DomainStatusPanel
               storefrontId={sf.id}
@@ -120,26 +184,33 @@ export default async function WebsitePage() {
                 <InstructionsView result={instructions} />
               </div>
             ) : null}
+            {live ? <InterimAddress url={interimUrl} live /> : null}
+          </div>
+        ) : phase === 'reserved' && readiness ? (
+          <div className="mt-3">
+            <CutoverPanel
+              storefrontId={sf.id}
+              domain={sf.domain!}
+              instructions={instructions}
+              readiness={readiness}
+              priorDns={sf.domainPriorDns ?? null}
+              daysSaved={daysSaved}
+            />
           </div>
         ) : (
           <div className="mt-3 grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div className="rounded-xl border border-ink-200 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink-900">I already own a domain</h3>
               <p className="mt-0.5 mb-3 text-xs text-ink-500">
-                Keep it where it is. You&apos;ll add two records — we never touch your email.
+                Save it now, switch it over when your site is ready. We never touch your email.
               </p>
-              {unconnectedDomain ? (
-                <p className="mb-3 rounded-md bg-ink-50 px-3 py-2 text-xs text-ink-600">
-                  We have <strong>{unconnectedDomain}</strong> on file for this storefront, but it has
-                  never been connected. Look it up to pick up where that left off.
-                </p>
-              ) : null}
-              <BringYourOwnPanel storefrontId={sf.id} initialDomain={unconnectedDomain ?? ''} />
+              <BringYourOwnPanel storefrontId={sf.id} initialDomain="" />
             </div>
             <div className="rounded-xl border border-ink-200 bg-white p-5">
               <h3 className="text-sm font-semibold text-ink-900">I need a domain</h3>
               <p className="mt-0.5 mb-3 text-xs text-ink-500">
-                We register it and point it at your storefront. Nothing for you to configure.
+                On us — it&apos;s in your subscription. We register it and point it at your storefront
+                the same minute. Nothing for you to configure.
               </p>
               {configured ? (
                 <BuyDomainPanel

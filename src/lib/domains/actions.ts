@@ -23,6 +23,7 @@ import { sessionScope } from '@/lib/queries';
 import { assertStorefrontInScope } from '@/lib/scoped-db';
 import { lookupDomain } from './lookup';
 import { buildInstructions, type Instructions } from './instructions';
+import { publicUnitCount } from './units';
 import {
   DOMAINS_PER_GROUP_CAP,
   VercelApiError,
@@ -36,35 +37,17 @@ import {
   verifyProjectDomain,
   type QuoteResult,
 } from './vercel';
-import { emitDomainBlocked, emitDomainLive, emitDomainPointed, emitDomainPurchased } from './feed';
+import {
+  emitDomainBlocked,
+  emitDomainLive,
+  emitDomainPointed,
+  emitDomainPurchased,
+  emitDomainReserved,
+} from './feed';
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
   | { ok: false; error: string };
-
-const PUBLIC_STATUSES = ['PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'] as const;
-
-/** Units the storefront actually shows — the number that goes on the feed card. */
-async function publicUnitCount(storefrontId: string): Promise<number> {
-  const links = await db
-    .select({ rooftopId: t.storefrontRooftops.rooftopId })
-    .from(t.storefrontRooftops)
-    .where(eq(t.storefrontRooftops.storefrontId, storefrontId));
-  if (!links.length) return 0;
-
-  // Counted in the database across every rooftop the storefront fronts, because
-  // a virtual storefront consolidates several physical lots into one website.
-  const [row] = await db
-    .select({ n: count() })
-    .from(t.vehicles)
-    .where(
-      and(
-        inArray(t.vehicles.rooftopId, links.map((l) => l.rooftopId)),
-        inArray(t.vehicles.status, [...PUBLIC_STATUSES]),
-      ),
-    );
-  return row?.n ?? 0;
-}
 
 async function firstRooftopId(storefrontId: string): Promise<string | null> {
   const links = await db
@@ -130,7 +113,22 @@ export async function attachDomain(_prev: unknown, formData: FormData): Promise<
   const lookup = await lookupDomain(raw);
   if (!lookup.ok) return { ok: false, error: lookup.error };
 
+  /*
+   * An unregistered domain cannot be pointed at anything, and adding it to the
+   * project would leave a permanently unverifiable domain on the Vercel account.
+   * The UI gates this too (`readiness.registered`), but the gate is overridable by
+   * design and this one is not — an override should let a dealer accept a
+   * half-finished storefront, not attach a domain that does not exist.
+   */
   const instructions = buildInstructions(lookup);
+
+  if (instructions.ok && instructions.state === 'not-registered') {
+    return {
+      ok: false,
+      error: `Nobody owns ${lookup.domain} yet, so there is nothing to point at your storefront. Register it first — it is included in your subscription.`,
+    };
+  }
+
   if (instructions.ok && instructions.state === 'blocked') {
     const rooftopId = await firstRooftopId(storefrontId);
     if (rooftopId) {
@@ -275,6 +273,121 @@ export async function refreshDomainStatus(storefrontId: string): Promise<ActionR
   }
 }
 
+/**
+ * Capture a domain without asking the dealer to change anything.
+ *
+ * This is the day-one half of the bring-your-own flow, and the whole reason it
+ * is safe to run immediately is that **adding a domain to the Vercel project is
+ * invisible to the dealer's visitors.** While their DNS still points at their old
+ * host, Vercel simply reports the domain as unconfigured and their existing
+ * website serves exactly as it did before. So we can register it, bank the
+ * verification challenges, and snapshot their current DNS on the first visit,
+ * and the dealer can take three weeks to finish their storefront without
+ * anything of theirs being down for a second.
+ *
+ * What is deliberately *not* here: any instruction to change a record. That
+ * lives on the cutover screen, gated by `buildReadiness`.
+ *
+ * Idempotent — a dealer who looks the same domain up twice gets one reservation,
+ * and `domainPriorDns` is written **only once**, because the point of the
+ * snapshot is what their DNS looked like before we were involved. Re-capturing
+ * it after cutover would overwrite the rollback value with our own records,
+ * which is exactly when they would need it.
+ */
+export async function reserveDomain(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  if (!domainsConfigured()) {
+    return { ok: false, error: 'Domain support is not configured yet. Set VERCEL_API_TOKEN and VERCEL_PROJECT_ID.' };
+  }
+
+  const storefrontId = String(formData.get('storefrontId') ?? '');
+  const raw = String(formData.get('domain') ?? '');
+  const scope = await sessionScope();
+  const sf = await assertStorefrontInScope(scope, storefrontId);
+  if (!sf) return { ok: false, error: 'Storefront not found.' };
+
+  const lookup = await lookupDomain(raw);
+  if (!lookup.ok) return { ok: false, error: lookup.error };
+
+  const taken = await db
+    .select({ id: t.storefronts.id })
+    .from(t.storefronts)
+    .where(and(eq(t.storefronts.domain, lookup.domain), ne(t.storefronts.id, storefrontId)))
+    .limit(1);
+  if (taken.length) {
+    return { ok: false, error: `${lookup.domain} is already connected to another Rooftop storefront.` };
+  }
+
+  /*
+   * Registering with Vercel now rather than at cutover is what makes the cutover
+   * fast later: the domain is already known to the project, so the moment DNS
+   * resolves the ACME challenge fires. Deferring this to cutover would add a
+   * round trip at exactly the moment the dealer is watching.
+   *
+   * A failure here is not fatal to the reservation. We still record the domain,
+   * because the dealer's intent is worth keeping even if Vercel was briefly
+   * unhappy, and `attachDomain` re-adds it at cutover anyway.
+   */
+  let verification: t.DomainChallenge[] = [];
+  let addError: string | null = null;
+  try {
+    const added = await addProjectDomain(lookup.domain);
+    await addProjectDomain(`www.${lookup.domain}`).catch(() => undefined);
+    verification = added.verification ?? [];
+  } catch (err) {
+    addError =
+      err instanceof VercelApiError
+        ? err.code === 'domain_already_in_use'
+          ? `${lookup.domain} is already attached to another project. Remove it there first.`
+          : err.message
+        : null;
+    if (err instanceof VercelApiError && err.code === 'domain_already_in_use') {
+      return { ok: false, error: addError! };
+    }
+  }
+
+  const priorDns: t.PriorDns = {
+    a: lookup.apex.a,
+    aaaa: lookup.apex.aaaa,
+    mx: lookup.mx.map((m) => m.exchange),
+    ns: lookup.nameservers,
+    host: lookup.dnsHost?.name ?? null,
+    capturedAt: lookup.checkedAt,
+  };
+
+  await db
+    .update(t.storefronts)
+    .set({
+      domain: lookup.domain,
+      domainSource: 'BYO',
+      domainStatus: 'RESERVED',
+      domainVerification: verification,
+      domainError: addError,
+      domainAddedAt: sf.domainAddedAt ?? new Date(),
+      domainReservedAt: sf.domainReservedAt ?? new Date(),
+      domainCheckedAt: new Date(),
+      // Written once. See the doc comment.
+      ...(sf.domainPriorDns ? {} : { domainPriorDns: priorDns }),
+    })
+    .where(eq(t.storefronts.id, storefrontId));
+
+  const rooftopId = await firstRooftopId(storefrontId);
+  if (rooftopId) {
+    await emitDomainReserved({
+      rooftopId,
+      domain: lookup.domain,
+      unitCount: await publicUnitCount(storefrontId),
+      slug: sf.slug,
+      actorId: (await getSessionUser())?.id ?? null,
+    });
+  }
+
+  revalidatePath('/admin/website');
+  return {
+    ok: true,
+    message: `${lookup.domain} is saved to your storefront. Nothing on your current website has changed — finish your site and we'll walk you through pointing it when you're ready.`,
+  };
+}
+
 export async function detachDomain(storefrontId: string): Promise<ActionResult> {
   const sf = await assertStorefrontInScope(await sessionScope(), storefrontId);
   if (!sf?.domain) return { ok: false, error: 'No domain on this storefront.' };
@@ -293,6 +406,13 @@ export async function detachDomain(storefrontId: string): Promise<ActionResult> 
       domainVerification: [],
       domainError: null,
       domainAddedAt: null,
+      domainReservedAt: null,
+      /*
+       * Cleared with everything else. It is a snapshot of a relationship that no
+       * longer exists, and keeping a dealer's old DNS on a storefront they have
+       * disconnected is data we have no reason to hold.
+       */
+      domainPriorDns: null,
       domainVerifiedAt: null,
       domainCheckedAt: null,
     })

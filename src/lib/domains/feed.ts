@@ -32,6 +32,66 @@ type DomainEventBase = {
   actorId?: string | null;
 };
 
+/**
+ * The domain is saved but nothing has moved yet.
+ *
+ * The card exists to say the quiet part out loud: **your current website is
+ * untouched.** A dealer who has just handed over their business's domain and
+ * then sees no change anywhere will assume something went wrong, and the support
+ * call that follows is entirely avoidable. It also carries the interim address,
+ * because that is the URL they can actually use today.
+ *
+ * Deduped per storefront and domain — reserving is idempotent and a dealer who
+ * looks their domain up three times has not done three things.
+ */
+export async function emitDomainReserved(input: DomainEventBase & { slug: string }) {
+  const appHost = process.env.NEXT_PUBLIC_APP_HOST ?? 'app.rooftopauto.com';
+  return emitFeedEvent({
+    rooftopId: input.rooftopId,
+    kind: 'domain',
+    actorId: input.actorId ?? null,
+    title: `${input.domain} is saved for your storefront`,
+    body:
+      `Nothing on your current website has changed and your email is untouched — we have not asked ` +
+      `your domain to go anywhere yet. Until you do, your site is live at ` +
+      `${appHost}/s/${input.slug}, and that address keeps working afterwards. Finish your design ` +
+      `and we'll walk you through the switch.`,
+    stats: [
+      { k: 'Units ready', v: num(input.unitCount) },
+      { k: 'Status', v: 'Saved, not pointed' },
+    ],
+    dedupeKey: `domain-reserved:${input.slug}:${input.domain}`,
+  });
+}
+
+/**
+ * A domain has sat saved and un-pointed long enough to be worth a nudge.
+ *
+ * This is the whole reason `RESERVED` is a real state rather than a UI flag: the
+ * dealer this flow is built around is the one who gets busy, and nobody is going
+ * back to the Website screen unprompted. Deduped on the week so a dealer who
+ * ignores it does not get the same card every morning.
+ */
+export async function emitDomainStalled(
+  input: DomainEventBase & { daysWaiting: number; storefrontId: string; reason: string; week: string },
+) {
+  return emitFeedEvent({
+    rooftopId: input.rooftopId,
+    kind: 'domain',
+    actorId: null,
+    title: `${input.domain} is still waiting to be switched on`,
+    body:
+      `${input.reason} Your site is up and taking leads on its Rooftop address in the meantime, so ` +
+      `there is no rush — but every day your own domain points somewhere else is a day your ` +
+      `customers land on your old site.`,
+    stats: [
+      { k: 'Days saved', v: num(input.daysWaiting) },
+      { k: 'Units ready', v: num(input.unitCount) },
+    ],
+    dedupeKey: `domain-stalled:${input.storefrontId}:${input.domain}:${input.week}`,
+  });
+}
+
 /** Records added, Vercel is watching DNS. Repeatable — a dealer may re-point. */
 export async function emitDomainPointed(input: DomainEventBase & { host: string }) {
   return emitFeedEvent({

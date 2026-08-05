@@ -12,9 +12,44 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const sf = await getStorefrontByKey(slug);
   if (!sf) return { title: 'Inventory' };
+
+  /*
+   * Every storefront is reachable at two addresses on purpose — its Rooftop slug
+   * and, once pointed, the dealer's own domain. That is what lets a dealer use
+   * their site before their DNS moves and keeps everything they shared working
+   * afterwards (`getStorefrontByKey` matches `slug = key OR domain = key`).
+   *
+   * Two URLs serving identical content is also textbook duplicate content, and
+   * left alone it splits a small dealer's search presence across a hostname they
+   * own and one they don't. So exactly one address is canonical:
+   *
+   *   - live on their own domain  → that domain is canonical, and the slug path
+   *                                 is noindex, pointing at it
+   *   - not live yet              → nothing is indexed at all
+   *
+   * The second case is the one that matters more than it looks. A half-built
+   * storefront on a shared host, with no logo and no attribution, is precisely the
+   * shape Google Safe Browsing reads as deceptive — see §9 of
+   * `claude/meta-screencast-recording-guide.md`, which cost three days. Keeping
+   * unfinished sites out of the index is cheap insurance.
+   *
+   * Host-derived rather than status-derived, because the same route serves both:
+   * `proxy.ts` rewrites the dealer's host into `/s/<host>`, so the incoming host
+   * is the only thing that says which address the visitor actually typed.
+   */
+  const host = (await headers()).get('host')?.toLowerCase().replace(/^www\./, '') ?? '';
+  const domainLive = Boolean(sf.domain) && sf.domainStatus === 'LIVE';
+  const onOwnDomain = domainLive && host === sf.domain;
+
   return {
     title: { default: `${sf.name} — Used Cars, Trucks & SUVs`, template: `%s · ${sf.name}` },
     description: sf.tagline ?? `Current inventory at ${sf.name}.`,
+    ...(onOwnDomain
+      ? { alternates: { canonical: `https://${sf.domain}` } }
+      : {
+          robots: { index: false, follow: true },
+          ...(domainLive ? { alternates: { canonical: `https://${sf.domain}` } } : {}),
+        }),
   };
 }
 
