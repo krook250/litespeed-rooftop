@@ -1,8 +1,30 @@
 /**
  * Shared chrome for /login and /signup. Server components — no client JS.
+ *
+ * WHY THERE IS AN IDENTITY BLOCK UNDER THE FORM
+ *
+ * On 5 Aug 2026 Google Safe Browsing flagged rooftopauto.com under "Deceptive
+ * pages" (social engineering). Nothing on the site was deceptive: the marketing
+ * site, the demo and the storefronts were all clean, and /admin is behind auth
+ * so it was never crawled. What was public was this — an email-and-password
+ * form, on a domain registered days earlier, carrying no statement of who
+ * operates it or what it belongs to. That is the shape the classifier scores as
+ * credential harvesting, and there is no way to argue with it except to stop
+ * looking like it.
+ *
+ * Google's own social-engineering guidance asks a site to display the operating
+ * brand clearly and state relationships with informational links. The block
+ * below is that, and it is load-bearing for the Search Console review — do not
+ * remove it to tidy the layout.
  */
 
 import { RooftopLockup } from './brand';
+
+const LEGAL = [
+  { href: 'https://rooftopauto.com/legal/privacy.html', label: 'Privacy' },
+  { href: 'https://rooftopauto.com/legal/terms.html', label: 'Terms' },
+  { href: 'https://rooftopauto.com/legal/support.html', label: 'Support' },
+] as const;
 
 export function AuthShell({
   title,
@@ -36,6 +58,40 @@ export function AuthShell({
         </div>
 
         {footer ? <p className="mt-4 text-center text-xs text-ink-400">{footer}</p> : null}
+
+        <div className="mt-8 border-t border-ink-800 pt-5 text-center">
+          <p className="text-[11px] leading-relaxed text-ink-500">
+            Rooftop Auto is inventory, merchandising and advertising software for
+            independent used-car dealerships, operated by{' '}
+            <span className="text-ink-400">Litespeed Marketing LLC</span>, Vancouver,
+            Washington.
+          </p>
+
+          <p className="mt-3 text-[11px] text-ink-500">
+            <a
+              href="https://rooftopauto.com"
+              className="text-ink-400 underline-offset-2 hover:text-ink-200 hover:underline"
+            >
+              rooftopauto.com
+            </a>
+            {LEGAL.map((l) => (
+              <span key={l.href}>
+                <span className="px-1.5 text-ink-700">·</span>
+                <a
+                  href={l.href}
+                  className="text-ink-400 underline-offset-2 hover:text-ink-200 hover:underline"
+                >
+                  {l.label}
+                </a>
+              </span>
+            ))}
+          </p>
+
+          <p className="mt-3 text-[11px] text-ink-600">
+            This is the sign-in page for Rooftop Auto customers. We will never ask for
+            your password by email or phone.
+          </p>
+        </div>
       </div>
     </div>
   );
