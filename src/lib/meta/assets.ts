@@ -366,6 +366,62 @@ export async function assignCatalogToSystemUser(
   }
 }
 
+/**
+ * Block until the system user can actually see the catalog it was just granted.
+ *
+ * THE GRANT IS NOT THE SAME EVENT AS THE GRANT BEING READABLE. Business asset
+ * assignment is eventually consistent, and the gap is wide enough to lose a
+ * whole provision to. Observed on the Battle Ground lot, 6 Aug 2026, in one
+ * function invocation:
+ *
+ *   POST /1551227789809689/assigned_users   1.28s   succeeded
+ *   GET  /1551227789809689/product_feeds     294ms  400, code 100 subcode 33
+ *
+ * 294 milliseconds after a successful grant, the object still read as
+ * "does not exist, cannot be loaded due to missing permissions". Clicking the
+ * same button again minutes later found it immediately and adopted it — which
+ * is the proof this is latency and not a wrong grant, and also why it is worth
+ * waiting rather than restructuring: the permission was always correct.
+ *
+ * We poll the cheapest possible read. A miss here is expected and not an
+ * incident, but `graph()` logs every non-2xx at the transport, so a slow
+ * propagation leaves a short run of code-100 lines in the log before the
+ * success. That noise is deliberate — silencing it would also hide a genuine
+ * permission failure, which looks identical until the timeout.
+ *
+ * Returns false on timeout rather than throwing. The caller decides, and the
+ * honest answer to the dealer is "not yet", not "broken": the next provision
+ * run will find the catalog by name and adopt it.
+ */
+export async function waitForCatalogVisibility(
+  token: string,
+  catalogId: string,
+  opts: { attempts?: number; delayMs?: number } = {},
+): Promise<boolean> {
+  const attempts = opts.attempts ?? 8;
+  const delayMs = opts.delayMs ?? 2000;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await graph<{ id: string }>(`/${catalogId}`, { token, params: { fields: 'id' } });
+      return true;
+    } catch (err) {
+      // Only 100/33 is the propagation signature. Anything else — a revoked
+      // token, a rate limit — is a real failure and waiting cannot fix it, so
+      // stop rather than burning the whole budget on it.
+      const propagating =
+        err instanceof MetaApiError && err.code === 100 && err.subcode === 33;
+      if (!propagating) return false;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  console.error(
+    '[meta] waitForCatalogVisibility timed out ' +
+      JSON.stringify({ catalogId, attempts, delayMs }),
+  );
+  return false;
+}
+
 /* ---------------------------------------------------------------- feed setup */
 
 export type FeedResult =

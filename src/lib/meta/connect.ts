@@ -45,6 +45,7 @@ import {
   assignCatalogToSystemUser,
   ensureProductFeed,
   ensureVehicleCatalog,
+  waitForCatalogVisibility,
   type Discovery,
 } from './assets';
 
@@ -454,6 +455,34 @@ export async function provisionRooftop(args: {
         error:
           'The catalog was created but we could not give Rooftop access to it. ' +
           'Assign it to Rooftop in Business Settings → Data sources → Catalogs, and we will pick it up from there.',
+      };
+    }
+
+    /*
+     * AND NOW WAIT FOR THE GRANT TO BE READABLE, which is a separate event.
+     *
+     * Without this the whole provision is a race we lose: the assignment
+     * returns 200 and the very next call — the feed, 294ms later — comes back
+     * "does not exist, cannot be loaded due to missing permissions". The lot
+     * lands on CREATED with a dead feed, and the only repair is clicking the
+     * button again, which succeeds by *adopting* the catalog the failed run
+     * left behind. That second-pass wording is "already in your Facebook
+     * business", which is both untrue of a catalog we made ninety seconds ago
+     * and the exact string `meta-master-screencast.md` shot 23 says not to
+     * record.
+     *
+     * A timeout is not an error. The catalog exists, the grant is real, and the
+     * next run will find it by name — so we say so plainly rather than
+     * reporting a failure the dealer cannot act on.
+     */
+    const visible = await waitForCatalogVisibility(conn.token, catalog.catalogId);
+    if (!visible) {
+      return {
+        ok: false,
+        error:
+          'The catalog was created and handed to Rooftop, but Facebook has not finished ' +
+          'applying that permission yet. Give it a minute and press Set up catalog ads again — ' +
+          'nothing needs redoing on Facebook.',
       };
     }
   }
