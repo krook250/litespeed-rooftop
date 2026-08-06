@@ -19,7 +19,11 @@
 
 import { useActionState, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { provisionRooftopAction, saveRooftopAssetsForm } from '@/lib/meta/actions';
+import {
+  provisionRooftopAction,
+  saveRooftopAssetsForm,
+  startCatalogProvision,
+} from '@/lib/meta/actions';
 
 export type AssetOption = { id: string; label: string; sub?: string };
 
@@ -200,7 +204,27 @@ export function RooftopPanel({
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{row.errorMessage}</p>
         ) : null}
         {state && !state.ok ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{state.error}</p>
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+            <p>{state.error}</p>
+            {/*
+              The one refusal that has a button rather than a shrug. Meta will
+              not let a system user create a catalog in a business it does not
+              administer, so we ask an admin to sign in once. The token that
+              comes back is used for that single call and dropped.
+            */}
+            {state.needsAdminGrant ? (
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                formAction={startCatalogProvision}
+                disabled={busy}
+              >
+                Sign in as a Facebook admin to finish
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         {state && state.ok && state.message ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{state.message}</p>

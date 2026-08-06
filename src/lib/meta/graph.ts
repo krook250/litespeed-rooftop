@@ -197,6 +197,25 @@ export function loginConfigId(): string | null {
   return process.env.META_LOGIN_CONFIG_ID ?? null;
 }
 
+/**
+ * A second Facebook Login for Business configuration, token type **user access
+ * token** rather than system user, used for one thing only: creating a catalog.
+ *
+ * The everyday configuration mints a Business Integration System User, which is
+ * what we want for everything ongoing — it is scoped to the assets the dealer
+ * ticked and it does not expire when staff change. What it cannot do is create a
+ * business-owned catalog, because that needs business-*admin* standing and a
+ * BISU is asset-scoped by design. Meta's own answer is to use a user token for
+ * exactly this class of call.
+ *
+ * Unset means the flow is simply not offered. That is deliberate: this feature
+ * is inert until the configuration exists in the App Dashboard, so deploying it
+ * cannot disturb a live connection or spend a consent attempt.
+ */
+export function provisionLoginConfigId(): string | null {
+  return process.env.META_LOGIN_CONFIG_PROVISION_ID ?? null;
+}
+
 /** HMAC-SHA256 of the access token, keyed by the app secret. */
 export function appsecretProof(token: string): string {
   return createHmac('sha256', appSecret()).update(token).digest('hex');

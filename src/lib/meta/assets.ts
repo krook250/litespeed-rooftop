@@ -174,7 +174,17 @@ export async function discoverAssets(token: string): Promise<Discovery> {
 
 export type CatalogResult =
   | { ok: true; catalogId: string; name: string; source: 'ADOPTED' | 'CREATED' }
-  | { ok: false; kind: MetaFailureKind; message: string };
+  | {
+      ok: false;
+      kind: MetaFailureKind;
+      message: string;
+      /**
+       * Meta's subcode, kept because the caller has to distinguish "we cannot
+       * create because we are not a business admin" (1690129, fixable with an
+       * admin grant) from every other refusal, and `kind` alone cannot say it.
+       */
+      subcode?: number | null;
+    };
 
 /**
  * Get this lot a vehicles catalog, whatever state it starts in.
@@ -193,8 +203,28 @@ export async function ensureVehicleCatalog(
   token: string,
   businessId: string,
   dealerName: string,
-  existing?: MetaCatalog[],
+  opts: {
+    existing?: MetaCatalog[];
+    /**
+     * Token used for the **create** call only, when it differs from `token`.
+     *
+     * Creating a business-owned catalog requires business-*admin* standing, and
+     * a Business Integration System User never has it — it holds exactly the
+     * assets the dealer ticked, and a catalog that does not exist yet is not one
+     * of them. Meta returns `code: 10 / subcode: 1690129` and says so:
+     * "You don't have permission to create a product catalog because you aren't
+     * an admin of this business." Their own Login for Business guidance is to
+     * route around it — "User access tokens should also be used if you require
+     * an API that requires admin permissions on a business portfolio."
+     *
+     * So reads and adoption run on the long-lived system-user token, and only
+     * this one call runs on a short-lived user token from someone who actually
+     * administers the business. See `claude/meta-catalog-creation-blocker.md`.
+     */
+    createToken?: string;
+  } = {},
 ): Promise<CatalogResult> {
+  const { existing, createToken } = opts;
   try {
     const candidates =
       existing ??
@@ -203,15 +233,42 @@ export async function ensureVehicleCatalog(
         fields: 'id,name,vertical',
       })).filter((c) => (c.vertical ?? '').toLowerCase() === 'vehicles');
 
-    const adopt = candidates[0];
+    const name = `${dealerName} Inventory`.slice(0, 90);
+
+    /*
+     * WHICH ONE TO ADOPT — this used to be `candidates[0]` and that was a bug.
+     *
+     * On a business holding one vehicles catalog, first-is-right and adoption is
+     * the correct call: the dealer's ad history, product-set audiences and pixel
+     * match data are all attached to it. On a business holding several — an
+     * agency, a multi-brand group, or anyone mid-migration — first-is-whatever-
+     * Meta-returned-first, which is a coin flip we then write into their lot and
+     * point our feed at. Litespeed Ai Ads holds three today, none of them ours.
+     *
+     * So: take one we evidently created, else take the only one there is, else
+     * stop and ask. Guessing here silently retargets a dealer against a stranger's
+     * inventory, and nobody finds out for six weeks.
+     */
+    const mine = candidates.find((c) => (c.name ?? '') === name);
+    const adopt = mine ?? (candidates.length === 1 ? candidates[0] : undefined);
+
     if (adopt) {
       return { ok: true, catalogId: adopt.id, name: adopt.name ?? 'Vehicles', source: 'ADOPTED' };
     }
 
-    const name = `${dealerName} Inventory`.slice(0, 90);
+    if (candidates.length > 1) {
+      return {
+        ok: false,
+        kind: 'business-setup',
+        message:
+          `This Facebook business has ${candidates.length} vehicle catalogs and none of them is ours, ` +
+          'so we will not guess which one this lot should use. Tell us which, and we will connect it to your inventory.',
+      };
+    }
+
     const created = await graph<{ id: string }>(`/${businessId}/owned_product_catalogs`, {
       method: 'POST',
-      token,
+      token: createToken ?? token,
       params: { name, vertical: 'vehicles' },
     });
 
@@ -229,6 +286,7 @@ export async function ensureVehicleCatalog(
             businessId,
             dealerName,
             usedPassedCandidates: existing !== undefined,
+            usedSeparateCreateToken: Boolean(createToken),
             kind: err.kind,
             status: err.status,
             code: err.code,
@@ -237,7 +295,7 @@ export async function ensureVehicleCatalog(
             trace: err.traceId,
           }),
       );
-      return { ok: false, kind: err.kind, message: err.dealerMessage };
+      return { ok: false, kind: err.kind, message: err.dealerMessage, subcode: err.subcode };
     }
     console.error('[meta] ensureVehicleCatalog threw a non-Graph error', err);
     throw err;

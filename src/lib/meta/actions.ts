@@ -25,13 +25,15 @@ import {
   adDeskConfigured,
   authorizeUrl,
   buildState,
+  catalogProvisionAvailable,
   disconnect as tearDown,
+  provisionAuthorizeUrl,
   provisionRooftop,
 } from './connect';
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; needsAdminGrant?: boolean };
 
 /**
  * Start the connect flow.
@@ -58,6 +60,50 @@ export async function startMetaConnect(): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax', // must survive the round trip back from facebook.com
+    path: '/',
+    maxAge: 600,
+  });
+
+  redirect(url!);
+}
+
+/**
+ * Send the dealer to Facebook to grant us an admin token, for one catalog.
+ *
+ * Separate from `startMetaConnect` and deliberately so. That one establishes
+ * the dealer's standing connection; this one borrows admin rights for a single
+ * call and throws them away — see `completeCatalogProvision`. They use
+ * different login configurations and they must not be collapsed into one
+ * button, because the everyday connect deliberately asks for *less*.
+ *
+ * The rooftop id is checked against the session's scope before it goes anywhere
+ * near the signed state. Same rule as everywhere else here: the group comes
+ * from the session, the rooftop id arrives off a form.
+ */
+export async function startCatalogProvision(formData: FormData): Promise<void> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) {
+    redirect('/admin/ad-desk?err=' + encodeURIComponent('That lot was not found.'));
+  }
+
+  if (!catalogProvisionAvailable()) {
+    redirect(
+      '/admin/ad-desk?err=' +
+        encodeURIComponent('The admin sign-in for catalog setup is not configured on this deployment yet.'),
+    );
+  }
+
+  const { state, nonce } = buildState(groupId, { mode: 'provision', rooftopId });
+  const url = provisionAuthorizeUrl(state);
+  if (!url) redirect('/admin/ad-desk?err=' + encodeURIComponent('Missing Meta login configuration.'));
+
+  (await cookies()).set(STATE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
     path: '/',
     maxAge: 600,
   });
@@ -100,7 +146,9 @@ export async function provisionRooftopAction(
     dealerName: rooftop.name,
   });
 
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) {
+    return { ok: false, error: result.error, needsAdminGrant: result.needsAdminGrant };
+  }
 
   revalidatePath('/admin/ad-desk');
   return {

@@ -23,7 +23,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
-import { STATE_COOKIE, completeConnection, verifyState } from '@/lib/meta/connect';
+import {
+  STATE_COOKIE,
+  completeCatalogProvision,
+  completeConnection,
+  verifyState,
+} from '@/lib/meta/connect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,13 +66,38 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const stateGroupId = verifyState(state, nonce);
-  if (!stateGroupId) return back(req, { err: 'That connection link could not be verified. Try again.' });
+  const parsed = verifyState(state, nonce);
+  if (!parsed) return back(req, { err: 'That connection link could not be verified. Try again.' });
 
   const user = await getSessionUser();
   if (!user) return back(req, { err: 'Your session ended while you were on Facebook. Sign in and try again.' });
-  if (user.groupId !== stateGroupId) {
+  if (user.groupId !== parsed.g) {
     return back(req, { err: 'That connection was started by a different account. Try again from this one.' });
+  }
+
+  /*
+   * Two configurations come back through this one URL, and the mode decides
+   * which. It is read from the *signed* payload, never from the query string:
+   * a provision code processed as a connect would replace the dealer's
+   * non-expiring system-user credential with a 60-day user token, and nothing
+   * would look wrong until it expired.
+   */
+  if (parsed.mode === 'provision') {
+    if (!parsed.r) return back(req, { err: 'That setup link was missing its lot. Try again.' });
+
+    const done = await completeCatalogProvision({
+      code,
+      groupId: user.groupId,
+      rooftopId: parsed.r,
+    });
+    if (!done.ok) return back(req, { err: done.error });
+
+    return back(req, {
+      msg:
+        done.catalogSource === 'CREATED'
+          ? 'Created a vehicles catalog and pointed it at your inventory.'
+          : 'Connected this lot to the vehicles catalog already in your Facebook business.',
+    });
   }
 
   const result = await completeConnection({ code, groupId: user.groupId, userId: user.id });

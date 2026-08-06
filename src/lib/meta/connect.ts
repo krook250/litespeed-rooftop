@@ -24,7 +24,7 @@
 
 import 'server-only';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import {
@@ -35,6 +35,7 @@ import {
   exchangeCode,
   loginConfigId,
   metaConfigured,
+  provisionLoginConfigId,
   revokePermissions,
 } from './graph';
 import { decryptToken, encryptToken, tokenCryptoConfigured } from './tokens';
@@ -84,25 +85,68 @@ function sign(value: string): string {
   return createHmac('sha256', process.env.META_APP_SECRET ?? '').update(value).digest('base64url');
 }
 
-export function buildState(groupId: string): { state: string; nonce: string } {
+/**
+ * What the round trip through Facebook has to carry.
+ *
+ * `mode` is the load-bearing field. The callback is one URL serving two
+ * different login configurations — the everyday system-user connect, and the
+ * admin user token used once to create a catalog — and it must never confuse
+ * them. A `provision` code that got treated as a `connect` would overwrite a
+ * dealer's non-expiring system-user credential with a 60-day user token, and
+ * nothing would look wrong until it quietly expired two months later. The mode
+ * is inside the signed payload precisely so it cannot be flipped in the URL.
+ */
+export type MetaState = {
+  /** Dealer group. Checked against the signed-in session on return. */
+  g: string;
+  /** Nonce, mirrored in the httpOnly cookie. */
+  n: string;
+  mode: 'connect' | 'provision';
+  /** The lot being provisioned. Present on `provision` only. */
+  r?: string;
+};
+
+export function buildState(
+  groupId: string,
+  opts: { mode?: 'connect' | 'provision'; rooftopId?: string } = {},
+): { state: string; nonce: string } {
   const nonce = randomBytes(16).toString('base64url');
-  const payload = `${groupId}.${nonce}`;
+  const body: MetaState = {
+    g: groupId,
+    n: nonce,
+    mode: opts.mode ?? 'connect',
+    ...(opts.rooftopId ? { r: opts.rooftopId } : {}),
+  };
+  // base64url of JSON rather than dot-joined fields: the payload now carries a
+  // rooftop id, and an id that ever contained the delimiter would silently
+  // reshape the state into something that still verified.
+  const payload = Buffer.from(JSON.stringify(body), 'utf8').toString('base64url');
   return { state: `${payload}.${sign(payload)}`, nonce };
 }
 
-export function verifyState(state: string, nonce: string): string | null {
+export function verifyState(state: string, nonce: string): MetaState | null {
   const parts = state.split('.');
-  if (parts.length !== 3) return null;
-  const [groupId, gotNonce, mac] = parts as [string, string, string];
+  if (parts.length !== 2) return null;
+  const [payload, mac] = parts as [string, string];
 
-  const expected = sign(`${groupId}.${gotNonce}`);
+  const expected = sign(payload);
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
+  let body: MetaState;
+  try {
+    body = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as MetaState;
+  } catch {
+    return null;
+  }
+  if (!body || typeof body.g !== 'string' || typeof body.n !== 'string') return null;
+  if (body.mode !== 'connect' && body.mode !== 'provision') return null;
+
   // The signature proves we minted it; the cookie proves it was minted for
   // *this browser*. A replayed state from another session fails here.
-  if (gotNonce !== nonce) return null;
-  return groupId;
+  if (body.n !== nonce) return null;
+  return body;
 }
 
 /**
@@ -114,7 +158,26 @@ export function verifyState(state: string, nonce: string): string | null {
  * assets in the dialog, the fix is in the App Dashboard, not here.
  */
 export function authorizeUrl(state: string): string | null {
-  const configId = loginConfigId();
+  return dialogUrl(loginConfigId(), state);
+}
+
+/**
+ * The admin-grant dialog, used only to create a catalog.
+ *
+ * Same app, same callback, different configuration — this one is set to hand
+ * back a **user** access token. Returns null when
+ * `META_LOGIN_CONFIG_PROVISION_ID` is unset, which is how the whole feature
+ * stays switched off until the configuration exists.
+ */
+export function provisionAuthorizeUrl(state: string): string | null {
+  return dialogUrl(provisionLoginConfigId(), state);
+}
+
+export function catalogProvisionAvailable(): boolean {
+  return Boolean(provisionLoginConfigId());
+}
+
+function dialogUrl(configId: string | null, state: string): string | null {
   const appId = process.env.META_APP_ID;
   if (!configId || !appId) return null;
 
@@ -292,7 +355,19 @@ export function feedUrls(rooftopId: string, secret: string): { full: string; del
 
 export type ProvisionResult =
   | { ok: true; catalogId: string; catalogSource: 'ADOPTED' | 'CREATED'; feedId: string | null; pixelLinked: boolean }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /**
+       * True when the only thing standing between this lot and a catalog is
+       * that our system user is not an admin of the dealer's business. The UI
+       * reads it to offer the admin-grant button instead of a dead red box.
+       */
+      needsAdminGrant?: boolean;
+    };
+
+/** Meta's undocumented subcode for "you aren't an admin of this business". */
+const NOT_A_BUSINESS_ADMIN = 1690129;
 
 /**
  * Give one lot everything it needs to run catalog ads.
@@ -314,14 +389,32 @@ export async function provisionRooftop(args: {
   adAccountName: string | null;
   pixelId: string | null;
   dealerName: string;
+  /**
+   * A user access token from a business admin, when we have one. Used for the
+   * catalog create and nothing else, and never persisted — see
+   * `completeCatalogProvision`.
+   */
+  createToken?: string;
 }): Promise<ProvisionResult> {
   const conn = await tokenFor(args.groupId);
   if (!conn) return { ok: false, error: 'Facebook is not connected. Connect it first.' };
 
-  const catalog = await ensureVehicleCatalog(conn.token, conn.row.businessId, args.dealerName);
+  const catalog = await ensureVehicleCatalog(conn.token, conn.row.businessId, args.dealerName, {
+    createToken: args.createToken,
+  });
   if (!catalog.ok) {
-    await noteFailure(args.groupId, new MetaApiError(catalog.message, catalog.kind, 400, null, null, null));
-    return { ok: false, error: catalog.message };
+    await noteFailure(
+      args.groupId,
+      new MetaApiError(catalog.message, catalog.kind, 400, null, catalog.subcode ?? null, null),
+    );
+    // Only offer the admin grant when it is actually the answer: the create was
+    // refused for want of business-admin standing, we have a configuration to
+    // send them to, and we were not already using an admin token — if we were,
+    // the grant they just completed did not carry admin rights either and
+    // sending them round again would be a loop.
+    const needsAdminGrant =
+      catalog.subcode === NOT_A_BUSINESS_ADMIN && !args.createToken && catalogProvisionAvailable();
+    return { ok: false, error: catalog.message, needsAdminGrant };
   }
 
   // Stable per lot: regenerating it on every provision would break the feed URL
@@ -377,6 +470,84 @@ export async function provisionRooftop(args: {
     feedId: feed.ok ? feed.feedId : null,
     pixelLinked,
   };
+}
+
+/* ------------------------------------------------ admin grant, for creating */
+
+/**
+ * Finish one lot's catalog using a user access token from a business admin.
+ *
+ * THE WHOLE POINT: this token is used for one Graph call and then dropped.
+ *
+ * It is not encrypted into `meta_connections`, not returned to the caller, and
+ * not reachable after this function returns. That is deliberate and it is the
+ * design's main safety property. A user token expires in ~60 days and belongs
+ * to a person rather than to the business, so storing it would quietly undo the
+ * thing the system-user token exists to guarantee — that the integration keeps
+ * working when the person who set it up leaves. The dealer's ongoing credential
+ * stays the BISU; this is a one-shot key to open one door.
+ *
+ * It also means there is nothing here to steal later, which matters because the
+ * grant carries broader rights than the BISU does.
+ *
+ * The existing per-lot Page and ad-account choices are read back from the row
+ * rather than taken from a form: the dealer picked them before being sent to
+ * Facebook, and a round trip through an external redirect is not a place to
+ * carry mutable state.
+ */
+export async function completeCatalogProvision(args: {
+  code: string;
+  groupId: string;
+  rooftopId: string;
+}): Promise<ProvisionResult> {
+  let adminToken: string;
+  try {
+    const exchanged = await exchangeCode(args.code, redirectUri());
+    adminToken = exchanged.access_token;
+    if (!adminToken) {
+      return { ok: false, error: 'Facebook did not return a usable credential. Try that again.' };
+    }
+  } catch (err) {
+    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
+    throw err;
+  }
+
+  /*
+   * Scoped to the group a second time, on purpose.
+   *
+   * `startCatalogProvision` already ran `assertRooftopInScope` before the id
+   * went into the state, and the state is HMAC'd, so this should be
+   * unreachable. It is here because the id has since made a round trip through
+   * facebook.com, and the cost of being wrong is provisioning one dealer's lot
+   * against another dealer's business. Belt and braces on tenant boundaries is
+   * the house rule everywhere else in this codebase; no reason to drop it at
+   * the one place the value left our control.
+   */
+  const rooftop = await db
+    .select({ id: t.rooftops.id, name: t.rooftops.name })
+    .from(t.rooftops)
+    .where(and(eq(t.rooftops.id, args.rooftopId), eq(t.rooftops.groupId, args.groupId)))
+    .limit(1);
+  if (!rooftop[0]) return { ok: false, error: 'That lot was not found.' };
+
+  const saved = await db
+    .select()
+    .from(t.metaRooftopAssets)
+    .where(eq(t.metaRooftopAssets.rooftopId, args.rooftopId))
+    .limit(1);
+  const row = saved[0];
+
+  return provisionRooftop({
+    groupId: args.groupId,
+    rooftopId: args.rooftopId,
+    pageId: row?.pageId ?? null,
+    pageName: row?.pageName ?? null,
+    adAccountId: row?.adAccountId ?? null,
+    adAccountName: row?.adAccountName ?? null,
+    pixelId: row?.pixelId ?? null,
+    dealerName: rooftop[0].name,
+    createToken: adminToken,
+  });
 }
 
 /* ------------------------------------------------------------- disconnect */
