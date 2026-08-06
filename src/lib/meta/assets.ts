@@ -486,6 +486,60 @@ export async function ensureProductFeed(
 }
 
 /**
+ * Make Meta fetch the feed now instead of at 3am.
+ *
+ * A scheduled feed is registered but *empty* until the schedule first fires, and
+ * an empty catalog is not a cosmetic problem — it is a hard failure one step
+ * later. `POST /{catalog_id}/product_sets` on a catalog with no items returns:
+ *
+ *   400  code 100  subcode 1798130
+ *   "We disallow the creation of empty product sets. Please add products to
+ *    your catalog and create a set that contains at least one product."
+ *
+ * Observed on the Battle Ground lot, 6 Aug 2026, minutes after a feed was
+ * created successfully. Commerce Manager showed the data source as
+ * "Manual upload", 0 products, status "No information found" — registered,
+ * never run. Without this call a dealer who connects at 9am has a catalog that
+ * does nothing, and a demo that cannot be given, until the small hours.
+ *
+ * Best effort on purpose. The schedules are already in place, so a failure here
+ * costs freshness, not correctness — the daily replace still lands. It is
+ * logged rather than surfaced because there is nothing the dealer could do
+ * about it, and failing the provision over an optimisation would be worse than
+ * the wait it saves.
+ */
+export async function triggerFeedUpload(
+  token: string,
+  feedId: string,
+  feedUrl: string,
+): Promise<boolean> {
+  try {
+    await graph<{ id: string }>(`/${feedId}/uploads`, {
+      method: 'POST',
+      token,
+      params: { url: feedUrl },
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof MetaApiError) {
+      console.error(
+        '[meta] triggerFeedUpload failed ' +
+          JSON.stringify({
+            feedId,
+            kind: err.kind,
+            code: err.code,
+            subcode: err.subcode,
+            message: err.message,
+            trace: err.traceId,
+          }),
+      );
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
  * Wire the dealer's pixel to the catalog.
  *
  * Without this association Meta cannot match a `ViewContent` on the storefront

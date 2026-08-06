@@ -45,6 +45,7 @@ import {
   assignCatalogToSystemUser,
   ensureProductFeed,
   ensureVehicleCatalog,
+  triggerFeedUpload,
   waitForCatalogVisibility,
   type Discovery,
 } from './assets';
@@ -504,6 +505,25 @@ export async function provisionRooftop(args: {
     urls.delta,
     args.dealerName,
   );
+
+  /*
+   * PULL THE FEED NOW RATHER THAN AT 3AM.
+   *
+   * Registering a schedule does not fetch anything, and an empty catalog is not
+   * a cosmetic state — `POST /{catalog_id}/product_sets` refuses outright with
+   * subcode 1798130, "We disallow the creation of empty product sets". So a lot
+   * connected at 9am cannot build a campaign, run a demo, or show a single
+   * vehicle until the small hours, and nothing on screen explains why.
+   *
+   * Fired on every successful provision, not just the first. Re-running is how
+   * a dealer repairs things, and "press it again and the inventory appears" is
+   * the behaviour they already expect from that button.
+   *
+   * Deliberately not awaited into the result: the schedules are registered, so
+   * the daily replace lands regardless and this only buys freshness. It logs
+   * its own failure.
+   */
+  if (feed.ok) await triggerFeedUpload(conn.token, feed.feedId, urls.full);
 
   const pixelLinked = args.pixelId
     ? await associatePixel(conn.token, catalog.catalogId, args.pixelId)

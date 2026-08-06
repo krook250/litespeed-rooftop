@@ -91,6 +91,21 @@ export class MetaApiError extends Error {
 
   /** Safe to show a dealer: Meta's own wording, no ids, no token. */
   get dealerMessage(): string {
+    // Checked ahead of `kind` because 1798130 arrives as a bare `code: 100`,
+    // which classifies as `request` and would otherwise render as "Facebook
+    // could not complete that request. Try again in a moment." That is wrong
+    // twice over: nothing is broken, and trying again in a moment does nothing.
+    // Meta is refusing to build a product set against a catalog it has not
+    // filled yet, which is a waiting problem with a known end — and the dealer
+    // needs to be told to wait, not to retry.
+    if (this.subcode === 1798130) {
+      return (
+        'Facebook has not pulled your inventory into the catalog yet, so there is nothing ' +
+        'to build an ad against. This usually takes a few minutes after a lot is connected. ' +
+        'Nothing is wrong — try again shortly.'
+      );
+    }
+
     switch (this.kind) {
       case 'reauth':
         return 'Your Facebook connection was disconnected. Reconnect to keep your ads running.';
