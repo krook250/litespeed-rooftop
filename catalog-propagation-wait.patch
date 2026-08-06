@@ -1,0 +1,159 @@
+From 923bac4f8b1a6d5a12dbc676857150a8c5ce2086 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 6 Aug 2026 21:24:01 +0000
+Subject: [PATCH] meta: wait for the catalog grant to become readable before
+ using it
+
+The grant and the grant being readable are not the same event. Business asset
+assignment is eventually consistent, and one function invocation on the Battle
+Ground lot showed the gap:
+
+  POST /1551227789809689/assigned_users   1.28s   succeeded
+  GET  /1551227789809689/product_feeds     294ms  400, code 100 subcode 33
+
+294ms after a successful grant the object still read as "does not exist,
+cannot be loaded due to missing permissions". Pressing the same button minutes
+later found it immediately and adopted it, which is the proof this is latency
+rather than a wrong grant.
+
+Losing that race is not cosmetic. The lot lands on CREATED with a dead feed,
+and the only repair is a second pass that succeeds by ADOPTING the catalog the
+failed run left behind -- reporting "already in your Facebook business" about a
+catalog we made ninety seconds earlier, which is untrue and is the exact string
+meta-master-screencast.md shot 23 says not to record.
+
+So poll the cheapest read until it answers, 8 attempts over ~16s. Only 100/33
+is treated as propagation; any other error stops immediately, because waiting
+cannot fix a revoked token and burning the budget on it delays the real
+message.
+
+A timeout returns false rather than throwing. The catalog exists and the grant
+is real, so the dealer is told to try again in a minute and that nothing needs
+redoing on Facebook -- and the next run adopts it by name, correctly this time.
+
+tsc --noEmit --incremental false clean; npm run build clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017qpg8h5bH5umfaApF4Tj4o
+---
+ src/lib/meta/assets.ts  | 56 +++++++++++++++++++++++++++++++++++++++++
+ src/lib/meta/connect.ts | 29 +++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
+
+diff --git a/src/lib/meta/assets.ts b/src/lib/meta/assets.ts
+index 4a87fe1..4a22900 100644
+--- a/src/lib/meta/assets.ts
++++ b/src/lib/meta/assets.ts
+@@ -366,6 +366,62 @@ export async function assignCatalogToSystemUser(
+   }
+ }
+ 
++/**
++ * Block until the system user can actually see the catalog it was just granted.
++ *
++ * THE GRANT IS NOT THE SAME EVENT AS THE GRANT BEING READABLE. Business asset
++ * assignment is eventually consistent, and the gap is wide enough to lose a
++ * whole provision to. Observed on the Battle Ground lot, 6 Aug 2026, in one
++ * function invocation:
++ *
++ *   POST /1551227789809689/assigned_users   1.28s   succeeded
++ *   GET  /1551227789809689/product_feeds     294ms  400, code 100 subcode 33
++ *
++ * 294 milliseconds after a successful grant, the object still read as
++ * "does not exist, cannot be loaded due to missing permissions". Clicking the
++ * same button again minutes later found it immediately and adopted it — which
++ * is the proof this is latency and not a wrong grant, and also why it is worth
++ * waiting rather than restructuring: the permission was always correct.
++ *
++ * We poll the cheapest possible read. A miss here is expected and not an
++ * incident, but `graph()` logs every non-2xx at the transport, so a slow
++ * propagation leaves a short run of code-100 lines in the log before the
++ * success. That noise is deliberate — silencing it would also hide a genuine
++ * permission failure, which looks identical until the timeout.
++ *
++ * Returns false on timeout rather than throwing. The caller decides, and the
++ * honest answer to the dealer is "not yet", not "broken": the next provision
++ * run will find the catalog by name and adopt it.
++ */
++export async function waitForCatalogVisibility(
++  token: string,
++  catalogId: string,
++  opts: { attempts?: number; delayMs?: number } = {},
++): Promise<boolean> {
++  const attempts = opts.attempts ?? 8;
++  const delayMs = opts.delayMs ?? 2000;
++
++  for (let i = 0; i < attempts; i++) {
++    try {
++      await graph<{ id: string }>(`/${catalogId}`, { token, params: { fields: 'id' } });
++      return true;
++    } catch (err) {
++      // Only 100/33 is the propagation signature. Anything else — a revoked
++      // token, a rate limit — is a real failure and waiting cannot fix it, so
++      // stop rather than burning the whole budget on it.
++      const propagating =
++        err instanceof MetaApiError && err.code === 100 && err.subcode === 33;
++      if (!propagating) return false;
++      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
++    }
++  }
++  console.error(
++    '[meta] waitForCatalogVisibility timed out ' +
++      JSON.stringify({ catalogId, attempts, delayMs }),
++  );
++  return false;
++}
++
+ /* ---------------------------------------------------------------- feed setup */
+ 
+ export type FeedResult =
+diff --git a/src/lib/meta/connect.ts b/src/lib/meta/connect.ts
+index 7b8f8ce..65d08bf 100644
+--- a/src/lib/meta/connect.ts
++++ b/src/lib/meta/connect.ts
+@@ -45,6 +45,7 @@ import {
+   assignCatalogToSystemUser,
+   ensureProductFeed,
+   ensureVehicleCatalog,
++  waitForCatalogVisibility,
+   type Discovery,
+ } from './assets';
+ 
+@@ -456,6 +457,34 @@ export async function provisionRooftop(args: {
+           'Assign it to Rooftop in Business Settings → Data sources → Catalogs, and we will pick it up from there.',
+       };
+     }
++
++    /*
++     * AND NOW WAIT FOR THE GRANT TO BE READABLE, which is a separate event.
++     *
++     * Without this the whole provision is a race we lose: the assignment
++     * returns 200 and the very next call — the feed, 294ms later — comes back
++     * "does not exist, cannot be loaded due to missing permissions". The lot
++     * lands on CREATED with a dead feed, and the only repair is clicking the
++     * button again, which succeeds by *adopting* the catalog the failed run
++     * left behind. That second-pass wording is "already in your Facebook
++     * business", which is both untrue of a catalog we made ninety seconds ago
++     * and the exact string `meta-master-screencast.md` shot 23 says not to
++     * record.
++     *
++     * A timeout is not an error. The catalog exists, the grant is real, and the
++     * next run will find it by name — so we say so plainly rather than
++     * reporting a failure the dealer cannot act on.
++     */
++    const visible = await waitForCatalogVisibility(conn.token, catalog.catalogId);
++    if (!visible) {
++      return {
++        ok: false,
++        error:
++          'The catalog was created and handed to Rooftop, but Facebook has not finished ' +
++          'applying that permission yet. Give it a minute and press Set up catalog ads again — ' +
++          'nothing needs redoing on Facebook.',
++      };
++    }
+   }
+ 
+   // Stable per lot: regenerating it on every provision would break the feed URL
+-- 
+2.43.0
+

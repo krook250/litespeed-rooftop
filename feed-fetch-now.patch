@@ -1,0 +1,181 @@
+From 12eea3d387211114e7bcb5b0f62c19dba7b948ee Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 6 Aug 2026 21:47:07 +0000
+Subject: [PATCH] meta: make Facebook fetch the feed now instead of at 3am
+
+Registering a schedule does not fetch anything. Commerce Manager showed the
+Battle Ground data source minutes after a successful feed create as: type
+"Manual upload", 0 products, status "No information found", last update
+"Replaced every day". Registered, never run.
+
+An empty catalog is not a cosmetic state. The next thing the product does with
+it is build a product set, and Meta refuses outright:
+
+  POST /1551227789809689/product_sets
+  400  code 100  subcode 1798130  OAuthException
+  "We disallow the creation of empty product sets. Please add products to your
+   catalog and create a set that contains at least one product."
+  trace AEXhoFufxIQpyY8Dovqw8It
+
+Note the GET on the same edge succeeded first -- so this is not the permission
+problem that came before it. The catalog is readable and writable. It is empty.
+
+So a dealer connecting at 9am has a catalog that does nothing, a campaign that
+cannot be built, and no explanation on screen, until the small hours.
+
+POST /{product_feed_id}/uploads with the feed url forces the fetch immediately.
+Fired on every successful provision, not just the first: re-running is how a
+dealer repairs things, and "press it again and the inventory shows up" is what
+that button already implies.
+
+Best effort. The schedules are registered either way, so a failure here costs
+freshness and not correctness, and failing a provision over an optimisation
+would be worse than the wait it saves. It logs its own failure.
+
+Also maps 1798130 to a dealer message that says what is actually happening.
+It arrives as a bare code 100, classifies as 'request', and rendered as
+"Facebook could not complete that request. Try again in a moment" -- wrong
+twice, because nothing is broken and retrying in a moment does nothing.
+
+tsc --noEmit --incremental false clean; npm run build clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017qpg8h5bH5umfaApF4Tj4o
+---
+ src/lib/meta/assets.ts  | 54 +++++++++++++++++++++++++++++++++++++++++
+ src/lib/meta/connect.ts | 20 +++++++++++++++
+ src/lib/meta/graph.ts   | 15 ++++++++++++
+ 3 files changed, 89 insertions(+)
+
+diff --git a/src/lib/meta/assets.ts b/src/lib/meta/assets.ts
+index 4a22900..66ad280 100644
+--- a/src/lib/meta/assets.ts
++++ b/src/lib/meta/assets.ts
+@@ -485,6 +485,60 @@ export async function ensureProductFeed(
+   }
+ }
+ 
++/**
++ * Make Meta fetch the feed now instead of at 3am.
++ *
++ * A scheduled feed is registered but *empty* until the schedule first fires, and
++ * an empty catalog is not a cosmetic problem — it is a hard failure one step
++ * later. `POST /{catalog_id}/product_sets` on a catalog with no items returns:
++ *
++ *   400  code 100  subcode 1798130
++ *   "We disallow the creation of empty product sets. Please add products to
++ *    your catalog and create a set that contains at least one product."
++ *
++ * Observed on the Battle Ground lot, 6 Aug 2026, minutes after a feed was
++ * created successfully. Commerce Manager showed the data source as
++ * "Manual upload", 0 products, status "No information found" — registered,
++ * never run. Without this call a dealer who connects at 9am has a catalog that
++ * does nothing, and a demo that cannot be given, until the small hours.
++ *
++ * Best effort on purpose. The schedules are already in place, so a failure here
++ * costs freshness, not correctness — the daily replace still lands. It is
++ * logged rather than surfaced because there is nothing the dealer could do
++ * about it, and failing the provision over an optimisation would be worse than
++ * the wait it saves.
++ */
++export async function triggerFeedUpload(
++  token: string,
++  feedId: string,
++  feedUrl: string,
++): Promise<boolean> {
++  try {
++    await graph<{ id: string }>(`/${feedId}/uploads`, {
++      method: 'POST',
++      token,
++      params: { url: feedUrl },
++    });
++    return true;
++  } catch (err) {
++    if (err instanceof MetaApiError) {
++      console.error(
++        '[meta] triggerFeedUpload failed ' +
++          JSON.stringify({
++            feedId,
++            kind: err.kind,
++            code: err.code,
++            subcode: err.subcode,
++            message: err.message,
++            trace: err.traceId,
++          }),
++      );
++      return false;
++    }
++    throw err;
++  }
++}
++
+ /**
+  * Wire the dealer's pixel to the catalog.
+  *
+diff --git a/src/lib/meta/connect.ts b/src/lib/meta/connect.ts
+index 65d08bf..07683a0 100644
+--- a/src/lib/meta/connect.ts
++++ b/src/lib/meta/connect.ts
+@@ -45,6 +45,7 @@ import {
+   assignCatalogToSystemUser,
+   ensureProductFeed,
+   ensureVehicleCatalog,
++  triggerFeedUpload,
+   waitForCatalogVisibility,
+   type Discovery,
+ } from './assets';
+@@ -505,6 +506,25 @@ export async function provisionRooftop(args: {
+     args.dealerName,
+   );
+ 
++  /*
++   * PULL THE FEED NOW RATHER THAN AT 3AM.
++   *
++   * Registering a schedule does not fetch anything, and an empty catalog is not
++   * a cosmetic state — `POST /{catalog_id}/product_sets` refuses outright with
++   * subcode 1798130, "We disallow the creation of empty product sets". So a lot
++   * connected at 9am cannot build a campaign, run a demo, or show a single
++   * vehicle until the small hours, and nothing on screen explains why.
++   *
++   * Fired on every successful provision, not just the first. Re-running is how
++   * a dealer repairs things, and "press it again and the inventory appears" is
++   * the behaviour they already expect from that button.
++   *
++   * Deliberately not awaited into the result: the schedules are registered, so
++   * the daily replace lands regardless and this only buys freshness. It logs
++   * its own failure.
++   */
++  if (feed.ok) await triggerFeedUpload(conn.token, feed.feedId, urls.full);
++
+   const pixelLinked = args.pixelId
+     ? await associatePixel(conn.token, catalog.catalogId, args.pixelId)
+     : false;
+diff --git a/src/lib/meta/graph.ts b/src/lib/meta/graph.ts
+index d2c41ae..4c79cc2 100644
+--- a/src/lib/meta/graph.ts
++++ b/src/lib/meta/graph.ts
+@@ -91,6 +91,21 @@ export class MetaApiError extends Error {
+ 
+   /** Safe to show a dealer: Meta's own wording, no ids, no token. */
+   get dealerMessage(): string {
++    // Checked ahead of `kind` because 1798130 arrives as a bare `code: 100`,
++    // which classifies as `request` and would otherwise render as "Facebook
++    // could not complete that request. Try again in a moment." That is wrong
++    // twice over: nothing is broken, and trying again in a moment does nothing.
++    // Meta is refusing to build a product set against a catalog it has not
++    // filled yet, which is a waiting problem with a known end — and the dealer
++    // needs to be told to wait, not to retry.
++    if (this.subcode === 1798130) {
++      return (
++        'Facebook has not pulled your inventory into the catalog yet, so there is nothing ' +
++        'to build an ad against. This usually takes a few minutes after a lot is connected. ' +
++        'Nothing is wrong — try again shortly.'
++      );
++    }
++
+     switch (this.kind) {
+       case 'reauth':
+         return 'Your Facebook connection was disconnected. Reconnect to keep your ads running.';
+-- 
+2.43.0
+
