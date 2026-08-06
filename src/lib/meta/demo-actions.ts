@@ -96,7 +96,29 @@ export async function createDemoCampaignAction(
     };
   } catch (err) {
     await noteFailure(groupId, err);
-    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
+    if (err instanceof MetaApiError) {
+      // Same reasoning as `ensureVehicleCatalog`: the transport logs Meta's
+      // words, this logs which objects we were pointing at. A campaign build
+      // touches four ids and the failure never says which one Meta objected to.
+      console.error(
+        '[meta] createDemoCampaignAction failed ' +
+          JSON.stringify({
+            rooftopId,
+            bucket,
+            adAccountId: asset.adAccountId,
+            catalogId: asset.catalogId,
+            pageId: asset.pageId,
+            kind: err.kind,
+            status: err.status,
+            code: err.code,
+            subcode: err.subcode,
+            message: err.message,
+            trace: err.traceId,
+          }),
+      );
+      return { ok: false, error: err.dealerMessage };
+    }
+    console.error('[meta] createDemoCampaignAction threw a non-Graph error', err);
     throw err;
   }
 }

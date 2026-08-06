@@ -241,10 +241,40 @@ export async function graph<T>(path: string, init: GraphInit = {}): Promise<T> {
     const e = (json as MetaErrorBody).error ?? {};
     const code = e.code ?? null;
     const subcode = e.error_subcode ?? null;
+    const kind = classify(code, subcode, res.status);
+
+    // THE ONLY PLACE META'S REAL WORDS STILL EXIST.
+    //
+    // Every caller downstream collapses this into `dealerMessage`, which is
+    // deliberately vague — "Rooftop is not yet approved by Meta for this
+    // action" — because a dealer cannot act on a Graph subcode. That vagueness
+    // is right on screen and useless in an incident: without this line the
+    // actual code, subcode and Meta's own wording are discarded and nothing
+    // reaches the runtime log. Log it here, once, where we still have all of it.
+    //
+    // `params` is NEVER logged: it carries `access_token` and
+    // `appsecret_proof`. Same rule as `src/lib/domains/vercel.ts` — errors
+    // carry Meta's message and code, never the request.
+    console.error(
+      '[meta] graph error ' +
+        JSON.stringify({
+          method,
+          path,
+          status: res.status,
+          kind,
+          code,
+          subcode,
+          type: e.type ?? null,
+          message: e.message ?? null,
+          userMsg: e.error_user_msg ?? null,
+          trace: e.fbtrace_id ?? null,
+        }),
+    );
+
     throw new MetaApiError(
       // error_user_msg is Meta's own dealer-safe wording when it bothers to send one.
       e.error_user_msg || e.message || `Facebook returned ${res.status}.`,
-      classify(code, subcode, res.status),
+      kind,
       res.status,
       code,
       subcode,

@@ -218,8 +218,28 @@ export async function ensureVehicleCatalog(
     return { ok: true, catalogId: created.id, name, source: 'CREATED' };
   } catch (err) {
     if (err instanceof MetaApiError) {
+      // The transport already logged Meta's raw error; this adds the context
+      // that only this function has — which business we were writing into, and
+      // whether we were reading candidates or creating. Without the business id
+      // a permission refusal is indistinguishable from writing into the wrong
+      // portfolio, which is the first thing to rule out.
+      console.error(
+        '[meta] ensureVehicleCatalog failed ' +
+          JSON.stringify({
+            businessId,
+            dealerName,
+            usedPassedCandidates: existing !== undefined,
+            kind: err.kind,
+            status: err.status,
+            code: err.code,
+            subcode: err.subcode,
+            message: err.message,
+            trace: err.traceId,
+          }),
+      );
       return { ok: false, kind: err.kind, message: err.dealerMessage };
     }
+    console.error('[meta] ensureVehicleCatalog threw a non-Graph error', err);
     throw err;
   }
 }
