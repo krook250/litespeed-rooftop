@@ -99,6 +99,18 @@ export class MetaApiError extends Error {
       case 'rate-limit':
         return 'Facebook is asking us to slow down. This will retry on its own shortly.';
       case 'business-setup':
+        // Meta's own sentence is accurate here but stops one step short of
+        // telling the dealer what to do about it, and this particular one will
+        // be the single most common blocker on the catalog step — it fires for
+        // every dealer whose Facebook business we are connected to as a system
+        // user rather than as one of their admins.
+        if (this.subcode === 1690129) {
+          return (
+            `${this.message} ` +
+            'Reconnect with an account that is an admin of that Facebook business, ' +
+            'or ask them to make the catalog once in Commerce Manager — we will find it and take it from there.'
+          );
+        }
         return this.message;
       default:
         return 'Facebook could not complete that request. Try again in a moment.';
@@ -116,6 +128,31 @@ function classify(code: number | null, subcode: number | null, status: number): 
   if (code === 190 || code === 102 || code === 463 || subcode === 463 || subcode === 458) return 'reauth';
   // 4/17/32 = app & user rate limits; 613 = custom-level; 80009 = catalog-specific.
   if (code === 4 || code === 17 || code === 32 || code === 613 || code === 80009) return 'rate-limit';
+
+  // MUST be tested before the code-10 branch below, and the ordering is the
+  // whole point of this line.
+  //
+  // Subcode 1690129 on a `code: 10` is Meta saying "you aren't an admin of this
+  // business", not "this app is unapproved". It is what
+  // `POST /{business_id}/owned_product_catalogs` returns to a Business
+  // Integration System User: the BISU holds `catalog_management` and is scoped
+  // to the assets the dealer ticked, and creating a *new* business-owned object
+  // is not an operation on any of them. Meta's own Facebook Login for Business
+  // page routes around it — "User access tokens should also be used if you
+  // require an API that requires admin permissions on a business portfolio."
+  //
+  // Falling through to 'permission' cost two days on 6 Aug 2026. The dealer
+  // message for 'permission' is "Rooftop is not yet approved by Meta for this
+  // action. We are on it — nothing you need to do", which sent the
+  // investigation into App Review, where three endpoints disagree with each
+  // other and none of them had anything to do with it. 'business-setup' returns
+  // Meta's own `error_user_msg` instead, which here is exactly right and
+  // exactly actionable.
+  //
+  // The subcode is undocumented — it appears in no Meta error table — so match
+  // on it narrowly and leave bare `code: 10` meaning what it has always meant.
+  if (subcode === 1690129) return 'business-setup';
+
   if (code === 10 || code === 200 || code === 299 || (code !== null && code >= 200 && code <= 299)) {
     return 'permission';
   }
