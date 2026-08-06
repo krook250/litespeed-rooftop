@@ -462,7 +462,31 @@ export async function provisionRooftop(args: {
     .insert(t.metaRooftopAssets)
     .values(values)
     .onConflictDoUpdate({ target: t.metaRooftopAssets.rooftopId, set: values });
-
+/*
+   * CLEAR THE CONNECTION-LEVEL FAILURE, because we just disproved it.
+   *
+   * `noteFailure` writes `metaConnections.errorMessage` and flips the row to
+   * ERROR, and until this line the only two things that ever cleared it were
+   * disconnecting and reconnecting. A dealer whose catalog step failed once and
+   * then succeeded kept a red Error chip and a stale amber banner on the Ad Desk
+   * for the rest of the connection's life, and the only cure we offered was the
+   * full OAuth round trip — which on a business with 2FA means burning a
+   * confirmation code to fix a message that was already untrue.
+   *
+   * Reaching this point means the credential just performed a catalog read, a
+   * create-or-adopt and a feed call against Meta. Saying it is in error after
+   * that is not a cautious default, it is a false statement.
+   *
+   * Scoped to ERROR on purpose: NEEDS_REAUTH is set by paths that inspect the
+   * credential itself, and this success does not speak to a row that some other
+   * lot's failure put into reauth. Per-lot failures — the feed above being the
+   * one that matters — stay on `metaRooftopAssets.errorMessage`, which is where
+   * a per-lot problem belongs and where the lot row already reads it from.
+   */
+  await db
+    .update(t.metaConnections)
+    .set({ status: 'CONNECTED', errorMessage: null, lastCheckedAt: new Date() })
+    .where(and(eq(t.metaConnections.groupId, args.groupId), eq(t.metaConnections.status, 'ERROR')));
   return {
     ok: true,
     catalogId: catalog.catalogId,
