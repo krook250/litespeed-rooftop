@@ -42,6 +42,7 @@ import { decryptToken, encryptToken, tokenCryptoConfigured } from './tokens';
 import {
   associatePixel,
   discoverAssets,
+  assignCatalogToSystemUser,
   ensureProductFeed,
   ensureVehicleCatalog,
   type Discovery,
@@ -415,6 +416,46 @@ export async function provisionRooftop(args: {
     const needsAdminGrant =
       catalog.subcode === NOT_A_BUSINESS_ADMIN && !args.createToken && catalogProvisionAvailable();
     return { ok: false, error: catalog.message, needsAdminGrant };
+  }
+
+  /*
+   * HAND THE NEW CATALOG TO THE SYSTEM USER BEFORE ANYTHING ELSE TOUCHES IT.
+   *
+   * Only on CREATED: an adopted catalog is one the dealer already assigned to
+   * us, which is the only reason we could see it in the first place, so
+   * re-granting is noise. A created one belongs to nobody but the admin whose
+   * token made it, and that token is about to go out of scope forever.
+   *
+   * Ordering is load-bearing. `ensureProductFeed` below runs on `conn.token`
+   * and is the first thing to touch the catalog by id; before this call existed
+   * it came straight back with code 100 / subcode 33 — "does not exist, cannot
+   * be loaded due to missing permissions" — which `classify()` files as
+   * `request` and the dealer sees as "try again in a moment". It never worked
+   * on a retry, because nothing about waiting grants a role.
+   *
+   * A failure here is fatal to the lot and reported as such rather than pressed
+   * on with: continuing would produce a catalog we cannot feed, recorded as a
+   * success, which is the exact shape of bug this whole investigation started
+   * as.
+   */
+  if (catalog.source === 'CREATED' && args.createToken && conn.row.systemUserId) {
+    const assigned = await assignCatalogToSystemUser(
+      args.createToken,
+      catalog.catalogId,
+      conn.row.systemUserId,
+    );
+    if (!assigned.ok) {
+      await noteFailure(
+        args.groupId,
+        new MetaApiError(assigned.message, assigned.kind, 400, null, null, null),
+      );
+      return {
+        ok: false,
+        error:
+          'The catalog was created but we could not give Rooftop access to it. ' +
+          'Assign it to Rooftop in Business Settings → Data sources → Catalogs, and we will pick it up from there.',
+      };
+    }
   }
 
   // Stable per lot: regenerating it on every provision would break the feed URL

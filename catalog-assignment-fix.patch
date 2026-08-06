@@ -1,0 +1,214 @@
+From 1703b5c61c9b26b6c76e30ae432c7562e1985bb2 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 6 Aug 2026 18:49:48 +0000
+Subject: [PATCH] meta: assign the new catalog to the system user before
+ anything reads it
+
+The create works and the very next call fails. ensureVehicleCatalog makes the
+catalog on the borrowed admin token, that token is dropped, and
+ensureProductFeed runs on the BISU -- which is scoped to the assets the dealer
+ticked in the login dialog, and a catalog that did not exist at tick time is
+not one of them.
+
+Observed live on the Battle Ground lot, 6 Aug 2026:
+
+  GET /1570055258131864/product_feeds
+  400  code 100  subcode 33  GraphMethodException
+  "Unsupported get request. Object with ID '1570055258131864' does not exist,
+   cannot be loaded due to missing permissions, or does not support this
+   operation."
+  trace AaUw13Qhw0DZsWLainx4DNb
+
+The object existed -- we had just created it. It is the missing-permissions
+arm. Note there is no 1690129 and no code 10, so classify() files it as
+'request' and the dealer is told to try again in a moment, which never helps
+because nothing about waiting grants a role.
+
+POST /{catalog_id}/assigned_users with MANAGE and ADVERTISE, on the admin
+token, while it is still in hand -- it is the only credential in the process
+with the business-admin standing that granting a role requires. CREATED only:
+an adopted catalog was already assigned to us, which is why we could see it.
+
+Failure is fatal to the lot rather than pressed on with. Continuing would
+record a catalog we cannot feed as a success, which is the same shape of bug
+this investigation began as.
+
+Also drops "Reconnect with an account that is an admin" from the 1690129
+dealer message. It sat directly above the admin-grant button and contradicted
+it: the button borrows a sign-in for one call and leaves the system-user
+connection untouched, while the words told the dealer to tear it down. On a
+2FA business that is a confirmation code spent to make things worse, and it is
+what a reader of that box actually tried.
+
+tsc --noEmit --incremental false clean; npm run build clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017qpg8h5bH5umfaApF4Tj4o
+---
+ src/lib/meta/assets.ts  | 64 +++++++++++++++++++++++++++++++++++++++++
+ src/lib/meta/connect.ts | 41 ++++++++++++++++++++++++++
+ src/lib/meta/graph.ts   | 12 ++++++--
+ 3 files changed, 115 insertions(+), 2 deletions(-)
+
+diff --git a/src/lib/meta/assets.ts b/src/lib/meta/assets.ts
+index 54a8cd7..4a87fe1 100644
+--- a/src/lib/meta/assets.ts
++++ b/src/lib/meta/assets.ts
+@@ -302,6 +302,70 @@ export async function ensureVehicleCatalog(
+   }
+ }
+ 
++/* ------------------------------------------------------- catalog assignment */
++
++/**
++ * Give our system user standing on a catalog we just created.
++ *
++ * WITHOUT THIS THE CREATE IS USELESS, and it fails one step later in a way that
++ * does not look related. The admin user token creates the catalog and is then
++ * dropped; every subsequent call — the feed, the product sets, the item
++ * batches — runs on the Business Integration System User, which is scoped to
++ * exactly the assets the dealer ticked in the login dialog. A catalog that did
++ * not exist when they ticked is not one of them, so the very next call comes
++ * back:
++ *
++ *   GET /{catalog_id}/product_feeds
++ *   400  code 100  subcode 33  GraphMethodException
++ *   "Unsupported get request. Object with ID '…' does not exist, cannot be
++ *    loaded due to missing permissions, or does not support this operation."
++ *
++ * Observed live on 6 Aug 2026, trace AaUw13Qhw0DZsWLainx4DNb, on the Battle
++ * Ground lot seconds after a successful create. The object plainly existed; it
++ * is the missing-permissions arm of that message. Note what it does NOT say:
++ * there is no 1690129, no `code: 10`, nothing that reads as a permission
++ * problem to `classify()`, which drops it into the generic bucket and tells the
++ * dealer to try again in a moment. Retrying never helps.
++ *
++ * So the assignment has to happen while the admin token is still in hand — it
++ * is the only credential in the process with the business-admin standing that
++ * granting a role requires. `MANAGE` covers the feed and item writes;
++ * `ADVERTISE` is what lets the ad account build product sets against it later.
++ *
++ * See `claude/meta-catalog-creation-blocker.md`.
++ */
++export async function assignCatalogToSystemUser(
++  adminToken: string,
++  catalogId: string,
++  systemUserId: string,
++): Promise<{ ok: true } | { ok: false; kind: MetaFailureKind; message: string }> {
++  try {
++    await graph(`/${catalogId}/assigned_users`, {
++      method: 'POST',
++      token: adminToken,
++      params: { user: systemUserId, tasks: JSON.stringify(['MANAGE', 'ADVERTISE']) },
++    });
++    return { ok: true };
++  } catch (err) {
++    if (err instanceof MetaApiError) {
++      console.error(
++        '[meta] assignCatalogToSystemUser failed ' +
++          JSON.stringify({
++            catalogId,
++            systemUserId,
++            kind: err.kind,
++            code: err.code,
++            subcode: err.subcode,
++            message: err.message,
++            trace: err.traceId,
++          }),
++      );
++      return { ok: false, kind: err.kind, message: err.dealerMessage };
++    }
++    throw err;
++  }
++}
++
+ /* ---------------------------------------------------------------- feed setup */
+ 
+ export type FeedResult =
+diff --git a/src/lib/meta/connect.ts b/src/lib/meta/connect.ts
+index 28cd471..91ff907 100644
+--- a/src/lib/meta/connect.ts
++++ b/src/lib/meta/connect.ts
+@@ -42,6 +42,7 @@ import { decryptToken, encryptToken, tokenCryptoConfigured } from './tokens';
+ import {
+   associatePixel,
+   discoverAssets,
++  assignCatalogToSystemUser,
+   ensureProductFeed,
+   ensureVehicleCatalog,
+   type Discovery,
+@@ -417,6 +418,46 @@ export async function provisionRooftop(args: {
+     return { ok: false, error: catalog.message, needsAdminGrant };
+   }
+ 
++  /*
++   * HAND THE NEW CATALOG TO THE SYSTEM USER BEFORE ANYTHING ELSE TOUCHES IT.
++   *
++   * Only on CREATED: an adopted catalog is one the dealer already assigned to
++   * us, which is the only reason we could see it in the first place, so
++   * re-granting is noise. A created one belongs to nobody but the admin whose
++   * token made it, and that token is about to go out of scope forever.
++   *
++   * Ordering is load-bearing. `ensureProductFeed` below runs on `conn.token`
++   * and is the first thing to touch the catalog by id; before this call existed
++   * it came straight back with code 100 / subcode 33 — "does not exist, cannot
++   * be loaded due to missing permissions" — which `classify()` files as
++   * `request` and the dealer sees as "try again in a moment". It never worked
++   * on a retry, because nothing about waiting grants a role.
++   *
++   * A failure here is fatal to the lot and reported as such rather than pressed
++   * on with: continuing would produce a catalog we cannot feed, recorded as a
++   * success, which is the exact shape of bug this whole investigation started
++   * as.
++   */
++  if (catalog.source === 'CREATED' && args.createToken && conn.row.systemUserId) {
++    const assigned = await assignCatalogToSystemUser(
++      args.createToken,
++      catalog.catalogId,
++      conn.row.systemUserId,
++    );
++    if (!assigned.ok) {
++      await noteFailure(
++        args.groupId,
++        new MetaApiError(assigned.message, assigned.kind, 400, null, null, null),
++      );
++      return {
++        ok: false,
++        error:
++          'The catalog was created but we could not give Rooftop access to it. ' +
++          'Assign it to Rooftop in Business Settings → Data sources → Catalogs, and we will pick it up from there.',
++      };
++    }
++  }
++
+   // Stable per lot: regenerating it on every provision would break the feed URL
+   // Meta already has on file and silently stop inventory updates.
+   const existing = await db
+diff --git a/src/lib/meta/graph.ts b/src/lib/meta/graph.ts
+index 7068723..d2c41ae 100644
+--- a/src/lib/meta/graph.ts
++++ b/src/lib/meta/graph.ts
+@@ -105,10 +105,18 @@ export class MetaApiError extends Error {
+         // every dealer whose Facebook business we are connected to as a system
+         // user rather than as one of their admins.
+         if (this.subcode === 1690129) {
++          // NEVER SAY "RECONNECT" HERE. This copy sits directly above the
++          // admin-grant button, and the two used to contradict each other: the
++          // button borrows an admin sign-in for one call and leaves the
++          // system-user connection untouched, while the words told the dealer
++          // to tear that connection down and rebuild it. On a business with
++          // 2FA that is a confirmation code spent to make things worse, and
++          // it is the first thing a reader of this box actually tried.
+           return (
+             `${this.message} ` +
+-            'Reconnect with an account that is an admin of that Facebook business, ' +
+-            'or ask them to make the catalog once in Commerce Manager — we will find it and take it from there.'
++            'Finishing it takes someone who administers that Facebook business. ' +
++            'Signing in as one takes a moment and leaves your existing connection exactly as it is — ' +
++            'or ask them to create the catalog once in Commerce Manager, and we will find it and take it from there.'
+           );
+         }
+         return this.message;
+-- 
+2.43.0
+

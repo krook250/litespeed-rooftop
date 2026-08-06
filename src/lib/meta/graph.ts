@@ -105,10 +105,18 @@ export class MetaApiError extends Error {
         // every dealer whose Facebook business we are connected to as a system
         // user rather than as one of their admins.
         if (this.subcode === 1690129) {
+          // NEVER SAY "RECONNECT" HERE. This copy sits directly above the
+          // admin-grant button, and the two used to contradict each other: the
+          // button borrows an admin sign-in for one call and leaves the
+          // system-user connection untouched, while the words told the dealer
+          // to tear that connection down and rebuild it. On a business with
+          // 2FA that is a confirmation code spent to make things worse, and
+          // it is the first thing a reader of this box actually tried.
           return (
             `${this.message} ` +
-            'Reconnect with an account that is an admin of that Facebook business, ' +
-            'or ask them to make the catalog once in Commerce Manager — we will find it and take it from there.'
+            'Finishing it takes someone who administers that Facebook business. ' +
+            'Signing in as one takes a moment and leaves your existing connection exactly as it is — ' +
+            'or ask them to create the catalog once in Commerce Manager, and we will find it and take it from there.'
           );
         }
         return this.message;

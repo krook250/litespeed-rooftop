@@ -302,6 +302,70 @@ export async function ensureVehicleCatalog(
   }
 }
 
+/* ------------------------------------------------------- catalog assignment */
+
+/**
+ * Give our system user standing on a catalog we just created.
+ *
+ * WITHOUT THIS THE CREATE IS USELESS, and it fails one step later in a way that
+ * does not look related. The admin user token creates the catalog and is then
+ * dropped; every subsequent call — the feed, the product sets, the item
+ * batches — runs on the Business Integration System User, which is scoped to
+ * exactly the assets the dealer ticked in the login dialog. A catalog that did
+ * not exist when they ticked is not one of them, so the very next call comes
+ * back:
+ *
+ *   GET /{catalog_id}/product_feeds
+ *   400  code 100  subcode 33  GraphMethodException
+ *   "Unsupported get request. Object with ID '…' does not exist, cannot be
+ *    loaded due to missing permissions, or does not support this operation."
+ *
+ * Observed live on 6 Aug 2026, trace AaUw13Qhw0DZsWLainx4DNb, on the Battle
+ * Ground lot seconds after a successful create. The object plainly existed; it
+ * is the missing-permissions arm of that message. Note what it does NOT say:
+ * there is no 1690129, no `code: 10`, nothing that reads as a permission
+ * problem to `classify()`, which drops it into the generic bucket and tells the
+ * dealer to try again in a moment. Retrying never helps.
+ *
+ * So the assignment has to happen while the admin token is still in hand — it
+ * is the only credential in the process with the business-admin standing that
+ * granting a role requires. `MANAGE` covers the feed and item writes;
+ * `ADVERTISE` is what lets the ad account build product sets against it later.
+ *
+ * See `claude/meta-catalog-creation-blocker.md`.
+ */
+export async function assignCatalogToSystemUser(
+  adminToken: string,
+  catalogId: string,
+  systemUserId: string,
+): Promise<{ ok: true } | { ok: false; kind: MetaFailureKind; message: string }> {
+  try {
+    await graph(`/${catalogId}/assigned_users`, {
+      method: 'POST',
+      token: adminToken,
+      params: { user: systemUserId, tasks: JSON.stringify(['MANAGE', 'ADVERTISE']) },
+    });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof MetaApiError) {
+      console.error(
+        '[meta] assignCatalogToSystemUser failed ' +
+          JSON.stringify({
+            catalogId,
+            systemUserId,
+            kind: err.kind,
+            code: err.code,
+            subcode: err.subcode,
+            message: err.message,
+            trace: err.traceId,
+          }),
+      );
+      return { ok: false, kind: err.kind, message: err.dealerMessage };
+    }
+    throw err;
+  }
+}
+
 /* ---------------------------------------------------------------- feed setup */
 
 export type FeedResult =
