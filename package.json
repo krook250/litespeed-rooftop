@@ -13,7 +13,8 @@
     "db:backfill": "tsx src/db/backfill.ts",
     "db:reset": "npm run db:migrate && npm run db:seed",
     "test": "tsx --conditions=react-server --test src/**/*.test.ts",
-    "db:backfill-reserved": "tsx src/db/backfill-reserved.ts"
+    "db:backfill-reserved": "tsx src/db/backfill-reserved.ts",
+    "db:real-photos": "tsx src/db/real-photos.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.7.0",
