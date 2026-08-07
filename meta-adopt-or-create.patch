@@ -1,0 +1,210 @@
+diff --git a/src/components/ad-desk-demo.tsx b/src/components/ad-desk-demo.tsx
+index 3fd9814..61e9794 100644
+--- a/src/components/ad-desk-demo.tsx
++++ b/src/components/ad-desk-demo.tsx
+@@ -190,6 +190,21 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
+               <Row k="creative" v={state.data.creativeId} />
+               <Row k="status" v={state.data.status} />
+             </dl>
++            {state.data.adopted.campaign ||
++            state.data.adopted.adSet ||
++            state.data.adopted.creative ? (
++              <p className="text-[11px] text-emerald-800">
++                Reused what was already there rather than duplicating it:{' '}
++                {[
++                  state.data.adopted.campaign && 'campaign',
++                  state.data.adopted.adSet && 'ad set',
++                  state.data.adopted.creative && 'creative',
++                ]
++                  .filter(Boolean)
++                  .join(', ')}
++                . Delete them in Ads Manager if you want this built fresh.
++              </p>
++            ) : null}
+           </div>
+         ) : null}
+ 
+diff --git a/src/lib/meta/campaigns.ts b/src/lib/meta/campaigns.ts
+index ba4b1bc..eac2a81 100644
+--- a/src/lib/meta/campaigns.ts
++++ b/src/lib/meta/campaigns.ts
+@@ -166,6 +166,41 @@ export function bucketFilter(bucket: (typeof CAMPAIGN_BUCKETS)[number]) {
+ 
+ export type ProductSetResult = { id: string; name: string; adopted: boolean };
+ 
++/* -------------------------------------------------------- adopt-or-create */
++
++/**
++ * Statuses that mean "this object is gone", even though Meta still hands it back.
++ *
++ * THIS SET IS THE WHOLE REASON ADOPTION IS SAFE. Meta soft-deletes: a campaign
++ * deleted in Ads Manager keeps its id, keeps its name, and keeps appearing on
++ * `/{ad_account}/campaigns` with `status: DELETED` (ARCHIVED behaves the same).
++ * Adopting one looks like it works — you get an id back — and then the ad set
++ * create fails against a dead parent, which reads as a brand-new Meta problem
++ * rather than as our own bookkeeping.
++ *
++ * That is not hypothetical: the demo's operator deletes campaigns between takes,
++ * so the account will routinely hold a deleted campaign with exactly the name we
++ * are about to look for.
++ */
++const DEAD_STATUSES = new Set(['DELETED', 'ARCHIVED']);
++
++/**
++ * Find a live object on an edge by exact name, or null.
++ *
++ * Name matching rather than storing ids, for the same reason `ensureProductSet`
++ * does it: the demo has no table of its own, and a dealer's account is the
++ * source of truth. Names here are fully deterministic, so this is stable.
++ */
++async function findLiveByName<T extends { id: string; name?: string; status?: string }>(
++  path: string,
++  token: string,
++  fields: string,
++  name: string,
++): Promise<T | null> {
++  const rows = await graphEdge<T>(path, { token, fields });
++  return rows.find((r) => r.name === name && !DEAD_STATUSES.has(r.status ?? '')) ?? null;
++}
++
+ /**
+  * Adopt-or-create, same as every other provisioning step in this codebase. A
+  * demo run twice must not leave two identical product sets behind — the dealer
+@@ -213,7 +248,13 @@ export type DemoCampaignInput = {
+ };
+ 
+ export type DemoCampaignResult = {
+-  objectiveUsed: CampaignObjective;
++  /**
++   * The objective this campaign actually carries. Widened from
++   * `CampaignObjective` because an adopted campaign reports whatever it was
++   * created with, and reporting our preferred value instead would be a guess
++   * dressed as a result.
++   */
++  objectiveUsed: string;
+   campaignId: string;
+   productSet: ProductSetResult;
+   adSetId: string;
+@@ -226,6 +267,14 @@ export type DemoCampaignResult = {
+    * the "cannot spend" guarantee. See the long note in `createDemoCampaign`.
+    */
+   status: 'PAUSED';
++  /**
++   * Which objects already existed and were reused rather than created again.
++   *
++   * Surfaced rather than hidden because it is the fastest way to notice, on
++   * camera, that a previous take was not cleaned up — "created" and "reused"
++   * look identical in the id list otherwise.
++   */
++  adopted: { campaign: boolean; adSet: boolean; creative: boolean };
+ };
+ 
+ /**
+@@ -265,17 +314,44 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+           special_ad_category_country: JSON.stringify([specialAdCategoryCountry]),
+         };
+ 
++  const campaignName = `Rooftop — ${dealerName} — ${bucket.label} inventory`.slice(0, 100);
++
+   let campaignId = '';
+-  let objectiveUsed: CampaignObjective = OBJECTIVES[0];
++  let objectiveUsed: string = OBJECTIVES[0];
+   let lastError: unknown = null;
+ 
+-  for (const objective of OBJECTIVES) {
++  /*
++   * Adopt before creating, exactly as `ensureProductSet` does, and for the same
++   * stated reason: a demo run twice must not leave two identical objects behind,
++   * because the dealer has to live in that Ads Manager afterwards.
++   *
++   * This matters more than it looks. Recording the App Review screencast means
++   * pressing this button repeatedly across takes, and without this guard every
++   * take duplicates the whole tree. `DEAD_STATUSES` is what makes it safe to
++   * delete campaigns between takes and press again — a deleted campaign keeps
++   * its name on the edge and would otherwise be adopted as a dead parent.
++   */
++  const priorCampaign = await findLiveByName<{ id: string; name?: string; status?: string; objective?: string }>(
++    `${act}/campaigns`,
++    token,
++    'id,name,status,objective',
++    campaignName,
++  );
++
++  if (priorCampaign) {
++    campaignId = priorCampaign.id;
++    // Report what the adopted campaign actually is, not what we would have sent.
++    // `claude/meta-app-review-runbook.md` §3.5 asks for the real answer here.
++    objectiveUsed = priorCampaign.objective ?? objectiveUsed;
++  }
++
++  for (const objective of campaignId ? [] : OBJECTIVES) {
+     try {
+       const created = await graph<{ id: string }>(`${act}/campaigns`, {
+         method: 'POST',
+         token,
+         params: {
+-          name: `Rooftop — ${dealerName} — ${bucket.label} inventory`.slice(0, 100),
++          name: campaignName,
+           objective,
+           status: 'PAUSED',
+           promoted_object: JSON.stringify({ product_catalog_id: catalogId }),
+@@ -374,11 +450,22 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+     instagram_positions: ['stream'],
+   };
+ 
+-  const adSet = await graph<{ id: string }>(`${act}/adsets`, {
++  const adSetName = `${bucket.label} — prospecting`;
++
++  // Scoped to this campaign's own edge rather than the account's, so the name
++  // only has to be unique within the campaign — which it is by construction.
++  const priorAdSet = await findLiveByName<{ id: string; name?: string; status?: string }>(
++    `/${campaignId}/adsets`,
++    token,
++    'id,name,status',
++    adSetName,
++  );
++
++  const adSet = priorAdSet ?? await graph<{ id: string }>(`${act}/adsets`, {
+     method: 'POST',
+     token,
+     params: {
+-      name: `${bucket.label} — prospecting`,
++      name: adSetName,
+       campaign_id: campaignId,
+       billing_event: 'IMPRESSIONS',
+       optimization_goal: 'LINK_CLICKS',
+@@ -437,11 +524,20 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+    * we have not been granted rights to run ads from, which is precisely what
+    * `pages_manage_ads` grants and precisely what its screencast has to show.
+    */
+-  const creative = await graph<{ id: string }>(`${act}/adcreatives`, {
++  const creativeName = `Rooftop — ${dealerName} — dynamic vehicle creative`.slice(0, 100);
++
++  const priorCreative = await findLiveByName<{ id: string; name?: string; status?: string }>(
++    `${act}/adcreatives`,
++    token,
++    'id,name,status',
++    creativeName,
++  );
++
++  const creative = priorCreative ?? await graph<{ id: string }>(`${act}/adcreatives`, {
+     method: 'POST',
+     token,
+     params: {
+-      name: `Rooftop — ${dealerName} — dynamic vehicle creative`.slice(0, 100),
++      name: creativeName,
+       product_set_id: productSet.id,
+       object_story_spec: JSON.stringify({
+         page_id: pageId,
+@@ -507,6 +603,11 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+     adSetId: adSet.id,
+     creativeId: creative.id,
+     status: 'PAUSED',
++    adopted: {
++      campaign: Boolean(priorCampaign),
++      adSet: Boolean(priorAdSet),
++      creative: Boolean(priorCreative),
++    },
+   };
+ }
+ 
