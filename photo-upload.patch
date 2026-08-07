@@ -1,0 +1,1436 @@
+From c8591595b784b461a4772a3b797b2c70487f5ecc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 7 Aug 2026 03:27:14 +0000
+Subject: [PATCH] inventory: upload real photographs, not just generated tiles
+
+The Add control was a scene picker: it inserted another generatedPhotoUrl()
+tile and there was no way to put a real photograph on a vehicle at all. No
+image storage existed anywhere in the app.
+
+Photos go to Vercel Blob rather than the database because these URLs are handed
+to Meta, to Marketplace and to every syndication partner, and are fetched by
+THEIR infrastructure on their schedule. That makes photo serving a public CDN
+problem, not an application one -- the feed gets pulled when nobody is watching
+and a slow origin becomes a rejected item.
+
+The stored URL is absolute and public by construction, which is the property
+feed-spec.ts needs and the generated tiles never had. "/api/photo?..." is
+root-relative and cost a day of "URL Incorrectly Formatted" feed rejections on
+6 Aug 2026. SVG is refused on upload for the same reason plus the usual one:
+Meta will not take image/svg+xml, so allowing it would reproduce the exact
+problem the uploader exists to solve.
+
+One control, two jobs. A file present means a real photograph; absent means
+another generated tile for the scene in the dropdown. addPhoto branches rather
+than the panel growing a second form.
+
+It is a client component because a plain form posting a camera photo to a
+server action does not work on Vercel: the platform rejects a body over ~4.5MB
+before any of our code runs, and a phone photo is 3-8MB, and the failure
+surfaces as a generic network error. So the file is downscaled in the browser
+by the same prepareForUpload the document intake uses -- 1800px, JPEG q0.85,
+200-600KB typical. That helper also converts HEIC via the canvas round trip and
+drops EXIF, which matters here: a photo taken on a lot carries GPS and a
+dealer's coordinates have no business travelling to Meta.
+
+addRandomSuffix because Blob URLs are immutable and cached hard at the edge --
+reusing a pathname on a replaced photo would serve the old image for a long
+time.
+
+Requires a Blob store on the Vercel project, which sets BLOB_READ_WRITE_TOKEN.
+
+tsc clean; eslint clean; npm run build clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017qpg8h5bH5umfaApF4Tj4o
+---
+ package-lock.json                      | 368 ++++++++++++++++++++++++-
+ package.json                           |   1 +
+ src/app/admin/inventory/[id]/page.tsx  |  19 +-
+ src/components/inventory/photo-add.tsx | 123 +++++++++
+ src/lib/actions.ts                     |  91 ++++++
+ 5 files changed, 579 insertions(+), 23 deletions(-)
+ create mode 100644 src/components/inventory/photo-add.tsx
+
+diff --git a/package-lock.json b/package-lock.json
+index f6b1b38..faf7c09 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,7 @@
+       "name": "rooftop",
+       "version": "0.1.0",
+       "dependencies": {
++        "@vercel/blob": "^2.7.0",
+         "better-auth": "^1.6.25",
+         "clsx": "^2.1.1",
+         "date-fns": "^4.4.0",
+@@ -480,6 +481,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -496,6 +498,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -512,6 +515,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -528,6 +532,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -544,6 +549,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -560,6 +566,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -576,6 +583,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -592,6 +600,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -608,6 +617,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -624,6 +634,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -640,6 +651,7 @@
+       "cpu": [
+         "loong64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -656,6 +668,7 @@
+       "cpu": [
+         "mips64el"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -672,6 +685,7 @@
+       "cpu": [
+         "ppc64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -688,6 +702,7 @@
+       "cpu": [
+         "riscv64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -704,6 +719,7 @@
+       "cpu": [
+         "s390x"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -720,6 +736,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -736,6 +753,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -752,6 +770,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -768,6 +787,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -784,6 +804,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -800,6 +821,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -816,6 +838,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -882,6 +905,7 @@
+       "cpu": [
+         "ppc64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -898,6 +922,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -914,6 +939,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -930,6 +956,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -946,6 +973,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -962,6 +990,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -978,6 +1007,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -994,6 +1024,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1010,6 +1041,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1026,6 +1058,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1042,6 +1075,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1058,6 +1092,7 @@
+       "cpu": [
+         "loong64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1074,6 +1109,7 @@
+       "cpu": [
+         "mips64el"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1090,6 +1126,7 @@
+       "cpu": [
+         "ppc64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1106,6 +1143,7 @@
+       "cpu": [
+         "riscv64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1122,6 +1160,7 @@
+       "cpu": [
+         "s390x"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1138,6 +1177,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1154,6 +1194,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1170,6 +1211,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1186,6 +1228,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1202,6 +1245,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1218,6 +1262,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1234,6 +1279,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1250,6 +1296,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1266,6 +1313,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1282,6 +1330,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -3238,6 +3287,77 @@
+         "win32"
+       ]
+     },
++    "node_modules/@vercel/blob": {
++      "version": "2.7.0",
++      "resolved": "https://registry.npmjs.org/@vercel/blob/-/blob-2.7.0.tgz",
++      "integrity": "sha512-cWo8XeRI+eq+pTAQOGZEljSeARw/PZfvNCez9xioGcz/KFvwTR5ESGuKd4wPkGnhbPXyxJJMEgP4oOkwQ4uNGQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@vercel/oidc": "^3.6.1",
++        "async-retry": "^1.3.3",
++        "is-buffer": "^2.0.5",
++        "is-node-process": "^1.2.0",
++        "throttleit": "^2.1.0",
++        "undici": "^6.23.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@vercel/cli-config": {
++      "version": "0.2.2",
++      "resolved": "https://registry.npmjs.org/@vercel/cli-config/-/cli-config-0.2.2.tgz",
++      "integrity": "sha512-kAy35eymNzRBfmcqEViVQge0KJ59FYEKsPqGNCSJQ7M9HTuFGWd3qPcZos1A5cZpAWRBdiYe82Bcz9P7pIZvUQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "xdg-app-paths": "5",
++        "zod": "4.1.11"
++      }
++    },
++    "node_modules/@vercel/cli-config/node_modules/zod": {
++      "version": "4.1.11",
++      "resolved": "https://registry.npmjs.org/zod/-/zod-4.1.11.tgz",
++      "integrity": "sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==",
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/sponsors/colinhacks"
++      }
++    },
++    "node_modules/@vercel/cli-exec": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/@vercel/cli-exec/-/cli-exec-1.0.1.tgz",
++      "integrity": "sha512-g9XerViJ/paZujufXYcu5XYI2vU2rtB4sgdpjUHde5RnOkdmpu0ngH46LCFGHoPXO/C+qDPSczIHIRN+8Q2YKQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "execa": "5.1.1"
++      },
++      "engines": {
++        "node": ">= 18"
++      }
++    },
++    "node_modules/@vercel/oidc": {
++      "version": "3.8.2",
++      "resolved": "https://registry.npmjs.org/@vercel/oidc/-/oidc-3.8.2.tgz",
++      "integrity": "sha512-nmVSeQ7tewCkqYBNB/MNL8aPB9sTvtjvqIE6+U17U4IuTyehuWVERDlWrSn0DVfiFAstRlRkGLHBlKHB2FyzbQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@vercel/cli-config": "0.2.2",
++        "@vercel/cli-exec": "1.0.1",
++        "jose": "^5.9.6"
++      },
++      "engines": {
++        "node": ">= 20"
++      }
++    },
++    "node_modules/@vercel/oidc/node_modules/jose": {
++      "version": "5.10.0",
++      "resolved": "https://registry.npmjs.org/jose/-/jose-5.10.0.tgz",
++      "integrity": "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==",
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/sponsors/panva"
++      }
++    },
+     "node_modules/acorn": {
+       "version": "8.18.0",
+       "resolved": "https://registry.npmjs.org/acorn/-/acorn-8.18.0.tgz",
+@@ -3488,6 +3608,15 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/async-retry": {
++      "version": "1.3.3",
++      "resolved": "https://registry.npmjs.org/async-retry/-/async-retry-1.3.3.tgz",
++      "integrity": "sha512-wfr/jstw9xNi/0teMHrRW7dsz3Lt5ARhYNZ2ewpadnhaIp5mbALhOAP+EAdsC7t4Z6wqsDVv9+W6gm1Dk9mEyw==",
++      "license": "MIT",
++      "dependencies": {
++        "retry": "0.13.1"
++      }
++    },
+     "node_modules/available-typed-arrays": {
+       "version": "1.0.7",
+       "resolved": "https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz",
+@@ -3883,7 +4012,6 @@
+       "version": "7.0.6",
+       "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
+       "integrity": "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "path-key": "^3.1.0",
+@@ -4097,6 +4225,7 @@
+       "cpu": [
+         "ppc64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4113,6 +4242,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4129,6 +4259,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4145,6 +4276,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4161,6 +4293,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4177,6 +4310,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4193,6 +4327,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4209,6 +4344,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4225,6 +4361,7 @@
+       "cpu": [
+         "arm"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4241,6 +4378,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4257,6 +4395,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4273,6 +4412,7 @@
+       "cpu": [
+         "loong64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4289,6 +4429,7 @@
+       "cpu": [
+         "mips64el"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4305,6 +4446,7 @@
+       "cpu": [
+         "ppc64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4321,6 +4463,7 @@
+       "cpu": [
+         "riscv64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4337,6 +4480,7 @@
+       "cpu": [
+         "s390x"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4353,6 +4497,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4369,6 +4514,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4385,6 +4531,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4401,6 +4548,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4417,6 +4565,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4433,6 +4582,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4449,6 +4599,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4465,6 +4616,7 @@
+       "cpu": [
+         "arm64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4481,6 +4633,7 @@
+       "cpu": [
+         "ia32"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -4497,6 +4650,7 @@
+       "cpu": [
+         "x64"
+       ],
++      "dev": true,
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -5386,6 +5540,29 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/execa": {
++      "version": "5.1.1",
++      "resolved": "https://registry.npmjs.org/execa/-/execa-5.1.1.tgz",
++      "integrity": "sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==",
++      "license": "MIT",
++      "dependencies": {
++        "cross-spawn": "^7.0.3",
++        "get-stream": "^6.0.0",
++        "human-signals": "^2.1.0",
++        "is-stream": "^2.0.0",
++        "merge-stream": "^2.0.0",
++        "npm-run-path": "^4.0.1",
++        "onetime": "^5.1.2",
++        "signal-exit": "^3.0.3",
++        "strip-final-newline": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=10"
++      },
++      "funding": {
++        "url": "https://github.com/sindresorhus/execa?sponsor=1"
++      }
++    },
+     "node_modules/fast-deep-equal": {
+       "version": "3.1.3",
+       "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+@@ -5531,6 +5708,7 @@
+       "version": "2.3.3",
+       "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
++      "dev": true,
+       "hasInstallScript": true,
+       "license": "MIT",
+       "optional": true,
+@@ -5644,6 +5822,18 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/get-stream": {
++      "version": "6.0.1",
++      "resolved": "https://registry.npmjs.org/get-stream/-/get-stream-6.0.1.tgz",
++      "integrity": "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/get-symbol-description": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/get-symbol-description/-/get-symbol-description-1.1.0.tgz",
+@@ -5849,6 +6039,15 @@
+         "hermes-estree": "0.25.1"
+       }
+     },
++    "node_modules/human-signals": {
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/human-signals/-/human-signals-2.1.0.tgz",
++      "integrity": "sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=10.17.0"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz",
+@@ -5972,6 +6171,29 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/is-buffer": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/is-buffer/-/is-buffer-2.0.5.tgz",
++      "integrity": "sha512-i2R6zNFDwgEHJyQUtJEk0XFi1i0dPFn/oqjK3/vPCcDeJvW5NQ83V8QbicfF1SupOaB0h8ntgBC2YiE7dfyctQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/feross"
++        },
++        {
++          "type": "patreon",
++          "url": "https://www.patreon.com/feross"
++        },
++        {
++          "type": "consulting",
++          "url": "https://feross.org/support"
++        }
++      ],
++      "license": "MIT",
++      "engines": {
++        "node": ">=4"
++      }
++    },
+     "node_modules/is-bun-module": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/is-bun-module/-/is-bun-module-2.0.0.tgz",
+@@ -6160,6 +6382,12 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/is-node-process": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/is-node-process/-/is-node-process-1.2.0.tgz",
++      "integrity": "sha512-Vg4o6/fqPxIjtxgUH5QLJhwZ7gW5diGCVlXpuUfELC62CuxM1iHcRe51f2W1FDy04Ai4KJkagKjx3XaqyfRKXw==",
++      "license": "MIT"
++    },
+     "node_modules/is-number": {
+       "version": "7.0.0",
+       "resolved": "https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz",
+@@ -6235,6 +6463,18 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/is-stream": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/is-stream/-/is-stream-2.0.1.tgz",
++      "integrity": "sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/is-string": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/is-string/-/is-string-1.1.1.tgz",
+@@ -6343,7 +6583,6 @@
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz",
+       "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==",
+-      "dev": true,
+       "license": "ISC"
+     },
+     "node_modules/iterator.prototype": {
+@@ -6865,6 +7104,12 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/merge-stream": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/merge-stream/-/merge-stream-2.0.0.tgz",
++      "integrity": "sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==",
++      "license": "MIT"
++    },
+     "node_modules/merge2": {
+       "version": "1.4.1",
+       "resolved": "https://registry.npmjs.org/merge2/-/merge2-1.4.1.tgz",
+@@ -6889,6 +7134,15 @@
+         "node": ">=8.6"
+       }
+     },
++    "node_modules/mimic-fn": {
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/mimic-fn/-/mimic-fn-2.1.0.tgz",
++      "integrity": "sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/minimatch": {
+       "version": "3.1.5",
+       "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
+@@ -7085,6 +7339,18 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/npm-run-path": {
++      "version": "4.0.1",
++      "resolved": "https://registry.npmjs.org/npm-run-path/-/npm-run-path-4.0.1.tgz",
++      "integrity": "sha512-S48WzZW777zhNIrn7gxOlISNAqi9ZC/uQFnRdbeIHhZhCA6UqpkOT8T1G7BvfdgP4Er8gF4sUbaS0i7QvIfCWw==",
++      "license": "MIT",
++      "dependencies": {
++        "path-key": "^3.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/object-assign": {
+       "version": "4.1.1",
+       "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
+@@ -7208,6 +7474,21 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/onetime": {
++      "version": "5.1.2",
++      "resolved": "https://registry.npmjs.org/onetime/-/onetime-5.1.2.tgz",
++      "integrity": "sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==",
++      "license": "MIT",
++      "dependencies": {
++        "mimic-fn": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=6"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/optionator": {
+       "version": "0.9.4",
+       "resolved": "https://registry.npmjs.org/optionator/-/optionator-0.9.4.tgz",
+@@ -7226,6 +7507,15 @@
+         "node": ">= 0.8.0"
+       }
+     },
++    "node_modules/os-paths": {
++      "version": "4.4.0",
++      "resolved": "https://registry.npmjs.org/os-paths/-/os-paths-4.4.0.tgz",
++      "integrity": "sha512-wrAwOeXp1RRMFfQY8Sy7VaGVmPocaLwSFOYCGKSyo8qmJ+/yaafCl5BCA1IQZWqFSRBrKDYFeR9d/VyQzfH/jg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 6.0"
++      }
++    },
+     "node_modules/own-keys": {
+       "version": "1.0.2",
+       "resolved": "https://registry.npmjs.org/own-keys/-/own-keys-1.0.2.tgz",
+@@ -7304,7 +7594,6 @@
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz",
+       "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
+-      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=8"
+@@ -7557,6 +7846,15 @@
+         "url": "https://github.com/privatenumber/resolve-pkg-maps?sponsor=1"
+       }
+     },
++    "node_modules/retry": {
++      "version": "0.13.1",
++      "resolved": "https://registry.npmjs.org/retry/-/retry-0.13.1.tgz",
++      "integrity": "sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 4"
++      }
++    },
+     "node_modules/reusify": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/reusify/-/reusify-1.1.0.tgz",
+@@ -7792,7 +8090,6 @@
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
+       "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "shebang-regex": "^3.0.0"
+@@ -7805,7 +8102,6 @@
+       "version": "3.0.0",
+       "resolved": "https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz",
+       "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
+-      "dev": true,
+       "license": "MIT",
+       "engines": {
+         "node": ">=8"
+@@ -7887,6 +8183,12 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/signal-exit": {
++      "version": "3.0.7",
++      "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
++      "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==",
++      "license": "ISC"
++    },
+     "node_modules/source-map": {
+       "version": "0.6.1",
+       "resolved": "https://registry.npmjs.org/source-map/-/source-map-0.6.1.tgz",
+@@ -8062,6 +8364,15 @@
+         "node": ">=4"
+       }
+     },
++    "node_modules/strip-final-newline": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/strip-final-newline/-/strip-final-newline-2.0.0.tgz",
++      "integrity": "sha512-BrpvfNAE3dcvq7ll3xVumzjKjZQ5tI1sEUIKr3Uoks0XUl45St3FlatVqef9prk4jRDzhW6WZg+3bk93y6pLjA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/strip-json-comments": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/strip-json-comments/-/strip-json-comments-3.1.1.tgz",
+@@ -8155,6 +8466,18 @@
+         "url": "https://opencollective.com/webpack"
+       }
+     },
++    "node_modules/throttleit": {
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/throttleit/-/throttleit-2.1.0.tgz",
++      "integrity": "sha512-nt6AMGKW1p/70DF/hGBdJB57B8Tspmbp5gfJ8ilhLnt7kkr2ye7hzD6NVG8GGErk2HWF34igrL2CXmNIkzKqKw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/tinyglobby": {
+       "version": "0.2.17",
+       "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+@@ -8428,6 +8751,15 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/undici": {
++      "version": "6.28.0",
++      "resolved": "https://registry.npmjs.org/undici/-/undici-6.28.0.tgz",
++      "integrity": "sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18.17"
++      }
++    },
+     "node_modules/undici-types": {
+       "version": "6.21.0",
+       "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
+@@ -8518,7 +8850,6 @@
+       "version": "2.0.2",
+       "resolved": "https://registry.npmjs.org/which/-/which-2.0.2.tgz",
+       "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
+-      "dev": true,
+       "license": "ISC",
+       "dependencies": {
+         "isexe": "^2.0.0"
+@@ -8629,6 +8960,31 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/xdg-app-paths": {
++      "version": "5.5.1",
++      "resolved": "https://registry.npmjs.org/xdg-app-paths/-/xdg-app-paths-5.5.1.tgz",
++      "integrity": "sha512-hI3flOB4PLZIy5prbtTpirobtPE2ZtZ52szO+2mM9Efp6ErM398La+C1lIpNWDfNoQk+6Lsi6nMcCwVB7pxeMQ==",
++      "license": "MIT",
++      "dependencies": {
++        "os-paths": "^4.0.1",
++        "xdg-portable": "^7.2.0"
++      },
++      "engines": {
++        "node": ">= 6.0"
++      }
++    },
++    "node_modules/xdg-portable": {
++      "version": "7.3.0",
++      "resolved": "https://registry.npmjs.org/xdg-portable/-/xdg-portable-7.3.0.tgz",
++      "integrity": "sha512-sqMMuL1rc0FmMBOzCpd0yuy9trqF2yTTVe+E9ogwCSWQCdDEtQUwrZPT6AxqtsFGRNxycgncbP/xmOOSPw5ZUw==",
++      "license": "MIT",
++      "dependencies": {
++        "os-paths": "^4.0.1"
++      },
++      "engines": {
++        "node": ">= 6.0"
++      }
++    },
+     "node_modules/yallist": {
+       "version": "3.1.1",
+       "resolved": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz",
+diff --git a/package.json b/package.json
+index 08d5585..8b15937 100644
+--- a/package.json
++++ b/package.json
+@@ -16,6 +16,7 @@
+     "db:backfill-reserved": "tsx src/db/backfill-reserved.ts"
+   },
+   "dependencies": {
++    "@vercel/blob": "^2.7.0",
+     "better-auth": "^1.6.25",
+     "clsx": "^2.1.1",
+     "date-fns": "^4.4.0",
+diff --git a/src/app/admin/inventory/[id]/page.tsx b/src/app/admin/inventory/[id]/page.tsx
+index 62507c7..9616056 100644
+--- a/src/app/admin/inventory/[id]/page.tsx
++++ b/src/app/admin/inventory/[id]/page.tsx
+@@ -45,6 +45,7 @@ import {
+   toggleChannel,
+ } from '@/lib/actions';
+ import { VehicleForm } from '@/components/vehicle-form';
++import { PhotoAdd } from '@/components/inventory/photo-add';
+ import { TRANSFER_REFUSAL_MESSAGE, type TransferRefusal } from '@/lib/transfers';
+ 
+ export const dynamic = 'force-dynamic';
+@@ -250,23 +251,7 @@ export default async function VehiclePage({
+             <CardHeader
+               title={`Photos (${vehicle.photos.length})`}
+               subtitle="Lead photo drives click-through more than anything else on the listing."
+-              action={
+-                <form action={addPhoto} className="flex items-center gap-2">
+-                  <input type="hidden" name="vehicleId" value={vehicle.id} />
+-                  <select
+-                    name="scene"
+-                    className="rounded-md border border-ink-300 bg-white px-2 py-1 text-[11px]"
+-                    defaultValue="EXTERIOR_SIDE"
+-                  >
+-                    {['EXTERIOR_SIDE', 'EXTERIOR_FRONT', 'EXTERIOR_REAR', 'INTERIOR', 'ODOMETER', 'ENGINE'].map((s) => (
+-                      <option key={s} value={s}>
+-                        {s.replace('_', ' ').toLowerCase()}
+-                      </option>
+-                    ))}
+-                  </select>
+-                  <Button size="sm" variant="secondary">Add</Button>
+-                </form>
+-              }
++              action={<PhotoAdd vehicleId={vehicle.id} action={addPhoto} />}
+             />
+             <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3">
+               {vehicle.photos.map((p, i) => (
+diff --git a/src/components/inventory/photo-add.tsx b/src/components/inventory/photo-add.tsx
+new file mode 100644
+index 0000000..d9fd87a
+--- /dev/null
++++ b/src/components/inventory/photo-add.tsx
+@@ -0,0 +1,123 @@
++'use client';
++
++/**
++ * The photo control on a vehicle page: pick a scene, optionally pick a file.
++ *
++ * WHY THIS IS A CLIENT COMPONENT AT ALL. A plain HTML form posting a camera
++ * photo straight to a server action does not work on Vercel — the platform
++ * rejects a server action body over roughly 4.5MB before any of our code runs,
++ * and a modern phone photo is 3-8MB. The failure arrives as a generic network
++ * error with nothing to act on.
++ *
++ * So the file is downscaled in the browser first, by the same `prepareForUpload`
++ * the document intake already uses: 1800px long edge, JPEG q0.85, which puts a
++ * lot photo in the 200-600KB range. That helper also converts HEIC as a side
++ * effect of the canvas round trip, so an iPhone upload does not arrive in a
++ * format nothing downstream can open, and it drops EXIF — a photo taken on a
++ * lot carries GPS, and a dealer's coordinates have no business travelling to
++ * Meta.
++ */
++
++import { useRef, useState, useTransition } from 'react';
++import { Button } from '@/components/ui';
++import { prepareForUpload } from '@/components/intake/capture';
++
++const SCENES = [
++  'EXTERIOR_SIDE',
++  'EXTERIOR_FRONT',
++  'EXTERIOR_REAR',
++  'INTERIOR',
++  'ODOMETER',
++  'ENGINE',
++] as const;
++
++export function PhotoAdd({
++  vehicleId,
++  action,
++}: {
++  vehicleId: string;
++  action: (formData: FormData) => Promise<void>;
++}) {
++  const fileRef = useRef<HTMLInputElement>(null);
++  const [scene, setScene] = useState<string>('EXTERIOR_SIDE');
++  const [fileName, setFileName] = useState<string | null>(null);
++  const [error, setError] = useState<string | null>(null);
++  const [pending, start] = useTransition();
++
++  async function submit() {
++    setError(null);
++    const picked = fileRef.current?.files?.[0] ?? null;
++
++    const fd = new FormData();
++    fd.set('vehicleId', vehicleId);
++    fd.set('scene', scene);
++
++    if (picked) {
++      if (!/^image\/(jpeg|png|webp|heic|heif)$/i.test(picked.type) && picked.type !== '') {
++        setError('That file is not a photo. JPEG, PNG or WEBP.');
++        return;
++      }
++      const prepared = await prepareForUpload(picked);
++      // Belt and braces: if the browser could not decode the image, the helper
++      // hands the original straight back, and a 9MB original would fail at the
++      // edge with nothing readable. Say so here instead.
++      if (prepared.size > 4 * 1024 * 1024) {
++        setError('That photo is too large to upload. Try a smaller one.');
++        return;
++      }
++      fd.set('file', prepared);
++    }
++
++    start(async () => {
++      await action(fd);
++      if (fileRef.current) fileRef.current.value = '';
++      setFileName(null);
++    });
++  }
++
++  return (
++    <div className="flex flex-wrap items-center justify-end gap-2">
++      {error ? <span className="text-[11px] text-red-700">{error}</span> : null}
++
++      <select
++        value={scene}
++        onChange={(e) => setScene(e.target.value)}
++        className="rounded-md border border-ink-300 bg-white px-2 py-1 text-[11px]"
++      >
++        {SCENES.map((s) => (
++          <option key={s} value={s}>
++            {s.replace('_', ' ').toLowerCase()}
++          </option>
++        ))}
++      </select>
++
++      <input
++        ref={fileRef}
++        type="file"
++        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
++        className="hidden"
++        onChange={(e) => {
++          setError(null);
++          setFileName(e.target.files?.[0]?.name ?? null);
++        }}
++      />
++
++      <Button
++        size="sm"
++        variant="secondary"
++        type="button"
++        onClick={() => fileRef.current?.click()}
++      >
++        {fileName ? truncate(fileName) : 'Choose photo'}
++      </Button>
++
++      <Button size="sm" variant="secondary" type="button" onClick={submit} disabled={pending}>
++        {pending ? 'Adding…' : fileName ? 'Upload' : 'Add tile'}
++      </Button>
++    </div>
++  );
++}
++
++function truncate(name: string): string {
++  return name.length > 18 ? `${name.slice(0, 15)}…` : name;
++}
+diff --git a/src/lib/actions.ts b/src/lib/actions.ts
+index df7eabb..0e19c67 100644
+--- a/src/lib/actions.ts
++++ b/src/lib/actions.ts
+@@ -14,6 +14,7 @@ import {
+   setChannelExclusion,
+ } from '@/lib/sync-engine';
+ import { buildVin } from '@/lib/vin';
++import { put } from '@vercel/blob';
+ import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
+ import { requireSession } from '@/lib/auth';
+ import { assertVehicleInScope, sessionScope } from '@/lib/queries';
+@@ -534,12 +535,44 @@ export async function deletePhoto(formData: FormData) {
+   refreshAll(photo.vehicleId);
+ }
+ 
++/**
++ * What a real photo may be.
++ *
++ * SVG is refused deliberately, and not only for the usual reason that an SVG is
++ * a script container. Meta's catalog will not take one: the generated tiles this
++ * app has shipped since day one are `image/svg+xml`, and the whole point of
++ * uploading is to put something in the feed that Meta accepts. Letting an SVG
++ * in here would reproduce the exact problem the upload exists to solve.
++ */
++const UPLOADABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
++
++/**
++ * Ceiling on what reaches the server action.
++ *
++ * The client downscales to 1800px at q0.85 before submitting, which lands a
++ * lot photo around 200-600KB, so this is a backstop for a client that did not
++ * run rather than a working limit. Vercel rejects a server action body over
++ * ~4.5MB at the platform edge — before any of this code runs and with an error
++ * that says nothing useful — so the number has to stay under that, and the
++ * failure has to be caught here where it can be explained.
++ */
++const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
++
+ export async function addPhoto(formData: FormData) {
+   const vehicleId = String(formData.get('vehicleId'));
+   const scene = String(formData.get('scene') || 'EXTERIOR_SIDE');
+   const me = await requireSession();
+   const v = await loadWritableVehicle(vehicleId);
+   if (!v) return;
++
++  // One form, two jobs. A file present means the dealer picked a real
++  // photograph; absent means they want another generated tile for the scene in
++  // the dropdown. Branching here rather than in two forms keeps the panel a
++  // single control, which is what it looks like on screen.
++  const file = formData.get('file');
++  if (file instanceof File && file.size > 0) {
++    return uploadVehiclePhoto(v, file, scene, me.id);
++  }
+   const maxRow = await db
+     .select({ m: sql<number>`coalesce(max(${t.vehiclePhotos.sortOrder}), -1)::int` })
+     .from(t.vehiclePhotos)
+@@ -576,6 +609,64 @@ export async function addPhoto(formData: FormData) {
+   refreshAll(vehicleId);
+ }
+ 
++/**
++ * Put a real photograph on a vehicle.
++ *
++ * WHY BLOB AND NOT THE DATABASE: these URLs are handed to Meta, to Marketplace
++ * and to every syndication partner, and they are fetched by *their*
++ * infrastructure on their schedule. That makes photo serving a public CDN
++ * problem, not an application problem — the feed is pulled when we are not
++ * looking and a slow origin becomes a rejected item.
++ *
++ * The stored URL is absolute and public by construction, which is the property
++ * `feed-spec.ts` needs and the generated tiles never had: `/api/photo?…` is
++ * root-relative and cost a full day of feed rejections on 6 Aug 2026.
++ *
++ * `addRandomSuffix` matters more than it looks. Two dealers photographing the
++ * same stock number, or one dealer replacing a photo, must not collide — and
++ * Blob URLs are immutable and cached hard, so reusing a pathname would serve
++ * the old image from a CDN edge long after it was replaced.
++ */
++async function uploadVehiclePhoto(
++  v: Awaited<ReturnType<typeof loadWritableVehicle>> & {},
++  file: File,
++  scene: string,
++  userId: string,
++) {
++  if (!UPLOADABLE.has(file.type)) return;
++  if (file.size > MAX_UPLOAD_BYTES) return;
++
++  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
++  const blob = await put(`vehicles/${v.id}/${scene.toLowerCase()}.${ext}`, file, {
++    access: 'public',
++    addRandomSuffix: true,
++    contentType: file.type,
++  });
++
++  const maxRow = await db
++    .select({ m: sql<number>`coalesce(max(${t.vehiclePhotos.sortOrder}), -1)::int` })
++    .from(t.vehiclePhotos)
++    .where(eq(t.vehiclePhotos.vehicleId, v.id));
++  const count = await photoCountFor(v.id);
++
++  await db.insert(t.vehiclePhotos).values({
++    vehicleId: v.id,
++    url: blob.url,
++    sortOrder: (maxRow[0]?.m ?? -1) + 1,
++    // First real photo takes the lead slot even if generated tiles are already
++    // there. A photograph outranks a paint swatch on every surface that matters.
++    isPrimary: count === 0,
++    tag: scene as typeof t.photoTagEnum.enumValues[number],
++    alt: `${v.year} ${v.make} ${v.model}`,
++  });
++
++  const nowCount = count + 1;
++  if (PHOTO_GATES.includes(nowCount)) await feedPhotos(v, nowCount, userId);
++
++  await enqueueChange(v.id, 'UPDATE_PHOTOS', {}, 'Photo uploaded');
++  refreshAll(v.id);
++}
++
+ /* --------------------------------------------------------- merchandising */
+ 
+ export async function saveOverride(formData: FormData) {
+-- 
+2.43.0
+

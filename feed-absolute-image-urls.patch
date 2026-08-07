@@ -1,0 +1,215 @@
+From fa49af507986732b46e576705fe7a61048035a7e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 7 Aug 2026 03:10:41 +0000
+Subject: [PATCH] meta: feed images must be absolute, or Meta rejects the whole
+ item
+
+The first upload that ever reached Meta rejected all seven vehicles:
+
+  Result: Item not uploaded
+  Issue:  URL Incorrectly Formatted
+  Field:  image
+
+Every generated demo photo is generatedPhotoUrl() -> "/api/photo?s=...",
+root-relative. That is correct in an <img> on our own page and unusable to
+Meta, which fetches from its own infrastructure and has no origin to resolve
+against. Nothing else in the row was wrong -- the landing-page url column built
+from siteBase was absolute and accepted. One bad image URL rejects the item.
+
+This was invisible everywhere it could have been caught locally. The
+storefront, the admin gallery and the feed preview all render these photos
+correctly, because they are all same-origin. The TSV looked well-formed. Only
+Meta cared, and only after a fetch that had never happened until today.
+
+photoBase is a new BuildOptions field, and it is the app origin rather than
+siteBase: the two diverge the moment a dealer is on their own domain, where the
+storefront is cascademotorswa.com but /api/photo is only ever served by the
+app.
+
+Absolute URLs pass through untouched -- a dealer's real CDN photos must not be
+rewritten. An unresolvable relative photo is dropped rather than emitted
+broken, and the remaining photos renumber so image[0] always exists: an item
+with one fewer photo uploads, an item Meta refuses does not.
+
+Three tests added, in the file reserved for feed bugs that produce a
+valid-looking feed which quietly does not work. This is the fifth such mode.
+
+tsc clean; 33/33 feed-spec tests pass; npm run build clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017qpg8h5bH5umfaApF4Tj4o
+---
+ .../feed/[rooftopId]/[secret]/[file]/route.ts |  5 +-
+ src/lib/meta/feed-spec.test.ts                | 56 ++++++++++++++++++
+ src/lib/meta/feed-spec.ts                     | 58 ++++++++++++++++++-
+ 3 files changed, 115 insertions(+), 4 deletions(-)
+
+diff --git a/src/app/api/meta/feed/[rooftopId]/[secret]/[file]/route.ts b/src/app/api/meta/feed/[rooftopId]/[secret]/[file]/route.ts
+index 3e5f145..e599053 100644
+--- a/src/app/api/meta/feed/[rooftopId]/[secret]/[file]/route.ts
++++ b/src/app/api/meta/feed/[rooftopId]/[secret]/[file]/route.ts
+@@ -200,7 +200,10 @@ export async function GET(
+       longitude: lot.longitude,
+       pageId: asset.pageId,
+     },
+-    { siteBase: await siteBaseFor(rooftopId), now, mode },
++    // `photoBase` is the app origin, not `siteBase`. They diverge the moment a
++    // dealer is on their own domain: the storefront lives at
++    // cascademotorswa.com while /api/photo is only ever served by the app.
++    { siteBase: await siteBaseFor(rooftopId), photoBase: appOrigin().replace(/\/$/, ''), now, mode },
+   );
+ 
+   const tsv = toTsv(built.columns, built.rows);
+diff --git a/src/lib/meta/feed-spec.test.ts b/src/lib/meta/feed-spec.test.ts
+index 2ab771d..866abbc 100644
+--- a/src/lib/meta/feed-spec.test.ts
++++ b/src/lib/meta/feed-spec.test.ts
+@@ -282,6 +282,62 @@ describe('aging buckets and images', () => {
+     assert.ok(out.columns.includes('image[1].url'));
+   });
+ 
++  /*
++   * FAILURE MODE 5, added 6 Aug 2026 after it happened.
++   *
++   * Every generated demo photo is `/api/photo?…` — root-relative, which is
++   * correct in an `<img>` on our own page and unusable to Meta, which fetches
++   * from its own infrastructure with no origin to resolve against. The first
++   * upload that ever reached Meta rejected all seven vehicles:
++   *
++   *   Result: Item not uploaded    Issue: URL Incorrectly Formatted
++   *
++   * It belongs in this file precisely because it is invisible locally: the
++   * storefront, the admin and the feed preview all render these photos fine.
++   * The feed looked well-formed too — one bad image URL rejects the whole item,
++   * so a correct row loses on a field nothing else in the product cares about.
++   */
++  it('absolutises root-relative photo URLs against photoBase', () => {
++    const v = vehicle({
++      photos: [{ url: '/api/photo?s=EXTERIOR_SIDE&b=SUV', sortOrder: 0, isPrimary: true }],
++    });
++    const out = buildFeed(v ? [v] : [], LOT, {
++      siteBase: 'https://demo.rooftopauto.com',
++      photoBase: 'https://app.rooftopauto.com',
++      now: NOW,
++    });
++    assert.equal(
++      out.rows[0]!['image[0].url'],
++      'https://app.rooftopauto.com/api/photo?s=EXTERIOR_SIDE&b=SUV',
++    );
++  });
++
++  it('leaves absolute photo URLs alone even when photoBase is set', () => {
++    const v = vehicle({
++      photos: [{ url: 'https://cdn.dealer.com/a.jpg', sortOrder: 0, isPrimary: true }],
++    });
++    const out = buildFeed([v], LOT, {
++      siteBase: 'https://demo.rooftopauto.com',
++      photoBase: 'https://app.rooftopauto.com',
++      now: NOW,
++    });
++    assert.equal(out.rows[0]!['image[0].url'], 'https://cdn.dealer.com/a.jpg');
++  });
++
++  it('drops an unresolvable relative photo rather than emitting it broken, and does not leave a hole', () => {
++    const v = vehicle({
++      photos: [
++        { url: '/api/photo?s=A', sortOrder: 0, isPrimary: true },
++        { url: 'https://cdn.dealer.com/b.jpg', sortOrder: 1, isPrimary: false },
++      ],
++    });
++    // No photoBase: the relative one cannot be resolved.
++    const out = build([v]);
++    // image[0] must exist or Meta reads the item as having no photo at all.
++    assert.equal(out.rows[0]!['image[0].url'], 'https://cdn.dealer.com/b.jpg');
++    assert.equal(out.rows[0]!['image[1].url'], undefined);
++  });
++
+   it('caps at Meta 20-image limit', () => {
+     const photos = Array.from({ length: 25 }, (_, i) => ({
+       url: `https://cdn.example.com/${i}.jpg`,
+diff --git a/src/lib/meta/feed-spec.ts b/src/lib/meta/feed-spec.ts
+index c5547f1..543e2fa 100644
+--- a/src/lib/meta/feed-spec.ts
++++ b/src/lib/meta/feed-spec.ts
+@@ -269,6 +269,26 @@ export function activePrice(v: Pick<FeedVehicle, 'price' | 'salePrice'>): number
+   return v.salePrice ?? v.price;
+ }
+ 
++/**
++ * A photo URL Meta can actually fetch, or null.
++ *
++ * Already-absolute URLs pass through untouched — a dealer's real photos live on
++ * a CDN and must not be rewritten. Root-relative paths get `photoBase`, which is
++ * the case that matters: everything `generatedPhotoUrl()` produces is
++ * `/api/photo?…`, correct in an `<img>` on our own page and unusable to Meta.
++ *
++ * Returns null rather than guessing when there is no base to apply. An item with
++ * one fewer photo still uploads; an item with a malformed image URL does not
++ * upload at all.
++ */
++export function absolutePhotoUrl(url: string, photoBase?: string): string | null {
++  const u = url.trim();
++  if (!u) return null;
++  if (/^https?:\/\//i.test(u)) return u;
++  if (!u.startsWith('/') || !photoBase) return null;
++  return `${photoBase.replace(/\/+$/, '')}${u}`;
++}
++
+ /** Photos with a usable URL, in display order, capped at Meta's limit of 20. */
+ export function usablePhotos(v: FeedVehicle): FeedPhoto[] {
+   return [...v.photos]
+@@ -405,6 +425,32 @@ export type BuildOptions = {
+    * `https://app.rooftopauto.com/s/cascade` on the shared host.
+    */
+   siteBase: string;
++  /**
++   * Absolute origin that serves photo URLs, no trailing slash — normally
++   * `https://app.rooftopauto.com`.
++   *
++   * REQUIRED FOR ANY PHOTO STORED AS A ROOT-RELATIVE PATH, which every
++   * generated demo photo is: `generatedPhotoUrl()` returns `/api/photo?…`
++   * because the app renders it in an `<img>` on the same origin, where relative
++   * is exactly right.
++   *
++   * It is exactly wrong in a feed. Meta fetches the file from its own
++   * infrastructure and has no origin to resolve against, so every row came back
++   *
++   *   Result: Item not uploaded
++   *   Issue:  URL Incorrectly Formatted
++   *
++   * — all seven vehicles, 6 Aug 2026, on the first upload that ever reached
++   * Meta. Nothing else in the row was wrong; the landing-page `url` column
++   * built from `siteBase` was absolute and accepted. Only the images were
++   * relative, and one bad image URL rejects the whole item.
++   *
++   * Left optional so the preview path, which never leaves our own origin, does
++   * not have to invent one. A relative photo with no `photoBase` is dropped
++   * from the feed rather than emitted broken — a vehicle with fewer images is
++   * survivable, a vehicle Meta refuses is not.
++   */
++  photoBase?: string;
+   now?: Date;
+   /**
+    * `full` carries live inventory plus recently-sold units marked unavailable.
+@@ -524,9 +570,15 @@ export function buildFeed(
+       custom_label_2: v.isCertified ? 'certified' : 'standard',
+     };
+ 
+-    photos.forEach((p, i) => {
+-      row[`image[${i}].url`] = p.url;
+-      if (p.tag) row[`image[${i}].tag[0]`] = photoTag(p.tag);
++    // Absolutise before emitting, and renumber: `image[0]` must exist or Meta
++    // treats the item as imageless, so a dropped photo cannot leave a hole.
++    let slot = 0;
++    photos.forEach((p) => {
++      const abs = absolutePhotoUrl(p.url, opts.photoBase);
++      if (!abs) return;
++      row[`image[${slot}].url`] = abs;
++      if (p.tag) row[`image[${slot}].tag[0]`] = photoTag(p.tag);
++      slot += 1;
+     });
+ 
+     built.push({ vehicleId: v.id, stockNumber: v.stockNumber, title, issues, row });
+-- 
+2.43.0
+
