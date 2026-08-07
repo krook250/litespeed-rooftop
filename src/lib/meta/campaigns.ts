@@ -72,6 +72,53 @@ import { MetaApiError, graph, graphEdge } from './graph';
 const OBJECTIVES = ['OUTCOME_SALES', 'PRODUCT_CATALOG_SALES'] as const;
 export type CampaignObjective = (typeof OBJECTIVES)[number];
 
+/* --------------------------------------------------- ad set budget sharing */
+
+/**
+ * `is_adset_budget_sharing_enabled` — required on campaign create since v24.0,
+ * and the thing that blocked the demo on 6 Aug 2026.
+ *
+ * WHERE IT GOES: the campaign, and only the campaign. Meta documents it on
+ * `POST /act_<id>/campaigns` (create) and on `POST /<campaign_id>` (to turn it
+ * off midflight). It is **not** a field on `POST /act_<id>/adsets` — the ad set
+ * inherits the behaviour from its parent, and sending it there would be an
+ * unknown parameter. Nothing below this line changes in the ad set create.
+ *
+ * WHY IT IS REQUIRED HERE: from v24.0 the field is conditionally mandatory —
+ * you must send an explicit true or false whenever the campaign does not carry
+ * its own budget. This one does not; the budget is on the ad set (`daily_budget`
+ * further down). Omitting it is a hard 400:
+ *
+ *     code 100 / subcode 4834011 / OAuthException / "Invalid parameter"
+ *     "You must specify True or False in the field
+ *      is_adset_budget_sharing_enabled if you are not using campaign budget."
+ *
+ * Note that `false` is also Meta's documented *semantic* default, and that this
+ * is irrelevant: from v24.0 the field is required to be **present**, and absent
+ * is not the same as false. That distinction is the whole bug.
+ *
+ * WHY `false` AND NOT `true` — three independent reasons, any one sufficient:
+ *
+ *   1. Budget sharing lets ad sets lend one another up to 20% of their budget.
+ *      This campaign must remain incapable of spending. Turning on a budget
+ *      optimisation on a demo that must never spend is the wrong default even
+ *      though the account is unfunded and every object is PAUSED.
+ *   2. `true` requires a bid strategy on the campaign — error 4834005, "You
+ *      cannot enable ad set budget sharing without bid strategy." We do not set
+ *      one, so `true` would trade this 400 for a different 400.
+ *   3. `true` requires a uniform spec across the campaign's ad sets — error
+ *      4834009 — which is a constraint with no upside on a campaign that has
+ *      exactly one ad set.
+ *
+ * WHY THE STRING AND NOT THE BOOLEAN: `graph.ts` form-encodes params through
+ * `String(v)`, so a boolean `false` would arrive as `"false"` and work today.
+ * The string is deliberate anyway — it survives any future `clean()` that
+ * filters falsy values instead of only null and undefined, which would silently
+ * drop the field and reintroduce exactly this 400. Meta's boolean parser accepts
+ * `false` (its own v25.0 reference example sends `0`).
+ */
+const ADSET_BUDGET_SHARING = 'false';
+
 export type SpecialAdCategory = 'NONE' | 'FINANCIAL_PRODUCTS_SERVICES';
 
 /* ---------------------------------------------------------- product sets */
@@ -222,6 +269,7 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
           objective,
           status: 'PAUSED',
           promoted_object: JSON.stringify({ product_catalog_id: catalogId }),
+          is_adset_budget_sharing_enabled: ADSET_BUDGET_SHARING,
           ...categoryParams,
         },
       });
@@ -230,11 +278,30 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
       break;
     } catch (err) {
       lastError = err;
-      // Only an objective rejection is worth retrying. A permissions failure or
-      // a rate limit means the second attempt fails identically and we would
-      // just have doubled the error rate on an app whose Marketing API tier
-      // upgrade depends on staying under 15%.
-      if (!isObjectiveRejection(err)) throw err;
+      // Only a rejection *of the objective value* is worth retrying. A
+      // permissions failure, a rate limit, or a fault in some other parameter
+      // means the second attempt fails identically, and we would just have
+      // doubled the error rate on an app whose Marketing API tier upgrade
+      // depends on staying under 15%.
+      const fault = classifyCampaignCreateFault(err);
+      if (fault !== 'objective') {
+        // Say out loud that the objective was not the problem. `graph.ts` logs
+        // Meta's code, subcode and wording one frame below this; what it cannot
+        // record is the decision taken on top of them. Without this line,
+        // "there is exactly one campaign attempt in the External APIs list" is
+        // a fact the next reader has to reverse-engineer.
+        console.error(
+          '[meta] campaign create not retried ' +
+            JSON.stringify({
+              objective,
+              fault,
+              code: err instanceof MetaApiError ? err.code : null,
+              subcode: err instanceof MetaApiError ? err.subcode : null,
+            }),
+        );
+        throw err;
+      }
+      console.warn(`[meta] objective ${objective} rejected; falling back to the next one.`);
     }
   }
   if (!campaignId) throw lastError ?? new Error('Campaign creation failed.');
@@ -337,14 +404,53 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
 }
 
 /**
- * Meta signals a bad enum value with error code 100 and a subcode that varies.
- * Matching on the message is unpleasant but the alternative is retrying every
- * failure, which is worse — see the note at the call site about error rates.
+ * Why the campaign create failed, narrowed to the only question the retry loop
+ * asks: is the *objective value* what Meta refused?
+ *
+ * `objective` — Meta rejected the enum value itself. Try the next one.
+ * `parameter` — Meta named a different field. A retry fails identically, and
+ *               the second failure would bury the first.
+ * `fatal`     — permissions, rate limit, revoked token, transport. Stop.
+ *
+ * THIS FUNCTION IS THE FIX FOR A SECOND-ORDER HAZARD, so the reasoning is worth
+ * keeping. The previous version asked only whether `err.message` contained the
+ * substring "objective". `MetaApiError.message` is `error_user_msg || message`,
+ * i.e. Meta's *prose*, so that test made the retry decision on wording Meta
+ * controls and can change without notice.
+ *
+ * On 6 Aug 2026 it happened not to fire: the 4834011 refusal reads "You must
+ * specify True or False in the field is_adset_budget_sharing_enabled…", which
+ * contains no "objective", so the loop threw on the first attempt and Vercel's
+ * External APIs list shows exactly one `POST /campaigns`. That was luck, not a
+ * guard. Had Meta's sentence mentioned the objective anywhere — and plenty of
+ * its campaign-level prose does — the loop would have retried, failed
+ * identically against `PRODUCT_CATALOG_SALES`, and surfaced the *second*
+ * failure. A reader would then have gone hunting through the objective enum
+ * while the actual answer, a field Meta named explicitly, scrolled past twice.
+ *
+ * The new rule leans on structure instead of prose. A bare enum rejection
+ * arrives as `code: 100` with **no** subcode and a message that names the
+ * parameter ("Param objective must be one of {…}"). A subcode is Meta pointing
+ * at one specific documented fault — 4834011 here — which by definition is not
+ * the objective enum. So a subcode means some other field is wrong and the
+ * objective is a bystander.
+ *
+ * Deliberately strict: if a genuine objective rejection ever does arrive
+ * carrying a subcode, this classifies it `parameter` and we stop and surface
+ * Meta's own wording, which names the objective. That costs one deploy. The
+ * opposite error — retrying something that was never about the objective —
+ * costs a debugging session pointed at the wrong field, which is the failure
+ * mode this project has already paid for twice.
  */
-function isObjectiveRejection(err: unknown): boolean {
-  if (!(err instanceof MetaApiError)) return false;
-  const text = `${err.message}`.toLowerCase();
-  return text.includes('objective');
+type CampaignCreateFault = 'objective' | 'parameter' | 'fatal';
+
+function classifyCampaignCreateFault(err: unknown): CampaignCreateFault {
+  if (!(err instanceof MetaApiError)) return 'fatal';
+  // Only the bad-request family is ever an enum problem. 10, 190, 200 and 4 are
+  // permissions, revocation and rate limits, and none of them improve on retry.
+  if (err.code !== 100) return 'fatal';
+  if (err.subcode !== null) return 'parameter';
+  return `${err.message}`.toLowerCase().includes('objective') ? 'objective' : 'parameter';
 }
 
 /* --------------------------------------------------------------- reading */
