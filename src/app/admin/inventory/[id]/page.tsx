@@ -45,6 +45,7 @@ import {
   toggleChannel,
 } from '@/lib/actions';
 import { VehicleForm } from '@/components/vehicle-form';
+import { PhotoAdd } from '@/components/inventory/photo-add';
 import { TRANSFER_REFUSAL_MESSAGE, type TransferRefusal } from '@/lib/transfers';
 
 export const dynamic = 'force-dynamic';
@@ -250,23 +251,7 @@ export default async function VehiclePage({
             <CardHeader
               title={`Photos (${vehicle.photos.length})`}
               subtitle="Lead photo drives click-through more than anything else on the listing."
-              action={
-                <form action={addPhoto} className="flex items-center gap-2">
-                  <input type="hidden" name="vehicleId" value={vehicle.id} />
-                  <select
-                    name="scene"
-                    className="rounded-md border border-ink-300 bg-white px-2 py-1 text-[11px]"
-                    defaultValue="EXTERIOR_SIDE"
-                  >
-                    {['EXTERIOR_SIDE', 'EXTERIOR_FRONT', 'EXTERIOR_REAR', 'INTERIOR', 'ODOMETER', 'ENGINE'].map((s) => (
-                      <option key={s} value={s}>
-                        {s.replace('_', ' ').toLowerCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <Button size="sm" variant="secondary">Add</Button>
-                </form>
-              }
+              action={<PhotoAdd vehicleId={vehicle.id} action={addPhoto} />}
             />
             <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3">
               {vehicle.photos.map((p, i) => (

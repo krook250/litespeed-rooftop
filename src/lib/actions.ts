@@ -14,6 +14,7 @@ import {
   setChannelExclusion,
 } from '@/lib/sync-engine';
 import { buildVin } from '@/lib/vin';
+import { put } from '@vercel/blob';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 import { requireSession } from '@/lib/auth';
 import { assertVehicleInScope, sessionScope } from '@/lib/queries';
@@ -534,12 +535,44 @@ export async function deletePhoto(formData: FormData) {
   refreshAll(photo.vehicleId);
 }
 
+/**
+ * What a real photo may be.
+ *
+ * SVG is refused deliberately, and not only for the usual reason that an SVG is
+ * a script container. Meta's catalog will not take one: the generated tiles this
+ * app has shipped since day one are `image/svg+xml`, and the whole point of
+ * uploading is to put something in the feed that Meta accepts. Letting an SVG
+ * in here would reproduce the exact problem the upload exists to solve.
+ */
+const UPLOADABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/**
+ * Ceiling on what reaches the server action.
+ *
+ * The client downscales to 1800px at q0.85 before submitting, which lands a
+ * lot photo around 200-600KB, so this is a backstop for a client that did not
+ * run rather than a working limit. Vercel rejects a server action body over
+ * ~4.5MB at the platform edge — before any of this code runs and with an error
+ * that says nothing useful — so the number has to stay under that, and the
+ * failure has to be caught here where it can be explained.
+ */
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 export async function addPhoto(formData: FormData) {
   const vehicleId = String(formData.get('vehicleId'));
   const scene = String(formData.get('scene') || 'EXTERIOR_SIDE');
   const me = await requireSession();
   const v = await loadWritableVehicle(vehicleId);
   if (!v) return;
+
+  // One form, two jobs. A file present means the dealer picked a real
+  // photograph; absent means they want another generated tile for the scene in
+  // the dropdown. Branching here rather than in two forms keeps the panel a
+  // single control, which is what it looks like on screen.
+  const file = formData.get('file');
+  if (file instanceof File && file.size > 0) {
+    return uploadVehiclePhoto(v, file, scene, me.id);
+  }
   const maxRow = await db
     .select({ m: sql<number>`coalesce(max(${t.vehiclePhotos.sortOrder}), -1)::int` })
     .from(t.vehiclePhotos)
@@ -574,6 +607,64 @@ export async function addPhoto(formData: FormData) {
 
   await enqueueChange(vehicleId, 'UPDATE_PHOTOS', {}, 'Photo added');
   refreshAll(vehicleId);
+}
+
+/**
+ * Put a real photograph on a vehicle.
+ *
+ * WHY BLOB AND NOT THE DATABASE: these URLs are handed to Meta, to Marketplace
+ * and to every syndication partner, and they are fetched by *their*
+ * infrastructure on their schedule. That makes photo serving a public CDN
+ * problem, not an application problem — the feed is pulled when we are not
+ * looking and a slow origin becomes a rejected item.
+ *
+ * The stored URL is absolute and public by construction, which is the property
+ * `feed-spec.ts` needs and the generated tiles never had: `/api/photo?…` is
+ * root-relative and cost a full day of feed rejections on 6 Aug 2026.
+ *
+ * `addRandomSuffix` matters more than it looks. Two dealers photographing the
+ * same stock number, or one dealer replacing a photo, must not collide — and
+ * Blob URLs are immutable and cached hard, so reusing a pathname would serve
+ * the old image from a CDN edge long after it was replaced.
+ */
+async function uploadVehiclePhoto(
+  v: Awaited<ReturnType<typeof loadWritableVehicle>> & {},
+  file: File,
+  scene: string,
+  userId: string,
+) {
+  if (!UPLOADABLE.has(file.type)) return;
+  if (file.size > MAX_UPLOAD_BYTES) return;
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const blob = await put(`vehicles/${v.id}/${scene.toLowerCase()}.${ext}`, file, {
+    access: 'public',
+    addRandomSuffix: true,
+    contentType: file.type,
+  });
+
+  const maxRow = await db
+    .select({ m: sql<number>`coalesce(max(${t.vehiclePhotos.sortOrder}), -1)::int` })
+    .from(t.vehiclePhotos)
+    .where(eq(t.vehiclePhotos.vehicleId, v.id));
+  const count = await photoCountFor(v.id);
+
+  await db.insert(t.vehiclePhotos).values({
+    vehicleId: v.id,
+    url: blob.url,
+    sortOrder: (maxRow[0]?.m ?? -1) + 1,
+    // First real photo takes the lead slot even if generated tiles are already
+    // there. A photograph outranks a paint swatch on every surface that matters.
+    isPrimary: count === 0,
+    tag: scene as typeof t.photoTagEnum.enumValues[number],
+    alt: `${v.year} ${v.make} ${v.model}`,
+  });
+
+  const nowCount = count + 1;
+  if (PHOTO_GATES.includes(nowCount)) await feedPhotos(v, nowCount, userId);
+
+  await enqueueChange(v.id, 'UPDATE_PHOTOS', {}, 'Photo uploaded');
+  refreshAll(v.id);
 }
 
 /* --------------------------------------------------------- merchandising */

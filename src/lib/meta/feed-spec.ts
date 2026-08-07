@@ -269,6 +269,26 @@ export function activePrice(v: Pick<FeedVehicle, 'price' | 'salePrice'>): number
   return v.salePrice ?? v.price;
 }
 
+/**
+ * A photo URL Meta can actually fetch, or null.
+ *
+ * Already-absolute URLs pass through untouched — a dealer's real photos live on
+ * a CDN and must not be rewritten. Root-relative paths get `photoBase`, which is
+ * the case that matters: everything `generatedPhotoUrl()` produces is
+ * `/api/photo?…`, correct in an `<img>` on our own page and unusable to Meta.
+ *
+ * Returns null rather than guessing when there is no base to apply. An item with
+ * one fewer photo still uploads; an item with a malformed image URL does not
+ * upload at all.
+ */
+export function absolutePhotoUrl(url: string, photoBase?: string): string | null {
+  const u = url.trim();
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (!u.startsWith('/') || !photoBase) return null;
+  return `${photoBase.replace(/\/+$/, '')}${u}`;
+}
+
 /** Photos with a usable URL, in display order, capped at Meta's limit of 20. */
 export function usablePhotos(v: FeedVehicle): FeedPhoto[] {
   return [...v.photos]
@@ -405,6 +425,32 @@ export type BuildOptions = {
    * `https://app.rooftopauto.com/s/cascade` on the shared host.
    */
   siteBase: string;
+  /**
+   * Absolute origin that serves photo URLs, no trailing slash — normally
+   * `https://app.rooftopauto.com`.
+   *
+   * REQUIRED FOR ANY PHOTO STORED AS A ROOT-RELATIVE PATH, which every
+   * generated demo photo is: `generatedPhotoUrl()` returns `/api/photo?…`
+   * because the app renders it in an `<img>` on the same origin, where relative
+   * is exactly right.
+   *
+   * It is exactly wrong in a feed. Meta fetches the file from its own
+   * infrastructure and has no origin to resolve against, so every row came back
+   *
+   *   Result: Item not uploaded
+   *   Issue:  URL Incorrectly Formatted
+   *
+   * — all seven vehicles, 6 Aug 2026, on the first upload that ever reached
+   * Meta. Nothing else in the row was wrong; the landing-page `url` column
+   * built from `siteBase` was absolute and accepted. Only the images were
+   * relative, and one bad image URL rejects the whole item.
+   *
+   * Left optional so the preview path, which never leaves our own origin, does
+   * not have to invent one. A relative photo with no `photoBase` is dropped
+   * from the feed rather than emitted broken — a vehicle with fewer images is
+   * survivable, a vehicle Meta refuses is not.
+   */
+  photoBase?: string;
   now?: Date;
   /**
    * `full` carries live inventory plus recently-sold units marked unavailable.
@@ -524,9 +570,15 @@ export function buildFeed(
       custom_label_2: v.isCertified ? 'certified' : 'standard',
     };
 
-    photos.forEach((p, i) => {
-      row[`image[${i}].url`] = p.url;
-      if (p.tag) row[`image[${i}].tag[0]`] = photoTag(p.tag);
+    // Absolutise before emitting, and renumber: `image[0]` must exist or Meta
+    // treats the item as imageless, so a dropped photo cannot leave a hole.
+    let slot = 0;
+    photos.forEach((p) => {
+      const abs = absolutePhotoUrl(p.url, opts.photoBase);
+      if (!abs) return;
+      row[`image[${slot}].url`] = abs;
+      if (p.tag) row[`image[${slot}].tag[0]`] = photoTag(p.tag);
+      slot += 1;
     });
 
     built.push({ vehicleId: v.id, stockNumber: v.stockNumber, title, issues, row });

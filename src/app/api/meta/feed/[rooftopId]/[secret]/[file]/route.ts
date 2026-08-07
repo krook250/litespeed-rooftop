@@ -200,7 +200,10 @@ export async function GET(
       longitude: lot.longitude,
       pageId: asset.pageId,
     },
-    { siteBase: await siteBaseFor(rooftopId), now, mode },
+    // `photoBase` is the app origin, not `siteBase`. They diverge the moment a
+    // dealer is on their own domain: the storefront lives at
+    // cascademotorswa.com while /api/photo is only ever served by the app.
+    { siteBase: await siteBaseFor(rooftopId), photoBase: appOrigin().replace(/\/$/, ''), now, mode },
   );
 
   const tsv = toTsv(built.columns, built.rows);

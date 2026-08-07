@@ -282,6 +282,62 @@ describe('aging buckets and images', () => {
     assert.ok(out.columns.includes('image[1].url'));
   });
 
+  /*
+   * FAILURE MODE 5, added 6 Aug 2026 after it happened.
+   *
+   * Every generated demo photo is `/api/photo?…` — root-relative, which is
+   * correct in an `<img>` on our own page and unusable to Meta, which fetches
+   * from its own infrastructure with no origin to resolve against. The first
+   * upload that ever reached Meta rejected all seven vehicles:
+   *
+   *   Result: Item not uploaded    Issue: URL Incorrectly Formatted
+   *
+   * It belongs in this file precisely because it is invisible locally: the
+   * storefront, the admin and the feed preview all render these photos fine.
+   * The feed looked well-formed too — one bad image URL rejects the whole item,
+   * so a correct row loses on a field nothing else in the product cares about.
+   */
+  it('absolutises root-relative photo URLs against photoBase', () => {
+    const v = vehicle({
+      photos: [{ url: '/api/photo?s=EXTERIOR_SIDE&b=SUV', sortOrder: 0, isPrimary: true }],
+    });
+    const out = buildFeed(v ? [v] : [], LOT, {
+      siteBase: 'https://demo.rooftopauto.com',
+      photoBase: 'https://app.rooftopauto.com',
+      now: NOW,
+    });
+    assert.equal(
+      out.rows[0]!['image[0].url'],
+      'https://app.rooftopauto.com/api/photo?s=EXTERIOR_SIDE&b=SUV',
+    );
+  });
+
+  it('leaves absolute photo URLs alone even when photoBase is set', () => {
+    const v = vehicle({
+      photos: [{ url: 'https://cdn.dealer.com/a.jpg', sortOrder: 0, isPrimary: true }],
+    });
+    const out = buildFeed([v], LOT, {
+      siteBase: 'https://demo.rooftopauto.com',
+      photoBase: 'https://app.rooftopauto.com',
+      now: NOW,
+    });
+    assert.equal(out.rows[0]!['image[0].url'], 'https://cdn.dealer.com/a.jpg');
+  });
+
+  it('drops an unresolvable relative photo rather than emitting it broken, and does not leave a hole', () => {
+    const v = vehicle({
+      photos: [
+        { url: '/api/photo?s=A', sortOrder: 0, isPrimary: true },
+        { url: 'https://cdn.dealer.com/b.jpg', sortOrder: 1, isPrimary: false },
+      ],
+    });
+    // No photoBase: the relative one cannot be resolved.
+    const out = build([v]);
+    // image[0] must exist or Meta reads the item as having no photo at all.
+    assert.equal(out.rows[0]!['image[0].url'], 'https://cdn.dealer.com/b.jpg');
+    assert.equal(out.rows[0]!['image[1].url'], undefined);
+  });
+
   it('caps at Meta 20-image limit', () => {
     const photos = Array.from({ length: 25 }, (_, i) => ({
       url: `https://cdn.example.com/${i}.jpg`,
