@@ -4,7 +4,7 @@
  * A dealer who cannot find their logo file can almost always type their website
  * address, and their logo is sitting in the header of it. This module fetches
  * that page and pulls out the two things the Design card needs: candidate logo
- * images, and the colours the site already uses.
+ * images, and the colors the site already uses.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * THIS MODULE FETCHES A URL THE USER TYPED. That is server-side request forgery
@@ -23,7 +23,7 @@
  * There is a TOCTOU window between resolving and connecting, which a determined
  * attacker with control of a DNS zone can win. Closing it properly needs a
  * pinned-IP agent; the mitigation here is that the *response* never reaches the
- * dealer as text — we return parsed colours and image URLs, not the body — so
+ * dealer as text — we return parsed colors and image URLs, not the body — so
  * the payoff for winning that race is close to nil.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -325,12 +325,12 @@ export function findLogoCandidates(html: string, base: URL): LogoCandidate[] {
 }
 
 /**
- * Colours the site actually uses, weighted by how often they appear.
+ * Colors the site actually uses, weighted by how often they appear.
  *
  * `theme-color` outranks everything by a mile — a site that declares one has
- * *told* us its brand colour, and no amount of counting hex literals beats
+ * *told* us its brand color, and no amount of counting hex literals beats
  * being told. Everything else is frequency in the stylesheet, which is a crude
- * proxy that works because a brand colour is the thing repeated on every button.
+ * proxy that works because a brand color is the thing repeated on every button.
  */
 export function findSiteColors(sources: string[], themeColor: string | null): WeightedColor[] {
   const tally = new Map<string, number>();
@@ -401,7 +401,7 @@ export async function scanSite(raw: string): Promise<SiteScan> {
   const inlineStyles = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) ?? []).join('\n');
 
   /*
-   * Two stylesheets, not all of them. The brand colour lives in the first one a
+   * Two stylesheets, not all of them. The brand color lives in the first one a
    * site loads far more often than the fifth, and each extra fetch is another
    * six-second timeout a dealer might sit through.
    */

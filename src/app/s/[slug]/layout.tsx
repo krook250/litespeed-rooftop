@@ -72,7 +72,7 @@ export default async function StorefrontLayout({
   /*
    * Brand and accent are set once here as CSS custom properties. Every layout
    * and every primitive reads `var(--brand)` / `var(--accent)`, so no component
-   * ever takes a colour prop and a fourth layout inherits theming for free.
+   * ever takes a color prop and a fourth layout inherits theming for free.
    */
   const brandVars = {
     '--brand': sf.brandColor,

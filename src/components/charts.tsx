@@ -2,7 +2,7 @@
  * Chart primitives — hand-rolled inline SVG, no chart library.
  *
  * Everything here renders on the server with zero JavaScript: geometry is
- * computed at render time and written straight into the markup. Colour always
+ * computed at render time and written straight into the markup. Color always
  * arrives as an explicit hex prop (channel brandHex, the aging ramp, or the
  * neutral ink pair) so an SVG fill never depends on a Tailwind class.
  *
@@ -295,7 +295,7 @@ export type ColumnDatum = {
   value: number;
   /** small line under the axis label — e.g. the gross behind the unit count */
   sublabel?: string;
-  /** per-column override, otherwise the chart colour */
+  /** per-column override, otherwise the chart color */
   color?: string;
 };
 

@@ -358,7 +358,7 @@ export const storefronts = pgTable('storefronts', {
    * Rooftop Auto's own blue and amber, as the default a new storefront starts on.
    *
    * Deliberately the brand rather than a neutral grey: a dealer who skips the
-   * colour step gets a website that looks finished, and the Design card can then
+   * color step gets a website that looks finished, and the Design card can then
    * treat "still on these two" as "never chose" without a nullable column. Keep
    * these in step with `ROOFTOP_BRAND` / `ROOFTOP_ACCENT` in
    * `src/lib/branding/palette.ts` — that is what the admin screen compares against.
@@ -778,7 +778,7 @@ export type FeedStat = {
   k: string;
   /** Already formatted for display — the writer owns the units. */
   v: string;
-  /** Colour intent. Neither set = neutral. */
+  /** Color intent. Neither set = neutral. */
   good?: boolean;
   bad?: boolean;
 };

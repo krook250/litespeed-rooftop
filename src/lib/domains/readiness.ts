@@ -83,7 +83,7 @@ export function buildReadiness(input: ReadinessInput): Readiness {
   const designed = Boolean(input.logoKey) || !isDefaultPalette(input.brandColor, input.accentColor);
 
   const hasLogo = Boolean(input.logoKey);
-  const hasColours = !isDefaultPalette(input.brandColor, input.accentColor);
+  const hasColors = !isDefaultPalette(input.brandColor, input.accentColor);
 
   const items: ReadinessItem[] = [
     {
@@ -101,18 +101,18 @@ export function buildReadiness(input: ReadinessInput): Readiness {
       done: designed,
       gating: true,
       /*
-       * Named honestly rather than generically. "Your logo and colours are set"
-       * on a storefront with custom colours and no logo is a small lie that the
+       * Named honestly rather than generically. "Your logo and colors are set"
+       * on a storefront with custom colors and no logo is a small lie that the
        * dealer can see through by looking at their own site, and a checklist that
        * says something untrue once is not read carefully again.
        */
       help: !designed
-        ? 'Right now your site shows Rooftop blue and your initials. Add a logo or pick your colours below — it takes a minute and it is the first thing a customer sees.'
-        : hasLogo && hasColours
-          ? 'Your logo and colours are set.'
+        ? 'Right now your site shows Rooftop blue and your initials. Add a logo or pick your colors below — it takes a minute and it is the first thing a customer sees.'
+        : hasLogo && hasColors
+          ? 'Your logo and colors are set.'
           : hasLogo
-            ? 'Your logo is up. Your colours are still the Rooftop defaults — fine to leave, quick to change below.'
-            : 'Your colours are set. No logo yet, so the header shows your initials — worth adding below if you have one.',
+            ? 'Your logo is up. Your colors are still the Rooftop defaults — fine to leave, quick to change below.'
+            : 'Your colors are set. No logo yet, so the header shows your initials — worth adding below if you have one.',
     },
     {
       id: 'inventory',

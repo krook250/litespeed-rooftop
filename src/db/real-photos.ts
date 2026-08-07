@@ -25,7 +25,7 @@
  * frames. Meta needs one image to list and two to reach Marketplace, so a
  * four-frame group is worth more than four one-frame groups.
  *
- * COLOUR AND YEAR ARE READ OFF THE PHOTO, not invented. The spec sheet
+ * COLOR AND YEAR ARE READ OFF THE PHOTO, not invented. The spec sheet
  * contradicting the gallery is the single fastest way to make a demo look fake,
  * and the VIN is regenerated because it encodes the make.
  *

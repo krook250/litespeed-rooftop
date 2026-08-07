@@ -37,7 +37,7 @@ import {
   parseSiteUrl,
 } from './site-scan';
 
-/* ---------------------------------------------------------------- colours */
+/* ---------------------------------------------------------------- colors */
 
 describe('normalizeHex', () => {
   it('accepts the four shapes a person actually types', () => {
@@ -55,13 +55,13 @@ describe('normalizeHex', () => {
 });
 
 describe('isCandidateColor', () => {
-  it('rejects the three colours every logo is mostly made of', () => {
+  it('rejects the three colors every logo is mostly made of', () => {
     assert.equal(isCandidateColor('#ffffff'), false);
     assert.equal(isCandidateColor('#000000'), false);
     assert.equal(isCandidateColor('#8a8a8a'), false); // the grey ramp
   });
 
-  it('keeps a real brand colour', () => {
+  it('keeps a real brand color', () => {
     assert.equal(isCandidateColor(ROOFTOP_BRAND.toLowerCase()), true);
     assert.equal(isCandidateColor('#7a1f1f'), true); // dark but saturated
   });
@@ -81,7 +81,7 @@ describe('isDefaultPalette', () => {
 });
 
 describe('makeUsable', () => {
-  it('darkens a pale colour until white text on it would read', () => {
+  it('darkens a pale color until white text on it would read', () => {
     const out = makeUsable('#cfe6ff');
     assert.ok(contrast(out, '#ffffff') >= 3, `contrast was ${contrast(out, '#ffffff')}`);
   });
@@ -92,7 +92,7 @@ describe('makeUsable', () => {
     assert.ok(hueDistance(before, after) < 2);
   });
 
-  it('leaves a colour that already works alone', () => {
+  it('leaves a color that already works alone', () => {
     assert.equal(makeUsable('#1f4fd8'), '#1f4fd8');
   });
 });
@@ -106,7 +106,7 @@ describe('hueDistance', () => {
 });
 
 describe('readableOn', () => {
-  it('picks the text colour a person would pick', () => {
+  it('picks the text color a person would pick', () => {
     assert.equal(readableOn('#0b1b3a'), '#ffffff');
     assert.equal(readableOn('#ffb020'), '#000000');
   });
@@ -118,7 +118,7 @@ describe('suggestPalette', () => {
     assert.deepEqual(s, { brand: ROOFTOP_BRAND, accent: ROOFTOP_ACCENT, source: 'default' });
   });
 
-  it('takes the heaviest usable colour as the brand, ignoring the white background', () => {
+  it('takes the heaviest usable color as the brand, ignoring the white background', () => {
     const s = suggestPalette([
       { hex: '#ffffff', weight: 5000 },
       { hex: '#c8102e', weight: 800 },
@@ -127,7 +127,7 @@ describe('suggestPalette', () => {
     assert.equal(hexToHsl(s.brand).h > 340 || hexToHsl(s.brand).h < 15, true);
   });
 
-  it('picks an accent far enough round the wheel to read as a second colour', () => {
+  it('picks an accent far enough round the wheel to read as a second color', () => {
     const s = suggestPalette([
       { hex: '#1f4fd8', weight: 900 },
       { hex: '#2a55da', weight: 800 }, // a near-miss of the brand — must not be chosen
@@ -269,7 +269,7 @@ describe('findSiteColors', () => {
     assert.equal(out[0]!.weight, 2);
   });
 
-  it('expands three-digit hex so #fff and #ffffff are one colour', () => {
+  it('expands three-digit hex so #fff and #ffffff are one color', () => {
     const out = findSiteColors(['.a{color:#fff}.b{color:#ffffff}'], null);
     assert.equal(out[0]!.hex, '#ffffff');
     assert.equal(out[0]!.weight, 2);

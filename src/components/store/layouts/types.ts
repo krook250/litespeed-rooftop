@@ -46,7 +46,7 @@ export type LayoutMeta = {
   /**
    * A real screenshot of this layout, once one exists — e.g.
    * `/layouts/classic.png` in `public/`. Until then the admin picker draws a
-   * mockup in the dealer's own colours, which a screenshot cannot do. Setting
+   * mockup in the dealer's own colors, which a screenshot cannot do. Setting
    * this switches that layout's tile to the image; the two can coexist, so
    * screenshots can land one layout at a time.
    */

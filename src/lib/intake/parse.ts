@@ -259,13 +259,13 @@ function toInt(raw?: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/* ------------------------------------------------------------------- colour */
+/* ------------------------------------------------------------------- color */
 
 /**
- * State title forms abbreviate colour to three or four letters, and the codes
+ * State title forms abbreviate color to three or four letters, and the codes
  * are not standardised across states — Florida's BLK/WHI/SIL differ from
  * California's. This is the union of the common ones; an unrecognised code is
- * dropped rather than guessed, because a wrong colour on a listing is the kind
+ * dropped rather than guessed, because a wrong color on a listing is the kind
  * of small lie a shopper notices in the parking lot.
  */
 const COLOR_CODES: Record<string, string> = {
@@ -288,7 +288,7 @@ const COLOR_WORDS = [
   'Yellow', 'Orange', 'Purple', 'Bronze', 'Copper', 'Teal', 'Turquoise', 'Pink',
 ];
 
-/** Approximate hex per colour name, for the swatch the form already renders. */
+/** Approximate hex per color name, for the swatch the form already renders. */
 const COLOR_HEX: Record<string, string> = {
   Black: '#111827', White: '#f8fafc', Silver: '#c0c5cc', Gray: '#8b9099',
   Grey: '#8b9099', Charcoal: '#3f4652', Blue: '#1d4ed8', Navy: '#1e293b',

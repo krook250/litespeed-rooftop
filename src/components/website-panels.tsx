@@ -625,7 +625,7 @@ export function BuyDomainPanel({
 /*
  * The Design panel moved to `src/components/website/design-card.tsx`.
  *
- * It stopped being a panel: logo, colours and layout are now a sequence with a
+ * It stopped being a panel: logo, colors and layout are now a sequence with a
  * logo importer and a live preview behind them, which is more code than the rest
  * of this file put together and shares nothing with the domain work. What is left
  * here is the domain screen, which is what this file was always about.

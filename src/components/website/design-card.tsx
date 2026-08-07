@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * The Design card: logo, colours, layout — in that order, one question at a time.
+ * The Design card: logo, colors, layout — in that order, one question at a time.
  *
  * WHY A SEQUENCE AND NOT A FORM
  * The previous version showed all three at once and led with the layout picker.
  * That asks a dealer to make an aesthetic judgement before anything on screen
  * belongs to them. Leading with "add your logo" works better for two unrelated
  * reasons: it is the one question every dealer can answer without thinking, and
- * the answer is what lets us guess the other two. By the time colours come up we
+ * the answer is what lets us guess the other two. By the time colors come up we
  * are not asking for a hex value, we are asking them to confirm one.
  *
  * SKIPPING IS A FIRST-CLASS PATH, not an escape hatch. A dealer who does not
  * have a logo, or does not have the file to hand at 4pm on a Tuesday, must be
  * able to get a website up anyway and come back. Every step here can be skipped,
  * and skipping never leaves the storefront in a broken state — it leaves it on
- * Rooftop's own colours, which are a deliberate default rather than a placeholder.
+ * Rooftop's own colors, which are a deliberate default rather than a placeholder.
  *
  * NEXT UP (deliberately not built yet): this is the manual path. The AI site
  * builder slots in as a fourth route at step 1 — "describe your dealership" —
@@ -54,7 +54,7 @@ type Props = {
 };
 
 type Step = 1 | 2 | 3;
-const STEP_LABELS: Record<Step, string> = { 1: 'Your logo', 2: 'Your colours', 3: 'Your layout' };
+const STEP_LABELS: Record<Step, string> = { 1: 'Your logo', 2: 'Your colors', 3: 'Your layout' };
 
 export function DesignCard(props: Props) {
   const { storefrontId, dealerName, layouts } = props;
@@ -95,7 +95,7 @@ export function DesignCard(props: Props) {
       const res = await scanSiteForBranding(null, fd);
       if (!res.ok) { setScan(null); setScanError(res.error); return; }
       setScan(res.data!);
-      // Only auto-apply colours the dealer has not already touched by hand.
+      // Only auto-apply colors the dealer has not already touched by hand.
       if (!touchedColors.current) applySuggestion(res.data!.suggestion);
       if (res.data!.logos.length) pickCandidate(res.data!.logos[0]!);
     });
@@ -152,7 +152,7 @@ export function DesignCard(props: Props) {
     return () => { cancelled = true; };
   }, [logoPreview]);
 
-  /* -------------------------------------------------------------- colours */
+  /* -------------------------------------------------------------- colors */
 
   const touchedColors = useRef(false);
 
@@ -256,7 +256,7 @@ export function DesignCard(props: Props) {
             <p className="text-sm font-semibold text-ink-900">Get it from my website</p>
             <p className="mt-0.5 text-xs text-ink-500">
               The fastest way. We read your site, pull the logo out of the header, and pick up your
-              colours while we&apos;re there.
+              colors while we&apos;re there.
             </p>
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <input
@@ -333,7 +333,7 @@ export function DesignCard(props: Props) {
 
         {wizard ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4">
-            <Button type="button" onClick={() => goto(2)}>Next — colours</Button>
+            <Button type="button" onClick={() => goto(2)}>Next — colors</Button>
             <button type="button" onClick={() => goto(2)} className="text-sm text-ink-500 underline underline-offset-2 hover:text-ink-800">
               I don&apos;t have one handy — skip for now
             </button>
@@ -344,12 +344,12 @@ export function DesignCard(props: Props) {
         ) : null}
       </section>
 
-      {/* -------------------------------------------------------- colours */}
+      {/* -------------------------------------------------------- colors */}
       <section hidden={!show(2)} className="space-y-4">
         <div>
-          <h3 className="text-base font-semibold text-ink-900">Your colours</h3>
+          <h3 className="text-base font-semibold text-ink-900">Your colors</h3>
           <p className="mt-0.5 text-sm text-ink-600">
-            The brand colour is your header and your links. The accent is the one thing on the page you
+            The brand color is your header and your links. The accent is the one thing on the page you
             want clicked — the price, the button, the phone number.
           </p>
         </div>
@@ -379,7 +379,7 @@ export function DesignCard(props: Props) {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {([['brand', 'Brand colour', brand, brandOk], ['accent', 'Accent colour', accent, accentOk]] as const).map(
+          {([['brand', 'Brand color', brand, brandOk], ['accent', 'Accent color', accent, accentOk]] as const).map(
             ([which, label, value, valid]) => (
               <label key={which}>
                 <span className="mb-1 block text-sm font-medium text-ink-800">{label}</span>
@@ -404,12 +404,12 @@ export function DesignCard(props: Props) {
 
         {faint ? (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            That brand colour is very light. White text on it will be hard to read — worth going a shade
+            That brand color is very light. White text on it will be hard to read — worth going a shade
             or two darker.
           </p>
         ) : null}
 
-        {/* a real header, in their colours, at real size */}
+        {/* a real header, in their colors, at real size */}
         <div className="overflow-hidden rounded-lg border border-ink-200">
           <div className="flex items-center justify-between px-4 py-3" style={{ background: brandOk ? brand : ROOFTOP_BRAND }}>
             <span className="flex items-center gap-2">

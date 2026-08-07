@@ -51,14 +51,14 @@ describe('cutover readiness', () => {
     assert.deepEqual(r.blockers, []);
   });
 
-  it('accepts a logo alone as branding, without custom colours', () => {
+  it('accepts a logo alone as branding, without custom colors', () => {
     // A dealer whose logo is blue and who genuinely wants Rooftop blue must not
     // be held at the gate for ever. Either signal counts.
     const r = buildReadiness({ ...READY, brandColor: ROOFTOP_BRAND, accentColor: ROOFTOP_ACCENT });
     assert.equal(r.ready, true);
   });
 
-  it('accepts custom colours alone, without a logo', () => {
+  it('accepts custom colors alone, without a logo', () => {
     const r = buildReadiness({ ...READY, logoKey: null });
     assert.equal(r.ready, true);
   });
@@ -72,9 +72,9 @@ describe('cutover readiness', () => {
     assert.deepEqual(r.blockers.map((b) => b.id), ['registered']);
   });
 
-  it('describes branding honestly when only colours are set', () => {
+  it('describes branding honestly when only colors are set', () => {
     const help = buildReadiness({ ...READY, logoKey: null }).items.find((i) => i.id === 'design')!.help;
-    assert.ok(!/logo and colours are set/.test(help), help);
+    assert.ok(!/logo and colors are set/.test(help), help);
     assert.ok(/No logo yet/.test(help), help);
   });
 
@@ -84,7 +84,7 @@ describe('cutover readiness', () => {
       brandColor: ROOFTOP_BRAND,
       accentColor: ROOFTOP_ACCENT,
     }).items.find((i) => i.id === 'design')!.help;
-    assert.ok(!/logo and colours are set/.test(help), help);
+    assert.ok(!/logo and colors are set/.test(help), help);
     assert.ok(/Rooftop defaults/.test(help), help);
   });
 

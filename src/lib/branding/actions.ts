@@ -54,7 +54,7 @@ export type SiteScanResult = {
 };
 
 /**
- * Read a dealer's website: find their logo, read their colours.
+ * Read a dealer's website: find their logo, read their colors.
  *
  * Never throws at the caller. Everything here is a network call against a URL a
  * dealer typed, so failure is the normal case, not the exception — and the
@@ -115,11 +115,11 @@ export async function scanSiteForBranding(
 /* ------------------------------------------------------- save the design */
 
 /**
- * Save layout, colours and logo in one write.
+ * Save layout, colors and logo in one write.
  *
  * One action for all three because the dealer experiences them as one decision
  * ("what does my website look like"), and because a partial save is the worst
- * outcome here: a logo that landed without the colours that were chosen to go
+ * outcome here: a logo that landed without the colors that were chosen to go
  * with it looks broken in a way neither half explains.
  *
  * THE LOGO ARRIVES THREE WAYS and the precedence is deliberate:
@@ -128,7 +128,7 @@ export async function scanSiteForBranding(
  *      honoured after `owns()` confirms the blob is theirs.
  *   3. `removeLogo` — checked last, so ticking Remove always means removed.
  * Absent all three, whatever is already on the storefront survives untouched.
- * That is what lets the dealer come back and change only their colours.
+ * That is what lets the dealer come back and change only their colors.
  */
 export async function saveStorefrontDesign(_prev: unknown, formData: FormData): Promise<ActionResult> {
   const storefrontId = String(formData.get('storefrontId') ?? '');
@@ -142,7 +142,7 @@ export async function saveStorefrontDesign(_prev: unknown, formData: FormData): 
   const accentColor = String(formData.get('accentColor') ?? sf.accentColor);
 
   if (!isHex(brandColor) || !isHex(accentColor)) {
-    return { ok: false, error: 'Colours must be six-digit hex values like #3d8bff.' };
+    return { ok: false, error: 'Colors must be six-digit hex values like #3d8bff.' };
   }
   if (!(t.storefrontLayoutEnum.enumValues as readonly string[]).includes(layout)) {
     return { ok: false, error: 'Unknown layout.' };

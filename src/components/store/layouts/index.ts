@@ -9,8 +9,8 @@
  * That is the whole change. The route, the queries and the admin picker all read
  * from this map, so nothing else needs touching.
  *
- * WHY THE THREE DIFFER STRUCTURALLY AND NOT JUST BY COLOUR
- * Accent colour alone is not differentiation — two dealers on one layout with
+ * WHY THE THREE DIFFER STRUCTURALLY AND NOT JUST BY COLOR
+ * Accent color alone is not differentiation — two dealers on one layout with
  * different accents look like the same product with a hue rotation, which
  * undercuts the exact thing a custom domain is sold on ("this is *my* website").
  * So the three differ by **sales posture**: how many units the dealer carries and

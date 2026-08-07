@@ -2,7 +2,7 @@
  * Turning three partial views of a car into one record.
  *
  * The inputs disagree, and that is the point. A window sticker says "Deep
- * Crystal Blue Mica"; vPIC says nothing about colour. vPIC says the body is an
+ * Crystal Blue Mica"; vPIC says nothing about color. vPIC says the body is an
  * SUV; the reader guessed "wagon" from the silhouette in the photo. The reader
  * read 84,213 miles; the regex over the same transcript read 2019. Merging is
  * where those get adjudicated, and the rule is fixed rather than heuristic:

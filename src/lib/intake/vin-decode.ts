@@ -8,7 +8,7 @@
  * comparison, so `merge.ts` lets this layer win those fields outright.
  *
  * WHAT IT DOES NOT KNOW, AND WHY THAT MATTERS
- * vPIC has no mileage, no price, no colour, no options, no title brand. Those
+ * vPIC has no mileage, no price, no color, no options, no title brand. Those
  * are the fields intake actually has to read off paper — which is a useful thing
  * to internalise, because it means the document reader's job is much smaller
  * than "read the whole sticker". It reads the handful of things nothing else

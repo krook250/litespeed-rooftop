@@ -3,10 +3,10 @@
  *
  * WHY THESE ARE DRAWN AND NOT SCREENSHOTTED (yet)
  * A screenshot is better — it is the real thing — but a screenshot cannot show
- * *their* logo and *their* colours, and the whole point of this step is that the
+ * *their* logo and *their* colors, and the whole point of this step is that the
  * dealer sees their own brand before they commit to a layout. So these are
  * drawn: same structure as the real layouts, fed the live values from the form
- * above them, updating as they move the colour picker.
+ * above them, updating as they move the color picker.
  *
  * WHEN REAL SCREENSHOTS EXIST, they drop in with no code change here: set
  * `previewImage` on the layout's entry in `src/components/store/layouts/index.ts`

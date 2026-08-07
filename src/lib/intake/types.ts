@@ -8,7 +8,7 @@
  *   - The VIN *proves* year, make, model, body, engine, drivetrain and fuel.
  *     Those come from the manufacturer's own encoding via NHTSA. They are not
  *     opinions and nothing a reader "sees" on a page should overwrite them.
- *   - The document *claims* mileage, price, colours, options and title status.
+ *   - The document *claims* mileage, price, colors, options and title status.
  *     Nothing else knows those. They are exactly the fields worth a human's
  *     two seconds before the unit goes live.
  *
@@ -56,7 +56,7 @@ export type FieldSource =
   | 'vin'
   /** The reader says it saw this on the page. A claim, not a proof. */
   | 'document'
-  /** We computed it from other fields (colour hex, description, stock #). */
+  /** We computed it from other fields (color hex, description, stock #). */
   | 'derived';
 
 export type Field<T> = {

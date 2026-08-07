@@ -40,7 +40,7 @@ export function Avatar({
     .map((w) => w[0])
     .join('')
     .toUpperCase();
-  // Deterministic hue per person, so the same face is the same colour everywhere.
+  // Deterministic hue per person, so the same face is the same color everywhere.
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
   return (

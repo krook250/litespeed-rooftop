@@ -153,18 +153,18 @@ test('salvage outranks rebuilt when both words appear', () => {
   assert.equal(findTitleStatus('PRIOR SALVAGE / REBUILT')?.value, 'SALVAGE');
 });
 
-/* ----------------------------------------------------------------- colour */
+/* ----------------------------------------------------------------- color */
 
-test('expands a state title colour code', () => {
+test('expands a state title color code', () => {
   assert.equal(resolveColor('BLK'), 'Black');
   assert.equal(resolveColor('SLV'), 'Silver');
 });
 
-test("keeps the manufacturer's colour name when there is one", () => {
+test("keeps the manufacturer's color name when there is one", () => {
   assert.equal(resolveColor('Midnight Blue Metallic'), 'Midnight Blue');
 });
 
-test('drops a colour it does not recognise rather than guessing', () => {
+test('drops a color it does not recognise rather than guessing', () => {
   assert.equal(resolveColor('ZQX'), null);
 });
 

@@ -124,12 +124,12 @@ export default async function WebsitePage() {
   /*
    * Has this dealer ever actually been through the design step?
    *
-   * A logo is the honest tell — colours always hold *some* value, because the
+   * A logo is the honest tell — colors always hold *some* value, because the
    * column has a default, so "not the default" is the only signal there and a
    * dealer who genuinely wants Rooftop blue would be walked through setup for
-   * ever. With no logo and untouched colours, nothing on this storefront was
+   * ever. With no logo and untouched colors, nothing on this storefront was
    * chosen, so we run the guided version. Once either is set, they get the
-   * everything-at-once editor, which is what someone changing one colour wants.
+   * everything-at-once editor, which is what someone changing one color wants.
    */
   const designConfigured = Boolean(sf.logoKey) || !isDefaultPalette(sf.brandColor, sf.accentColor);
 

@@ -1,11 +1,11 @@
 /**
- * Colour maths for the Design card. Pure — no I/O, no React, no database — so
+ * Color maths for the Design card. Pure — no I/O, no React, no database — so
  * every branch here is unit-testable, and so the same suggestion runs on the
  * server (from a scanned website's CSS) and in the browser (from the pixels of
  * an uploaded logo) without two implementations drifting apart.
  *
  * WHAT THIS IS FOR
- * A dealer is asked for two colours. Most of them do not know their own hex
+ * A dealer is asked for two colors. Most of them do not know their own hex
  * values, and the ones who do have them in a PDF somewhere. So we guess from
  * whatever they gave us — a logo, a website — and let them override. The guess
  * only has to be defensible, not perfect; the pickers are right there.
@@ -17,7 +17,7 @@ export const ROOFTOP_BRAND = '#3D8BFF';
 export const ROOFTOP_ACCENT = '#FFB020';
 
 /**
- * Colour pairs that mean "nobody has chosen anything yet".
+ * Color pairs that mean "nobody has chosen anything yet".
  *
  * The current default, plus the generic blue/orange the column shipped with
  * before it. Both are listed because the database default is DDL: a storefront
@@ -25,7 +25,7 @@ export const ROOFTOP_ACCENT = '#FFB020';
  * and it would be wrong to read that as a decision the dealer made. Nothing else
  * distinguishes "chose Rooftop blue" from "never opened this screen", and a
  * nullable column to encode the difference is not worth the branch everywhere
- * the colour is read.
+ * the color is read.
  */
 const DEFAULT_PAIRS: readonly (readonly [string, string])[] = [
   [ROOFTOP_BRAND, ROOFTOP_ACCENT],
@@ -40,7 +40,7 @@ export function isDefaultPalette(brand: string, accent: string): boolean {
 export type Rgb = { r: number; g: number; b: number };
 export type Hsl = { h: number; s: number; l: number };
 
-/** A colour plus how much of the source it accounted for. Weight is unitless. */
+/** A color plus how much of the source it accounted for. Weight is unitless. */
 export type WeightedColor = { hex: string; weight: number };
 
 export type Suggestion = {
@@ -144,10 +144,10 @@ export function readableOn(hex: string): '#000000' | '#ffffff' {
 }
 
 /**
- * Pull a colour toward a lightness that works as a button background on white.
+ * Pull a color toward a lightness that works as a button background on white.
  *
  * A dealer's logo is very often near-black or a pale wash, and either one used
- * verbatim as the brand colour produces a storefront where nothing reads as
+ * verbatim as the brand color produces a storefront where nothing reads as
  * clickable. We keep the hue — that is the part that is actually *theirs* — and
  * move only lightness, and only as far as needed.
  */
@@ -168,14 +168,14 @@ export function makeUsable(hex: string, { minContrastOnWhite = 3 } = {}): string
 
 /* ------------------------------------------------------------- suggestion */
 
-/** Smallest distance between two hues on the colour wheel, 0–180. */
+/** Smallest distance between two hues on the color wheel, 0–180. */
 export function hueDistance(a: number, b: number): number {
   const d = Math.abs(((a - b) % 360 + 360) % 360);
   return d > 180 ? 360 - d : d;
 }
 
 /**
- * Is this colour worth offering as a brand colour?
+ * Is this color worth offering as a brand color?
  *
  * Rejects the three things that dominate every logo and every stylesheet and
  * mean nothing: white/near-white backgrounds, near-black text, and the grey
@@ -190,13 +190,13 @@ export function isCandidateColor(hex: string): boolean {
 }
 
 /**
- * Turn a weighted colour list into a brand + accent pair.
+ * Turn a weighted color list into a brand + accent pair.
  *
- * Brand is the heaviest usable colour. Accent is the heaviest colour far enough
- * around the wheel to read as a *second* colour rather than a near-miss of the
+ * Brand is the heaviest usable color. Accent is the heaviest color far enough
+ * around the wheel to read as a *second* color rather than a near-miss of the
  * first — 40° is the threshold, below which two swatches side by side look like
  * a mistake. When nothing qualifies we rotate the brand hue rather than falling
- * back to Rooftop amber, because a dealer's own colour rotated still looks like
+ * back to Rooftop amber, because a dealer's own color rotated still looks like
  * their brand, and an unrelated orange does not.
  */
 export function suggestPalette(
@@ -222,10 +222,10 @@ export function suggestPalette(
 }
 
 /**
- * Quantise raw pixels into a weighted colour list.
+ * Quantise raw pixels into a weighted color list.
  *
  * Buckets at 5 bits per channel (32 levels) rather than clustering properly:
- * k-means on a logo is a lot of arithmetic to arrive at the same three colours,
+ * k-means on a logo is a lot of arithmetic to arrive at the same three colors,
  * and a logo is flat art with hard edges, which is the one case where naive
  * bucketing works. Fully transparent pixels are skipped — a transparent PNG is
  * the recommended upload, and counting its background as white would swamp

@@ -94,7 +94,7 @@ export function FeedHealthPanel({ preview }: { preview: FeedPreview }) {
 }
 
 function Tally({ n, label, tone }: { n: number; label: string; tone: 'ink' | 'amber' | 'red' }) {
-  const colour =
+  const color =
     tone === 'red' && n > 0
       ? 'text-red-700'
       : tone === 'amber' && n > 0
@@ -102,7 +102,7 @@ function Tally({ n, label, tone }: { n: number; label: string; tone: 'ink' | 'am
         : 'text-ink-900';
   return (
     <div className="rounded-lg bg-ink-50 px-2 py-2.5">
-      <div className={`text-lg font-semibold tabular-nums ${colour}`}>{n}</div>
+      <div className={`text-lg font-semibold tabular-nums ${color}`}>{n}</div>
       <div className="text-[11px] text-ink-600">{label}</div>
     </div>
   );
