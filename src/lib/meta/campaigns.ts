@@ -11,10 +11,15 @@
  * successful API call per permission before the request button un-greys. Neither
  * is satisfiable by code that does not exist.
  *
- * So this file builds one campaign, one ad set, one creative and one ad, and
- * then reads the result back. It is the *minimum* that is true, not a product.
- * The Lot Walk aging buckets pick the inventory, the dealer's Page carries the
- * creative, and everything lands PAUSED.
+ * So this file builds one campaign, one ad set and one creative, and then reads
+ * the result back. It is the *minimum* that is true, not a product. The Lot Walk
+ * aging buckets pick the inventory, the dealer's Page carries the creative, and
+ * everything lands PAUSED.
+ *
+ * **It deliberately stops before creating an Ad object.** That is not an
+ * oversight and it costs nothing in App Review — see the note at the end of
+ * `createDemoCampaign`, which explains both why Meta will not let us and why the
+ * ad is not needed.
  *
  * THINGS LEARNED THE HARD WAY, PRESERVED HERE
  *
@@ -213,8 +218,13 @@ export type DemoCampaignResult = {
   productSet: ProductSetResult;
   adSetId: string;
   creativeId: string;
-  adId: string;
-  /** Every unit is PAUSED. Stated in the result so a screencast can show it. */
+  /**
+   * Every unit is PAUSED. Stated in the result so a screencast can show it.
+   *
+   * There is no `adId`: the tree deliberately stops at the creative, because an
+   * unfunded ad account cannot create an Ad object and funding it would destroy
+   * the "cannot spend" guarantee. See the long note in `createDemoCampaign`.
+   */
   status: 'PAUSED';
 };
 
@@ -449,18 +459,46 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     },
   });
 
-  /* ------------------------------------------------------------- 4. ad */
+  /* ----------------------------------------------- 4. the ad we do not build */
 
-  const ad = await graph<{ id: string }>(`${act}/ads`, {
-    method: 'POST',
-    token,
-    params: {
-      name: `${bucket.label} — dynamic`,
-      adset_id: adSet.id,
-      creative: JSON.stringify({ creative_id: creative.id }),
-      status: 'PAUSED',
-    },
-  });
+  /*
+   * THERE IS NO `POST /act_<id>/ads` HERE, ON PURPOSE. Read this before adding
+   * one back — it was tried on 7 Aug 2026 and Meta refused:
+   *
+   *     code 100 / subcode 1359188 / OAuthException / "Invalid parameter"
+   *     "Update payment method: Visit the Billing and payment center to add a
+   *      valid payment method."
+   *
+   * Campaign, ad set and creative all create happily on an ad account with no
+   * funding source. The **Ad** is the first object Meta refuses to create
+   * without a payment method on file.
+   *
+   * Note that Meta's own Ad Account reference says the opposite — of
+   * `funding_id`: "If the account does not have a payment method it will still
+   * be possible to create ads but these ads will get no delivery." That is the
+   * exact premise this demo was built on, and it is no longer true. `1359188`
+   * appears in no published error table. Same shape as the IG Explore
+   * deprecation above: on this surface the API is authoritative and the
+   * documentation is stale.
+   *
+   * WHY WE STOP HERE RATHER THAN FUND THE ACCOUNT. The demo's whole claim is
+   * structural: an account with no payment method *cannot* spend, which is a
+   * stronger and more honest sentence than "will not spend, because everything
+   * is paused." Adding a card to make one more API object appear would trade the
+   * only guarantee this harness actually offers for an object nobody needs.
+   *
+   * AND NOBODY NEEDS IT. App Review wants one successful call per permission,
+   * and the Ad is not the registering call for any of them
+   * (`claude/meta-app-review-runbook.md` §7):
+   *
+   *     ads_management    POST /act_<id>/campaigns      ← created above
+   *     pages_manage_ads  POST /act_<id>/adcreatives    ← created above, via page_id
+   *     ads_read          GET  /<campaign_id>/insights  ← readInsights, below
+   *
+   * So the tree stops at the creative: a real campaign, a real ad set built from
+   * the Lot Walk buckets, and a real dynamic creative on the dealer's Page —
+   * none of which can deliver, because there is nothing to bill.
+   */
 
   return {
     objectiveUsed,
@@ -468,7 +506,6 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     productSet,
     adSetId: adSet.id,
     creativeId: creative.id,
-    adId: ad.id,
     status: 'PAUSED',
   };
 }

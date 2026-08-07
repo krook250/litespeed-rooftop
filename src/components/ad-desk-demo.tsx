@@ -140,9 +140,9 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
 
       <div className="space-y-4 px-5 py-4">
         <p className="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600">
-          This builds a real campaign, ad set, creative and ad through the Marketing API and then
-          reads the result back — against an ad account with <strong>no payment method</strong>, so
-          it cannot deliver. Everything lands paused. It costs nothing and cannot spend.
+          This builds a real campaign, ad set and creative through the Marketing API and then reads
+          the result back — against an ad account with <strong>no payment method</strong>, so it
+          cannot deliver. Everything lands paused. It costs nothing and cannot spend.
         </p>
 
         {!row.ready ? (
@@ -188,7 +188,7 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <Row k="vehicle set" v={`${state.data.productSet.id} (${state.data.productSet.name})`} />
               <Row k="ad set" v={state.data.adSetId} />
               <Row k="creative" v={state.data.creativeId} />
-              <Row k="ad" v={`${state.data.adId} · ${state.data.status}`} />
+              <Row k="status" v={state.data.status} />
             </dl>
           </div>
         ) : null}
