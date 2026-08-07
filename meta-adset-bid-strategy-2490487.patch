@@ -1,0 +1,46 @@
+diff --git a/src/lib/meta/campaigns.ts b/src/lib/meta/campaigns.ts
+index 2cba6eb..dddec9d 100644
+--- a/src/lib/meta/campaigns.ts
++++ b/src/lib/meta/campaigns.ts
+@@ -338,6 +338,41 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+       billing_event: 'IMPRESSIONS',
+       optimization_goal: 'LINK_CLICKS',
+       destination_type: 'WEBSITE',
++      /*
++       * Automatic bidding, stated explicitly because THE DEFAULT IS NOT WHAT
++       * YOU WOULD GUESS.
++       *
++       * Omitting `bid_strategy` does not mean "let Meta decide". Meta's own
++       * reference says of LOWEST_COST_WITH_BID_CAP: "during creation this is
++       * the default bid strategy if you don't specify" — manual maximum-cost
++       * bidding. That strategy requires a bid cap, so leaving this field out
++       * fails the ad set create outright:
++       *
++       *     code 100 / subcode 2490487 / OAuthException / "Invalid parameter"
++       *     "Bid amount or bid constraints required: For bid cap you must
++       *      provide bid amount field to set a bid cap. For ROAS goal, you
++       *      must provide roas average floor in bid constraints and 'VALUE'
++       *      as optimization goal."
++       *
++       * `bid_amount` is required only for LOWEST_COST_WITH_BID_CAP and
++       * COST_CAP. LOWEST_COST_WITHOUT_CAP needs none, which is why it is the
++       * right answer here rather than inventing a cap: a demo that must never
++       * spend should not carry a made-up monetary figure, and "Meta bids
++       * automatically" is a sentence the screencast can say without
++       * qualification. LINK_CLICKS is in this strategy's compatible-objective
++       * list, so the pairing below is supported.
++       *
++       * ON THE AD SET, NOT THE CAMPAIGN. Meta: "If you do not enable campaign
++       * budget optimization, you should set bid_strategy at ad set level."
++       * Our budget is the `daily_budget` on this ad set, not on the campaign,
++       * so this is the level that owns it. Setting it on the campaign instead
++       * would be asserting a campaign-budget arrangement we do not have.
++       *
++       * No interaction with `is_adset_budget_sharing_enabled`: 4834005 ("cannot
++       * enable ad set budget sharing without bid strategy") only binds when
++       * sharing is on, and we send it false.
++       */
++      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+       daily_budget: '1000', // $10.00, in account currency minor units. Never spent.
+       promoted_object: JSON.stringify({ product_set_id: productSet.id }),
+       targeting: JSON.stringify(targeting),
