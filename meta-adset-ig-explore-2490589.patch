@@ -1,0 +1,52 @@
+diff --git a/src/lib/meta/campaigns.ts b/src/lib/meta/campaigns.ts
+index dddec9d..f4aac09 100644
+--- a/src/lib/meta/campaigns.ts
++++ b/src/lib/meta/campaigns.ts
+@@ -322,11 +322,46 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
+    * `claude/meta-marketplace.md` §2). This is the line that makes "your
+    * inventory in Facebook Marketplace" a true sentence.
+    */
++  /*
++   * PLACEMENTS ARE DEPRECATED AT RUNTIME, NOT IN THE DOCS. Read this before
++   * adding one back.
++   *
++   * `instagram_positions` used to include `explore`. On v25.0 that fails the
++   * ad set create outright:
++   *
++   *     code 100 / subcode 2490589 / OAuthException / "Invalid parameter"
++   *     "IG Explore placement is deprecated for this API version and cannot
++   *      be selected, please remove it from your targeting."
++   *
++   * The trap worth remembering: **Meta's own Placement Targeting reference
++   * still lists `explore` as a valid value**, alongside stream, story,
++   * explore_home, reels, profile_feed, ig_search and profile_reels. The v25.0
++   * changelog does not mention it either. Neither page is wrong about older
++   * versions — they are simply not tracking what v25.0 enforces. So for
++   * placements the API is the source of truth and the documentation is not,
++   * which is the reverse of every other field in this file.
++   *
++   * Consequences for whoever edits this list next:
++   *
++   *   - Do not add a placement because the reference says it exists. The only
++   *     evidence that counts is a successful create on the pinned version.
++   *   - Meta names one offending placement per refusal, so a list with two
++   *     dead entries costs two deploys. Add placements one at a time.
++   *   - `marketplace` is deliberate and load-bearing: it is what makes "your
++   *     inventory in Facebook Marketplace" a true sentence, and it is open to
++   *     everyone with no allowlist (`claude/meta-marketplace.md` §2). If it
++   *     ever starts refusing, that is a product problem, not a tidy-up.
++   *
++   * `feed`, `marketplace` and `search` are kept because nothing refused them —
++   * the 2490589 above named Instagram Explore and only Instagram Explore. That
++   * is not proof they are safe, but removing them on suspicion would be
++   * guessing, and guessing is what this project keeps paying for.
++   */
+   const targeting: Record<string, unknown> = {
+     geo_locations: { countries: ['US'] },
+     publisher_platforms: ['facebook', 'instagram'],
+     facebook_positions: ['feed', 'marketplace', 'search'],
+-    instagram_positions: ['stream', 'explore'],
++    instagram_positions: ['stream'],
+   };
+ 
+   const adSet = await graph<{ id: string }>(`${act}/adsets`, {
