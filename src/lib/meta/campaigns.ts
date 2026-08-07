@@ -273,8 +273,11 @@ export type DemoCampaignResult = {
    * Surfaced rather than hidden because it is the fastest way to notice, on
    * camera, that a previous take was not cleaned up — "created" and "reused"
    * look identical in the id list otherwise.
+   *
+   * No `creative` key: the creative is never adopted, so it is always created.
+   * See the note at its call site for why it is the exception.
    */
-  adopted: { campaign: boolean; adSet: boolean; creative: boolean };
+  adopted: { campaign: boolean; adSet: boolean };
 };
 
 /**
@@ -524,16 +527,38 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * we have not been granted rights to run ads from, which is precisely what
    * `pages_manage_ads` grants and precisely what its screencast has to show.
    */
+  /*
+   * THE CREATIVE IS NEVER ADOPTED — always created fresh. This is the one place
+   * that breaks the adopt-or-create pattern used everywhere else in this file,
+   * and the asymmetry is deliberate.
+   *
+   * THE RULE: only adopt what the operator can delete.
+   *
+   * A campaign and an ad set are visible in Ads Manager and can be removed there
+   * in two clicks, so adopting them is safe — someone who wants a clean build
+   * can get one. An ad creative cannot. Because this demo deliberately stops
+   * before creating an Ad (see below), the creative is an orphan attached to
+   * nothing, and orphan creatives appear in no Ads Manager surface at all. The
+   * only way to remove one is `DELETE /{creative_id}` against the Graph API.
+   *
+   * Adopting it therefore created a state the operator could not reset: delete
+   * the campaign, press the button again, and the result block would report the
+   * creative as reused rather than created — with no way to make it say
+   * "created" again short of hand-rolling an API call.
+   *
+   * That is not cosmetic. The creative id is the *entire* evidence for
+   * `pages_manage_ads`, and the App Review description for that permission says
+   * the creative is created. A recording that shows it being reused contradicts
+   * the description it is submitted with, which is an ordinary way for a
+   * submission to be rejected.
+   *
+   * The cost of not adopting is a few duplicate creatives on the ad account.
+   * They are invisible, unattached, and cannot deliver. That is a much cheaper
+   * problem than an unresettable demo.
+   */
   const creativeName = `Rooftop — ${dealerName} — dynamic vehicle creative`.slice(0, 100);
 
-  const priorCreative = await findLiveByName<{ id: string; name?: string; status?: string }>(
-    `${act}/adcreatives`,
-    token,
-    'id,name,status',
-    creativeName,
-  );
-
-  const creative = priorCreative ?? await graph<{ id: string }>(`${act}/adcreatives`, {
+  const creative = await graph<{ id: string }>(`${act}/adcreatives`, {
     method: 'POST',
     token,
     params: {
@@ -606,7 +631,6 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     adopted: {
       campaign: Boolean(priorCampaign),
       adSet: Boolean(priorAdSet),
-      creative: Boolean(priorCreative),
     },
   };
 }

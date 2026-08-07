@@ -190,15 +190,12 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <Row k="creative" v={state.data.creativeId} />
               <Row k="status" v={state.data.status} />
             </dl>
-            {state.data.adopted.campaign ||
-            state.data.adopted.adSet ||
-            state.data.adopted.creative ? (
+            {state.data.adopted.campaign || state.data.adopted.adSet ? (
               <p className="text-[11px] text-emerald-800">
                 Reused what was already there rather than duplicating it:{' '}
                 {[
                   state.data.adopted.campaign && 'campaign',
                   state.data.adopted.adSet && 'ad set',
-                  state.data.adopted.creative && 'creative',
                 ]
                   .filter(Boolean)
                   .join(', ')}
