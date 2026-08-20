@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Features — Rooftop Auto</title>
+<meta name="description" content="Everything in the $99: inventory and aging, your dealer website on your domain, live Meta catalog sync, Marketplace placement, Lot Walk and the event log, multi-rooftop and lot transfers. Plus a straight answer on what the price does not include.">
+<link rel="canonical" href="https://rooftopauto.com/features/">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#0f1620">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Rooftop Auto — the whole feature list, including the parts nobody else prints">
+<meta property="og:description" content="Every feature in the ninety-nine dollars, what is still being built, and a plain statement of which channels are your own contract and which ones no vendor on earth can sell you.">
+<meta property="og:image" content="https://rooftopauto.com/img/shot-syndication.jpg">
+<meta property="og:url" content="https://rooftopauto.com/features/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,600;0,700;0,800;1,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============ tokens ============ */
+:root{
+  --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
+  --line:#e3e7ec; --line2:#eef1f4; --bg:#fff; --wash:#f5f7fa;
+  --brand:#3D8BFF; --brand2:#6BA6FF; --brand-dk:#1F6FEA; --brand-wash:#EAF2FF;
+  --brand-lt:#8FBCFF;
+  --amber:#FFB020; --amber-dk:#B87700; --amber-wash:#FFF4E0;
+  --ok:#15a34a; --warn:#c9760a; --err:#cf2b26;
+  --ff:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --fh:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --fm:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --max:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--ff);color:var(--ink);background:var(--bg);
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;height:auto;display:block}
+h1,h2,h3,h4{margin:0;font-family:var(--fh);letter-spacing:-.03em;line-height:1.12;font-weight:800}
+h1{font-size:clamp(34px,5vw,58px)}
+h2{font-size:clamp(27px,3.4vw,40px)}
+h3{font-size:clamp(20px,2vw,25px);letter-spacing:-.02em}
+p{margin:0}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+.narrow{max-width:760px}
+.eyebrow{font-family:var(--fh);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brand-dk)}
+.eyebrow.on-dark{color:var(--brand-lt)}
+.eyebrow.amber{color:var(--amber-dk)}
+.eyebrow.amber.on-dark{color:var(--amber)}
+.lede{font-size:clamp(17px,1.6vw,20px);color:var(--ink2);line-height:1.62}
+.muted{color:var(--ink3)}
+.sm{font-size:14.5px}
+.tiny{font-size:13px}
+.center{text-align:center}
+
+/* ============ buttons ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:14px 24px;border-radius:11px;font-family:var(--fh);font-weight:700;font-size:16px;
+  background:var(--brand);color:#fff;transition:.15s;white-space:nowrap;border:0;cursor:pointer}
+.btn:hover{background:var(--brand-dk);transform:translateY(-1px)}
+.btn.big{padding:17px 30px;font-size:17.5px}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.ghost:hover{background:var(--wash);border-color:var(--ink4)}
+.btn.on-dark{background:#fff;color:var(--ink)}
+.btn.on-dark:hover{background:#e9ecf1}
+.btn.ghost.on-dark{background:transparent;color:#fff;border-color:#39434f}
+.btn.ghost.on-dark:hover{background:#1b2431;border-color:#5b6674}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ============ logo ============ */
+.logo{display:flex;align-items:center;gap:11px}
+.logo svg{flex:0 0 auto}
+.stackt{display:flex;flex-direction:column}
+.wordmark{font-family:var(--fh);font-style:italic;font-weight:900;font-size:20px;
+  letter-spacing:-.5px;color:#fff;line-height:1;white-space:nowrap}
+.wordmark i{font-style:italic;color:var(--brand)}
+.logo .sub{font-size:9.5px;font-weight:600;letter-spacing:1.7px;color:#8e97a6;
+  text-transform:uppercase;margin-top:5px;font-family:var(--ff);font-style:normal;line-height:1}
+
+/* ============ nav ============ */
+.nav{position:sticky;top:0;z-index:50;background:rgba(15,22,32,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid #1f2835}
+.nav .in{max-width:var(--max);margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:26px}
+.navlinks{display:flex;gap:24px;font-size:15px;font-weight:500;color:#b6bec9}
+.navlinks a:hover{color:#fff}
+.navlinks a.here{color:#fff;font-weight:600}
+.nav .btn{padding:10px 18px;font-size:14.5px}
+@media(max-width:1020px){.nav .in{gap:18px}.navlinks{gap:15px;font-size:14.5px}}
+@media(max-width:900px){.navlinks{display:none}}
+@media(max-width:520px){
+  .nav .in{gap:10px;padding:10px 16px}
+  .wordmark{font-size:17px}
+  .logo{gap:8px}
+  .logo svg{width:29px;height:26px}
+  .logo .sub{font-size:8.5px;letter-spacing:1.3px;margin-top:4px}
+  .nav .btn{padding:9px 14px;font-size:13.5px}
+}
+
+/* ============ hero ============ */
+.hero{background:var(--ink);color:#fff;padding:72px 0 66px;overflow:hidden;position:relative}
+.hero:before{content:"";position:absolute;inset:0;
+  background:radial-gradient(900px 460px at 50% -10%,rgba(61,139,255,.32),transparent 68%)}
+.hero .in{position:relative}
+.hero h1{max-width:19ch;margin-inline:auto}
+.hero h1 em{font-style:normal;color:var(--brand-lt)}
+.hero .lede{color:#b9c1cc;max-width:64ch;margin:22px auto 0}
+.hero .btns{justify-content:center;margin-top:30px}
+
+/* ============ sections ============ */
+section{padding:76px 0}
+section[id],header[id]{scroll-margin-top:74px}
+.wash{background:var(--wash)}
+.dark{background:var(--ink);color:#fff}
+.dark .lede{color:#b9c1cc}
+.dark h2,.dark h3{color:#fff}
+.shead{max-width:680px}
+.shead h2{margin-top:14px}
+.shead .lede{margin-top:16px}
+
+/* ============ category jump nav ============ */
+.catnav{background:#fff;border-bottom:1px solid var(--line);padding:16px 0}
+.catnav .row{display:flex;flex-wrap:wrap;gap:8px}
+.catnav a{display:inline-block;padding:7px 13px;border:1px solid var(--line);border-radius:99px;
+  font-size:14px;font-weight:600;color:var(--ink2);background:#fff;transition:.14s;line-height:1.3}
+.catnav a:hover{border-color:var(--brand);color:var(--brand-dk);background:var(--brand-wash)}
+
+/* ============ feature groups ============ */
+.grp+.grp{margin-top:64px}
+.grp .ghead{border-top:2px solid var(--ink);padding-top:18px;max-width:760px}
+.dark .grp .ghead{border-top-color:#39434f}
+.grp .ghead h3{margin-top:11px}
+.grp .ghead p{margin-top:11px;color:var(--ink3);font-size:15.5px;max-width:64ch}
+.dark .grp .ghead p{color:#8e97a6}
+.fgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1px;margin-top:26px;
+  background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.dark .fgrid2{background:#151d29;border-color:#2b3542}
+.feat{background:#fff;padding:17px 19px 18px;box-shadow:0 0 0 1px var(--line)}
+.dark .feat{background:#151d29;box-shadow:0 0 0 1px #2b3542}
+.feat h4{font-family:var(--fh);font-weight:700;font-size:16px;letter-spacing:-.01em;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.3}
+.feat p{margin-top:6px;font-size:14.5px;color:var(--ink3);line-height:1.52}
+.dark .feat p{color:#98a2af}
+.feat.soon h4{color:var(--ink2)}
+.dark .feat.soon h4{color:#c3c9d3}
+.pill{display:inline-block;vertical-align:1px;font-family:var(--fh);font-size:10px;font-weight:800;
+  letter-spacing:1.3px;text-transform:uppercase;
+  padding:3px 7px;border-radius:5px;background:var(--amber-wash);color:var(--amber-dk);
+  white-space:nowrap;line-height:1.4;flex:0 0 auto}
+.callout .pill{background:#fff;box-shadow:0 0 0 1px rgba(184,119,0,.35)}
+.dark .pill{background:rgba(255,176,32,.16);color:var(--amber)}
+.pill.free{background:#e6f6ec;color:#0e7a37}
+.dark .pill.free{background:rgba(21,163,74,.18);color:#7bd8a4}
+
+/* ============ the honesty band ============ */
+.pband{background:linear-gradient(150deg,#0a2447,#0f1620 64%);color:#fff;border-radius:18px;
+  padding:clamp(30px,5vw,56px)}
+.pband h2{max-width:22ch;color:#fff}
+.pband .lede{color:#c3c9d3;max-width:68ch;margin-top:20px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+@media(max-width:900px){.three{grid-template-columns:1fr}}
+.vbox{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:20px 22px}
+.vbox h4{font-family:var(--fh);font-size:12px;letter-spacing:1.6px;text-transform:uppercase;
+  color:#8e97a6;font-weight:800;line-height:1.5}
+.vbox.us h4{color:#7bd8a4}
+.vbox.mid h4{color:var(--brand-lt)}
+.vbox.no h4{color:#ff9a94}
+.vbox ul{margin:13px 0 0;padding-left:19px;color:#c3c9d3;font-size:15px;line-height:1.75}
+.vbox p{margin-top:13px;font-size:14px;color:#8e97a6;line-height:1.6}
+
+/* ============ timing table ============ */
+.timing{margin-top:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;max-width:660px}
+.dark .timing{border-color:#2b3542;background:#151d29}
+.timing div{display:flex;justify-content:space-between;gap:14px;padding:11px 16px;font-size:14.5px;
+  border-bottom:1px solid var(--line2)}
+.dark .timing div{border-bottom-color:#232d3a}
+.timing div:last-child{border-bottom:0}
+.timing b{font-weight:600}
+.timing span{color:var(--ink3);font-family:var(--fm);font-size:13px;white-space:nowrap}
+.dark .timing span{color:#8e97a6}
+
+/* ============ callout ============ */
+.callout{border-left:3px solid var(--brand);background:var(--brand-wash);border-radius:0 11px 11px 0;
+  padding:18px 22px;margin-top:26px;max-width:74ch}
+.callout b{font-family:var(--fh);font-weight:800}
+.callout p{font-size:15.5px;color:var(--ink2)}
+.callout p+p{margin-top:10px}
+.callout.amber{border-left-color:var(--amber);background:var(--amber-wash)}
+
+/* ============ closing cta ============ */
+.cta{background:linear-gradient(140deg,#10294c,#0f1620 62%);color:#fff;border-radius:18px;
+  padding:clamp(32px,5vw,56px);text-align:center}
+.cta h2{color:#fff;max-width:20ch;margin:14px auto 0}
+.cta .lede{color:#c3c9d3;max-width:56ch;margin:18px auto 0}
+.cta .btns{justify-content:center;margin-top:28px}
+
+/* ============ footer ============ */
+footer{background:var(--ink);color:#8e97a6;padding:52px 0 40px;border-top:1px solid #1f2835;font-size:14.5px}
+footer a:hover{color:#fff}
+.fgrid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+.fhead{font-family:var(--fh);color:#fff;font-weight:700;margin-bottom:10px}
+.fbot{margin-top:34px;padding-top:24px;border-top:1px solid #1f2835;display:flex;gap:16px;
+  flex-wrap:wrap;justify-content:space-between;font-size:13.5px}
+</style>
+</head>
+<body>
+
+<!-- ======================= nav ======================= -->
+<nav class="nav"><div class="in">
+  <a class="logo" href="../" aria-label="Rooftop Auto home">
+    <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
+      <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+      <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
+      <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
+    </svg>
+    <span class="stackt">
+      <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+      <span class="sub">A Litespeed company</span>
+    </span>
+  </a>
+  <div class="navlinks">
+    <a href="./" class="here">Features</a>
+    <a href="../#advertise">Advertising</a>
+    <a href="../#lotwalk">Lot Walk</a>
+    <a href="../#pricing">Pricing</a>
+    <a href="../#faq">FAQ</a>
+  </div>
+  <div style="flex:1"></div>
+  <a class="btn" href="../demo/">See the demo</a>
+</div></nav>
+
+<!-- ======================= hero ======================= -->
+<header class="hero" id="top"><div class="wrap in center">
+  <div class="eyebrow on-dark">Everything in the ninety-nine dollars</div>
+  <h1 style="margin-top:18px">The whole list. <em>Including the parts nobody else prints.</em></h1>
+  <p class="lede">Below is every feature Rooftop Auto ships today, every one we are still building,
+    and — at the bottom — a straight answer about which channels your money actually reaches. Most
+    feature pages in this category are a wall of checkmarks with the interesting question carefully
+    left out. This one answers it.</p>
+  <div class="btns">
+    <a class="btn big on-dark" href="../demo/">Walk through the demo &rarr;</a>
+    <a class="btn big ghost on-dark" href="../#contact">Book 15 minutes</a>
+  </div>
+</div></header>
+
+<!-- ======================= category jump nav ======================= -->
+<div class="catnav"><div class="wrap"><div class="row">
+  <a href="#inventory">Inventory &amp; aging</a>
+  <a href="#storefront">Your website &amp; domain</a>
+  <a href="#meta">Meta catalog &amp; Marketplace</a>
+  <a href="#syndication">Syndication</a>
+  <a href="#lotwalk">Lot Walk &amp; the log</a>
+  <a href="#merch">Merchandising &amp; photos</a>
+  <a href="#reporting">Reporting</a>
+  <a href="#leads">Leads &amp; follow-up</a>
+  <a href="#groups">Multiple lots</a>
+  <a href="#fi">Deals &amp; F&amp;I</a>
+  <a href="#account">Accounts &amp; your data</a>
+  <a href="#truth" style="border-color:var(--brand);color:var(--brand-dk);background:var(--brand-wash)">What the $99 does <em>not</em> buy</a>
+</div></div></div>
+
+<!-- ======================= how to read this ======================= -->
+<section style="padding:44px 0 0"><div class="wrap">
+  <div class="callout amber">
+    <p><b>How to read this page.</b> Anything without a tag is running in the product right now.
+      Anything marked <span class="pill">Building</span> is on the roadmap and is not in your hands
+      yet — we would rather you find that out here than on day forty. Founding dealers get the
+      building items as they land, at the same price.</p>
+  </div>
+</div></section>
+
+<!-- ======================= inventory ======================= -->
+<section id="inventory"><div class="wrap">
+
+  <div class="grp">
+    <div class="ghead">
+      <div class="eyebrow">01 — Inventory &amp; aging</div>
+      <h3>The filing cabinet part, done properly and then got out of the way.</h3>
+      <p>This is table stakes and we treat it that way. What matters is that every number here is
+        the same number the ads, the website and the reporting run off — there is one record, not a
+        copy per system.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Unlimited units</h4>
+        <p>No per-unit pricing, no tier that steps up at 75 cars, no reason to hold inventory back out of the system.</p></div>
+      <div class="feat"><h4>One record per VIN</h4>
+        <p>Year, make, model, trim, mileage, colors, drivetrain, options, title status, cost, pack, recon, price and photos in one place.</p></div>
+      <div class="feat"><h4>Days in stock, counted for you</h4>
+        <p>Every unit carries its real age from the day you acquired it. It does not reset because somebody re-saved the record.</p></div>
+      <div class="feat"><h4>Aging buckets</h4>
+        <p>0&ndash;15, 16&ndash;30, 31&ndash;45, 46&ndash;60 and 61+, color-coded everywhere a car appears so you see age without doing math.</p></div>
+      <div class="feat"><h4>At-risk list</h4>
+        <p>Units past thirty days surface on their own list before they become a problem, with 46&ndash;60 shown as a louder state.</p></div>
+      <div class="feat"><h4>Water-unit flag</h4>
+        <p>Any car where your total money in is above market gets flagged automatically, so it is a decision instead of a surprise at wholesale.</p></div>
+      <div class="feat"><h4>Recon status and recon days</h4>
+        <p>In recon, days burned, and front-line ready as a real state — because a car nobody has photographed is not for sale yet.</p></div>
+      <div class="feat"><h4>Price history</h4>
+        <p>Every price change on a unit is kept, with who made it and when. This is what lets you see what a cut actually did.</p></div>
+      <div class="feat"><h4>We move your inventory over</h4>
+        <p>Migration is done for you, not handed to you as a CSV template. Most lots are live in a few days, photos included.</p></div>
+      <div class="feat soon"><h4>VIN scan and decode <span class="pill">Building</span></h4>
+        <p>Point a phone at the windshield and have year, make, model, trim and factory options fill themselves in.</p></div>
+      <div class="feat soon"><h4>Live market value <span class="pill">Building</span></h4>
+        <p>Real market pricing behind the water-unit math instead of a number somebody typed in once.</p></div>
+      <div class="feat soon"><h4>Vehicle history on the listing <span class="pill">Building</span></h4>
+        <p>History report surfaced on the vehicle page, where a shopper is already deciding whether to trust you.</p></div>
+      <div class="feat soon"><h4>Automatic DMS import <span class="pill">Building</span></h4>
+        <p>A standing pull from Frazer, DealerCenter or AutoManager. Until this lands, the migration above is done by hand &mdash; by us.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= storefront ======================= -->
+<section class="wash" id="storefront"><div class="wrap">
+
+  <div class="grp">
+    <div class="ghead">
+      <div class="eyebrow">02 — Your website &amp; your domain</div>
+      <h3>Included in the price, because it is where your ad traffic lands.</h3>
+      <p>A vehicle page is not a brochure. It is the last screen between the click you paid for and
+        the phone call, and if it is slow or thin the whole ad budget takes the hit. That is why the
+        site is in the ninety-nine dollars instead of being a second invoice.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Full dealer storefront</h4>
+        <p>Inventory browsing, filters, vehicle detail pages and lead capture, running off the same record as everything else.</p></div>
+      <div class="feat"><h4>Live the day you sign up</h4>
+        <p>Your store works at a rooftopauto.com address before you own a domain, and that address keeps working forever after.</p></div>
+      <div class="feat"><h4>Three layouts</h4>
+        <p>Classic for browsing a 40+ car lot, Showcase for photo-led and specialty inventory, Lot List for fast scanning on a phone.</p></div>
+      <div class="feat"><h4>Your logo, your colors</h4>
+        <p>Upload a logo and set a palette and the whole site rebrands. No theme ticket, no waiting on a website guy.</p></div>
+      <div class="feat"><h4>Bring the domain you already own</h4>
+        <p>Connect it and we handle the rest. Your current website keeps running until you say go &mdash; nothing changes underneath you.</p></div>
+      <div class="feat"><h4>DNS instructions in English</h4>
+        <p>We look at who actually hosts your domain and give you the exact records to change, for twenty of the common hosts by name.</p></div>
+      <div class="feat"><h4>We never touch your email</h4>
+        <p>Your existing mail records are shown to you unchanged, next to the records you are adding. The cutover cannot silently break them.</p></div>
+      <div class="feat"><h4>Your old settings, written down first</h4>
+        <p>We record what your DNS looked like before we changed anything, so backing out is a value you copy, not a phone call.</p></div>
+      <div class="feat"><h4>Go-live checklist</h4>
+        <p>Before a domain points at your store we check it is registered, branded, has a public car, and can get a certificate &mdash; with an override if you want it anyway.</p></div>
+      <div class="feat"><h4>SSL, automatic</h4>
+        <p>Certificates issue themselves on every connected domain. There is nothing to buy, install or renew.</p></div>
+      <div class="feat"><h4>No staging drift</h4>
+        <p>The preview address serves exactly what your domain will serve. There is no publish button and no "it looked different before."</p></div>
+      <div class="feat"><h4>Search engines kept straight</h4>
+        <p>The preview address stays out of Google until your real domain is live, then points search engines at your domain instead of ours.</p></div>
+      <div class="feat soon"><h4>Buy your domain inside Rooftop <span class="pill">Building</span></h4>
+        <p>Search, register and connect in one step, with the registration in your name. Built and tested; not switched on for live purchases yet.</p></div>
+      <div class="feat soon"><h4>Rehearsal address <span class="pill">Building</span></h4>
+        <p>preview.yourdomain.com, so you can click the finished site at your own address before anything cuts over.</p></div>
+      <div class="feat soon"><h4>Shop by payment <span class="pill">Building</span></h4>
+        <p>Let shoppers filter your lot by monthly payment instead of price, which is how most of them are actually shopping.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= meta ======================= -->
+<section class="dark" id="meta"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow on-dark">03 — Meta catalog, Marketplace &amp; advertising</div>
+      <h3>The reason this platform exists.</h3>
+      <p>Catalog ads are the best-performing thing an independent lot can run on Facebook and
+        Instagram, and almost nobody runs them properly, because keeping a vehicle catalog accurate
+        by hand is miserable. The moment it drifts you are paying for clicks on cars that are gone.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Live Meta vehicle feed</h4>
+        <p>Built to Meta's Automotive Inventory Ads spec, served per rooftop, refreshed continuously. A unit you enter this morning is in the catalog this morning.</p></div>
+      <div class="feat"><h4>Connect Facebook in one login</h4>
+        <p>One consent screen finds your Page, ad account, catalog and pixel and links them. Our Meta app is reviewed and approved for exactly this.</p></div>
+      <div class="feat"><h4>We build the catalog for you</h4>
+        <p>Most lots do not have one. We create it inside <em>your</em> business account, not ours, so the retargeting history you build is yours.</p></div>
+      <div class="feat"><h4>You keep everything if you leave</h4>
+        <p>Catalog, pixel history and audiences live in your business account. You can revoke our access yourself, from your side, any time.</p></div>
+      <div class="feat"><h4>Survives staff turnover</h4>
+        <p>The connection is not tied to the salesperson who set it up. When they leave, your ads do not stop.</p></div>
+      <div class="feat"><h4>Field-level eligibility, with the fix</h4>
+        <p>When a car cannot be listed you get the reason and what to do about it &mdash; not a red dot, and never a unit that silently vanishes from the feed.</p></div>
+      <div class="feat"><h4>Marketplace eligibility checked up front</h4>
+        <p>The Marketplace surface has its own rules: over 500 miles on used units, two photos minimum, lot coordinates, specific image shapes. We check every one before Meta does.</p></div>
+      <div class="feat"><h4>Sold units come down</h4>
+        <p>A car you mark sold stops being advertised. Stop paying for clicks on a truck that left the lot last Thursday.</p></div>
+      <div class="feat soon"><h4>Marketplace ad placement <span class="pill">Building</span></h4>
+        <p>Your catalog campaign running in the Facebook Marketplace surface itself, alongside feed and search. Sponsored placement, and it is the only route into Marketplace that exists &mdash; see the bottom of this page.</p></div>
+      <div class="feat soon"><h4>Automatic vehicle sets <span class="pill">Building</span></h4>
+        <p>Ad audiences built off your real inventory &mdash; aged units, price bands, one store's cars &mdash; instead of rebuilt by hand every month.</p></div>
+      <div class="feat soon"><h4>Google Vehicle Ads feed <span class="pill">Building</span></h4>
+        <p>A Merchant Center vehicle feed generated from the same record, so Google runs off your inventory too.</p></div>
+      <div class="feat soon"><h4>Facebook lead ads into your inbox <span class="pill">Building</span></h4>
+        <p>Lead-ad submissions landing in Rooftop with the vehicle attached, instead of an email nobody opens.</p></div>
+      <div class="feat soon"><h4>Google Business Profile posting <span class="pill">Building</span></h4>
+        <p>Push inventory to your Google profile and answer reviews without opening another tab.</p></div>
+    </div>
+
+    <div class="callout" style="background:rgba(61,139,255,.12);border-left-color:var(--brand-lt);color:#c3c9d3">
+      <p style="color:#dfe4ea"><b>Setting up a lot with nothing at all is a phone call, not a wizard.</b></p>
+      <p style="color:#a8b2be">If you have never run a Facebook ad and have no ad account, Meta does not let any
+        software create one on your behalf. We do that part with you on a screen share during onboarding.
+        Every vendor in this category has the same limit; we are just telling you about it in advance.</p>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= syndication ======================= -->
+<section id="syndication"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">04 — Syndication &amp; channels</div>
+      <h3>One record, every channel, one change &mdash; and a real clock on each one.</h3>
+      <p>Most tools show a green checkmark the second you hit save. That checkmark is their own
+        queue, not the channel. It is why a shopper walks in on Saturday quoting a price you moved
+        off two weeks ago.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Channel status per VIN</h4>
+        <p>A grid of every vehicle against every channel: off, queued, syncing, live or errored. You can see which car is where without logging into anything.</p></div>
+      <div class="feat"><h4>The channel's actual complaint</h4>
+        <p>When a listing is rejected you get the real reason &mdash; image too small, missing attribute, unmapped trim &mdash; on the unit and in your feed.</p></div>
+      <div class="feat"><h4>Honest timing, not checkmarks</h4>
+        <p>Each channel shows how long it really takes to pick a change up, so you know whether the price is live yet or live in the morning.</p></div>
+      <div class="feat"><h4>Marketplace leads, wherever they come from</h4>
+        <p>Every listing site emails leads to an address you control. Point them at Rooftop and Cars.com, Autotrader, CarGurus and Facebook all land in one place.<span class="pill" style="margin-left:6px">Building</span></p></div>
+      <div class="feat soon"><h4>Automatic push to the aggregators <span class="pill">Building</span></h4>
+        <p>The scheduled job that delivers your file feed to each destination on its own clock, without anybody pressing anything.</p></div>
+      <div class="feat soon"><h4>Generic CSV / XML export <span class="pill">Building</span></h4>
+        <p>The file format the long tail of listing sites still asks for, delivered over FTP or a URL they can fetch.</p></div>
+      <div class="feat soon"><h4>Per-channel overrides <span class="pill">Building</span></h4>
+        <p>Include or exclude a unit per channel, and use a different description or photo set where a destination needs one.</p></div>
+    </div>
+
+    <div class="timing">
+      <div><b>Your own website</b><span>instant</span></div>
+      <div><b>Meta Catalog</b><span>~15 min re-crawl</span></div>
+      <div><b>Facebook Marketplace placement</b><span>~1 hr</span></div>
+      <div><b>Google Vehicle Ads</b><span>up to 4 hrs</span></div>
+      <div><b>Cars.com</b><span>next 2:00 AM feed</span></div>
+      <div><b>Autotrader</b><span>next 1:00 AM feed</span></div>
+      <div><b>CarGurus</b><span>~6 hr pickup</span></div>
+    </div>
+
+    <div class="callout">
+      <p><b>How connecting an aggregator actually works, since nobody explains this.</b></p>
+      <p>There is no "sign in with CarGurus" button anywhere in this industry, and no vendor has one.
+        Cars.com, Autotrader and CarGurus each provision one registered feed source per dealer
+        account, by hand, through your account rep. So we generate your feed, you tell your rep your
+        inventory now comes from Rooftop, and they switch the source over. It takes days, not
+        minutes, and we do the back-and-forth for you as part of onboarding.</p>
+      <p>Leads coming back the other way are instant and free: you paste one Rooftop address into the
+        lead-notification field of each account you already have, and they all start arriving in one
+        inbox. That part needs permission from nobody.</p>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= lot walk ======================= -->
+<section class="wash" id="lotwalk"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">05 — Lot Walk &amp; the event log</div>
+      <h3>Every move your lot makes, written down and kept.</h3>
+      <p>Most dealer software holds the current state of a car and quietly overwrites the last one.
+        Lot Walk keeps the whole history: a real event, on a real VIN, with a person and a timestamp
+        on it. That log is what makes the reporting further down possible at all.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>The feed</h4>
+        <p>Acquired. Into recon. Photos up. Front-line ready. Price cut. Crossed thirty days. At risk. Water unit. Sold. Your home screen is what happened today.</p></div>
+      <div class="feat"><h4>Every card carries a number</h4>
+        <p>No card posts without days in stock, gross, views or dollars on it. That rule is enforced in the code, not by whoever wrote the card.</p></div>
+      <div class="feat"><h4>Comments, reactions and @mentions</h4>
+        <p>Your crew replies on the specific car instead of in a group text nobody can search three weeks later.</p></div>
+      <div class="feat"><h4>Post your own</h4>
+        <p>A composer for the things the system cannot know. Scoped to a rooftop so the other lot is not reading about your Tuesday.</p></div>
+      <div class="feat"><h4>Activity log mode</h4>
+        <p>Two people at the store and no appetite for a social feed? Flip the same stream to a plain timestamped dealer log. No avatars, no reactions, 120 rows a page.</p></div>
+      <div class="feat"><h4>House default, personal override</h4>
+        <p>The owner sets which view the store opens on. Anyone can choose differently for themselves and does not get overwritten when the owner changes their mind.</p></div>
+      <div class="feat"><h4>Switching loses nothing</h4>
+        <p>It is one stream shown two ways, so old comment threads survive a switch in either direction.</p></div>
+      <div class="feat"><h4>Management rails</h4>
+        <p>At-risk units, water units, the recon bay and inbound transfers sit beside the feed in both views, so the list you need is never a menu away.</p></div>
+      <div class="feat"><h4>Who is on the lot today</h4>
+        <p>A staff rail beside the feed, so you know who is around before you go looking for them.</p></div>
+      <div class="feat soon"><h4>Mute card types <span class="pill">Building</span></h4>
+        <p>Turn off the categories a given person does not need, so the porter is not reading pricing notes.</p></div>
+      <div class="feat soon"><h4>Roll-up digests <span class="pill">Building</span></h4>
+        <p>"Five units crossed thirty days this morning" as one card instead of five, on lots big enough to need it.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= merchandising ======================= -->
+<section id="merch"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">06 — Merchandising &amp; photos</div>
+      <h3>The part that decides whether the click was worth paying for.</h3>
+      <p>This group is the most honest one on the page: the copy tools are in, and the photo pipeline
+        is the next thing we ship. We would rather say so than show you a screenshot of it.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Headline and blurb per VIN</h4>
+        <p>Write real merchandising copy on the unit, once, and have it carry to the website and every channel that accepts it.</p></div>
+      <div class="feat"><h4>Copy follows the car</h4>
+        <p>Change a description and the site, the catalog and the feeds all pick it up. There is no second place to remember to edit.</p></div>
+      <div class="feat soon"><h4>Photo upload and delivery <span class="pill">Building</span></h4>
+        <p>Shoot on a phone, upload to the unit, served fast everywhere. This is the next thing on the build list &mdash; today we bring your existing photos across for you during migration.</p></div>
+      <div class="feat soon"><h4>AI vehicle descriptions <span class="pill">Building</span></h4>
+        <p>A first draft of the write-up generated from the car's own data, for you to edit rather than start from a blank box.</p></div>
+      <div class="feat soon"><h4>Background cleanup <span class="pill">Building</span></h4>
+        <p>Consistent backgrounds across a lot shot in three different weather conditions by two different people.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= reporting ======================= -->
+<section class="dark" id="reporting"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow on-dark">07 — Reporting</div>
+      <h3>Numbers you could not have run before, and none you cannot trust.</h3>
+      <p>Because every event is kept rather than overwritten, you can ask questions of your own lot
+        that no inventory system can answer: what recon actually takes by vehicle type, what a price
+        cut did to views in the seven days after it, what a unit is costing you per day it sits.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Days supply and turn rate</h4>
+        <p>Against a benchmark, on the dashboard, updated as the lot moves &mdash; not a spreadsheet you rebuild on the first of the month.</p></div>
+      <div class="feat"><h4>Aging at a glance</h4>
+        <p>Average age, at-risk count, aged count, water units and units in recon, all live.</p></div>
+      <div class="feat"><h4>VDP views per vehicle</h4>
+        <p>Seven-day and lifetime views on your own storefront, on the unit, next to its price history.</p></div>
+      <div class="feat"><h4>A conventional dashboard too</h4>
+        <p>Not everyone wants a feed. The numbers also live on a normal dashboard screen.</p></div>
+      <div class="feat soon"><h4>Cost per lead by channel <span class="pill">Building</span></h4>
+        <p>Ad spend divided by leads we counted ourselves. This is the number no dealer can currently see in one place anywhere.</p></div>
+      <div class="feat soon"><h4>Speed to lead <span class="pill">Building</span></h4>
+        <p>Median and worst first-response time today, by rep and by source, with an unanswered list that escalates.</p></div>
+      <div class="feat soon"><h4>Rep scoreboard <span class="pill">Building</span></h4>
+        <p>Ups taken, appointments set, shown, sold, closing percentage, average response time, touches per up.</p></div>
+      <div class="feat soon"><h4>Units and gross <span class="pill">Building</span></h4>
+        <p>By month, by salesperson, by lead source, with days-to-sale broken out by aging bucket.</p></div>
+      <div class="feat soon"><h4>Measured vs Reported <span class="pill">Building</span></h4>
+        <p>The dashboard will separate numbers we can actually see from numbers a marketplace told you. Deliberate, and the whole reason to trust the first column.</p></div>
+    </div>
+
+    <div class="callout" style="background:rgba(255,176,32,.1);border-left-color:var(--amber)">
+      <p style="color:#dfe4ea"><b>What we will never show you: marketplace stats.</b></p>
+      <p style="color:#a8b2be">Cars.com and Autotrader expose no reporting to anyone, and CarGurus' is
+        issued by hand to a short list of partners. Any product showing you marketplace views in its
+        own dashboard is either showing a number you typed in or scraping. We report on your
+        storefront and your leads, which we can actually measure, and we label it as such.</p>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= leads ======================= -->
+<section class="wash" id="leads"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">08 — Leads &amp; follow-up</div>
+      <h3>Mostly still being built, and worth knowing where it is going.</h3>
+      <p>Lead capture on your storefront works today. The rest of this group &mdash; the shared inbox,
+        the up sheet, the follow-up &mdash; is the next major body of work, and it is why the event log
+        was built the way it was.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Storefront lead capture</h4>
+        <p>Forms, click-to-call and text-us on every vehicle page, tied to the VIN the shopper was actually looking at.</p></div>
+      <div class="feat soon"><h4>One inbox for every marketplace <span class="pill">Building</span></h4>
+        <p>A dedicated address per lot that reads lead emails from Cars.com, Autotrader, CarGurus and Facebook and files them all in one place, with the VIN attached.</p></div>
+      <div class="feat soon"><h4>Source on every lead <span class="pill">Building</span></h4>
+        <p>Channel, campaign, the click that produced it and the vehicle it referenced, stored from the first day so the reporting above is possible.</p></div>
+      <div class="feat soon"><h4>Up sheet <span class="pill">Building</span></h4>
+        <p>The customer record, built in under twenty seconds on a phone, with license and VIN scanning.</p></div>
+      <div class="feat soon"><h4>One thread per customer <span class="pill">Building</span></h4>
+        <p>Texts, emails, calls and in-person notes in a single timeline, the same on the desk and on a phone in the lot.</p></div>
+      <div class="feat soon"><h4>Follow-up cadences <span class="pill">Building</span></h4>
+        <p>Front-loaded where it matters: minutes, then hours, then days, then stop. Not a forty-day drip nobody reads.</p></div>
+      <div class="feat soon"><h4>Up log with turn rotation <span class="pill">Building</span></h4>
+        <p>A visible "who is up next" for walk-ins and phone ups, which most dealer CRMs simply do not have.</p></div>
+      <div class="feat soon"><h4>Appointments <span class="pill">Building</span></h4>
+        <p>Set, confirmed, shown and no-show as real states, so the shown rate is a number instead of a feeling.</p></div>
+      <div class="feat soon"><h4>Texting from your own number <span class="pill">Building</span></h4>
+        <p>Two-way, with quiet hours and a single opt-out that stops every channel at once. Carrier registration takes weeks and we will tell you so up front.</p></div>
+      <div class="feat soon"><h4>Tracked calling <span class="pill">Building</span></h4>
+        <p>Recording, whisper, and call source in the same reporting as everything else &mdash; with the announcement on every call, in every state, not removable.</p></div>
+      <div class="feat soon"><h4>Consent ledger <span class="pill">Building</span></h4>
+        <p>Every opt-in stored with the timestamp, the IP, the exact wording shown and the page it came from. If you are ever asked to prove consent, you can.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= groups ======================= -->
+<section id="groups"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">09 — More than one lot</div>
+      <h3>Built in from the first day, not sold as an enterprise tier.</h3>
+      <p>Multi-rooftop is usually where dealer software starts charging differently and behaving
+        badly. Here it is the shape of the data model, which is why moving a car between your own
+        lots is a normal thing the software understands instead of a delete and a re-entry.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Every lot under one login</h4>
+        <p>Switch between rooftops without signing out, and see the group's numbers together when you want them.</p></div>
+      <div class="feat"><h4>Combined storefront</h4>
+        <p>Run separate sites per lot, or point all of them at one store &mdash; because a shopper does not care which of your lots a truck is parked on.</p></div>
+      <div class="feat"><h4>Lot transfers</h4>
+        <p>Start the move, see it in transit, mark it arrived. The car stays one record the whole way.</p></div>
+      <div class="feat"><h4>Both lots hear about it</h4>
+        <p>The receiving lot gets a card when the car leaves, not when it lands, and the porter can reply on that card.</p></div>
+      <div class="feat"><h4>Days in stock never resets</h4>
+        <p>A 52-day car is still a 52-day car at the new lot, and the card says so. There is a test that fails if that ever changes.</p></div>
+      <div class="feat"><h4>The fifteen-minute hop</h4>
+        <p>Already drove it over? One button records the move anyway, so short transfers stop being invisible.</p></div>
+      <div class="feat"><h4>Call a move off</h4>
+        <p>Cancels cleanly and corrects both lots, so nobody spends Friday looking for a car that was never coming.</p></div>
+      <div class="feat"><h4>Lot history per vehicle</h4>
+        <p>Every move a unit has made, including the ones that were called off.</p></div>
+      <div class="feat"><h4>On-the-way rail</h4>
+        <p>Inbound units listed at the receiving lot with a mark-arrived button, so the yard knows what to expect.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= f&i ======================= -->
+<section class="wash" id="fi"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">10 — Deals &amp; F&amp;I</div>
+      <h3>Not built yet. Here is the plan, and the line we will not cross.</h3>
+      <p>Everything in this group is roadmap. It is on the page so you can see where this is going
+        before you sign up, and so you can tell us which of it you would actually use.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat soon"><h4>Deal record <span class="pill">Building</span></h4>
+        <p>Sale price, trade, payoff, down, fees, front and back gross, lender, term, rate, payment, and funded / delivered / unwound as real states.</p></div>
+      <div class="feat soon"><h4>Unwinds that flow all the way back <span class="pill">Building</span></h4>
+        <p>Commission pulled, unit restored to inventory, ad platforms told the sale did not happen. The part everyone forgets.</p></div>
+      <div class="feat soon"><h4>Commission tracking <span class="pill">Building</span></h4>
+        <p>You define the pay plan &mdash; flat, percent of gross, mini, volume bonus, splits, house deals, draw &mdash; and we do the math, with a per-deal breakdown the rep can see.</p></div>
+      <div class="feat soon"><h4>Credit application capture <span class="pill">Building</span></h4>
+        <p>Taken on your storefront or on a tablet at the desk, instead of a clipboard somebody keys in twice.</p></div>
+      <div class="feat soon"><h4>Soft-pull prequal <span class="pill">Building</span></h4>
+        <p>Name and address in, a likely payment range out, matched against cars you actually have.</p></div>
+      <div class="feat soon"><h4>Real payment quotes <span class="pill">Building</span></h4>
+        <p>With actual tax, title and license for the customer's address, not a payment calculator that lies by forty dollars.</p></div>
+      <div class="feat soon"><h4>Boarding-ready export <span class="pill">Building</span></h4>
+        <p>One button producing the complete credit app and deal structure as a PDF and a structured file, ready to key into your existing lender portal.</p></div>
+      <div class="feat soon"><h4>E-signature on the paperwork around the deal <span class="pill">Building</span></h4>
+        <p>Buyer's guide, credit app, privacy notice, we-owe. Deliberately <em>not</em> retail installment contracts &mdash; those stay in the system your lenders already accept.</p></div>
+    </div>
+
+    <div class="callout amber">
+      <p><b>Two things Rooftop is not going to be.</b></p>
+      <p>It is not a DMS. Your DMS keeps the books, the deals, the titles and the floorplan, and it
+        should &mdash; we sit next to it. And it is not a payroll system: commission tracking is a
+        calculator you review and approve, not a paycheck.</p>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= account ======================= -->
+<section id="account"><div class="wrap">
+
+  <div class="grp" style="margin-top:0">
+    <div class="ghead">
+      <div class="eyebrow">11 — Accounts, security &amp; your data</div>
+      <h3>The unglamorous part your insurer is going to ask about.</h3>
+      <p>Independent dealers fall under the FTC Safeguards Rule, which means the software you keep
+        customer data in is now your problem too. These are the answers.</p>
+    </div>
+    <div class="fgrid2">
+      <div class="feat"><h4>Real logins with roles</h4>
+        <p>Owner, sales, recon and porter, each on their own account. Nobody shares a password taped to the monitor.</p></div>
+      <div class="feat"><h4>Your data is scoped to you</h4>
+        <p>Every screen and every query is fenced to your dealership at the database layer. Another dealer opening one of your links gets nothing.</p></div>
+      <div class="feat"><h4>It fails closed, not open</h4>
+        <p>A query that forgets to say which dealership it is for returns nothing rather than the next dealer's inventory &mdash; and the compiler enforces it, not a code review.</p></div>
+      <div class="feat"><h4>The domain is registered to you</h4>
+        <p>Your name and details go in the ownership record, not ours. If you leave, you take it.</p></div>
+      <div class="feat"><h4>No contract</h4>
+        <p>Month to month. Cancel any time. The pitch is that this pays for itself in one extra unit turned; if it does not, you should not be locked in.</p></div>
+      <div class="feat soon"><h4>Billing inside the app <span class="pill">Building</span></h4>
+        <p>Card on file, invoices, and a warning in the product before a failed card can ever take your storefront down.</p></div>
+      <div class="feat soon"><h4>Vendor security paperwork <span class="pill">Building</span></h4>
+        <p>Security addendum, data processing agreement, written information security program and incident response plan &mdash; the packet your compliance checklist asks for.</p></div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- ======================= the honest band ======================= -->
+<section class="wash" id="truth"><div class="wrap"><div class="pband">
+  <div class="eyebrow on-dark">The part every other feature page leaves out</div>
+  <h2 style="margin-top:14px">What ninety-nine dollars buys, and what it cannot.</h2>
+  <p class="lede">Everyone in this category advertises "syndication to 400+ sites" and hopes you do
+    not ask the obvious follow-up question. So here is the answer before you ask it. There are three
+    kinds of channel, and only the first one is included in any vendor's monthly price &mdash; ours
+    or theirs.</p>
+
+  <div class="three">
+    <div class="vbox us">
+      <h4>Included, and free to send</h4>
+      <ul>
+        <li>Your own dealer website</li>
+        <li>Meta catalog &amp; Automotive Inventory Ads</li>
+        <li>Facebook Marketplace <em>ad placement</em></li>
+        <li>Google Vehicle Ads</li>
+        <li>The long-tail listing sites</li>
+      </ul>
+      <p>Nothing to transmit these costs anybody anything. You pay ad spend on the paid ones and
+        nothing on the rest.</p>
+    </div>
+    <div class="vbox mid">
+      <h4>Your contract &mdash; we feed it</h4>
+      <ul>
+        <li>Cars.com</li>
+        <li>Autotrader</li>
+        <li>CarGurus</li>
+        <li>Carfax listings</li>
+      </ul>
+      <p>These are subscriptions you hold directly, commonly $800&ndash;$3,000 a month each, and no
+        software company includes them at any price. We will take over the feed into the accounts
+        you already pay for, and we will not pretend ninety-nine dollars bought them.</p>
+    </div>
+    <div class="vbox no">
+      <h4>Not available to anyone</h4>
+      <ul>
+        <li>Free organic Facebook Marketplace listings</li>
+      </ul>
+      <p>Meta stopped distributing dealer inventory into Marketplace from feeds in September 2021 and
+        removed the vehicles tab from dealer Pages in 2023. Neither came back, and there is no partner
+        program to join. Any vendor selling you "automatic Marketplace posting" today is running a bot
+        against one of your salespeople's <em>personal</em> Facebook accounts, which Facebook
+        restricts. We will not put your people's accounts at risk, and Marketplace ad placement above
+        is the sanctioned way in.</p>
+    </div>
+  </div>
+
+  <p class="lede" style="margin-top:30px;max-width:70ch">If that reads like we just talked ourselves
+    out of four checkboxes, fair. But a dealer paying CarGurus two thousand a month at two hundred
+    dollars a lead deserves to hear this from a vendor once, and the one time it is going to happen
+    is before you sign up rather than ninety days after.</p>
+</div></div></section>
+
+<!-- ======================= cta ======================= -->
+<section><div class="wrap"><div class="cta">
+  <div class="eyebrow on-dark">Founding dealer pricing</div>
+  <h2>$99 a month per rooftop. Everything on this page that is shipped.</h2>
+  <p class="lede">Regular price is $149. No setup fee, no contract, and we move your inventory over
+    for you. Fifteen minutes on a screen share with your actual cars is the fastest way to find out
+    whether it beats what you are doing now.</p>
+  <div class="btns">
+    <a class="btn big on-dark" href="../#contact">Claim a founding spot</a>
+    <a class="btn big ghost on-dark" href="../demo/">Poke at the demo first &rarr;</a>
+  </div>
+</div></div></section>
+
+<!-- ======================= footer ======================= -->
+<footer><div class="wrap">
+  <div class="fgrid">
+    <div style="max-width:340px">
+      <a class="logo" href="../" aria-label="Rooftop Auto home">
+        <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
+          <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
+          <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
+          <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
+        </svg>
+        <span class="stackt">
+          <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+          <span class="sub">A Litespeed company</span>
+        </span>
+      </a>
+      <p style="margin-top:16px">The dealer platform built to sell cars, not store them. Made in
+        Vancouver, Washington by an advertising agency that got tired of waiting on the software.</p>
+    </div>
+    <div>
+      <div class="fhead">Product</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="./">All features</a><a href="../#advertise">Meta &amp; syndication</a>
+        <a href="../#lotwalk">Lot Walk</a>
+        <a href="../#dms">Not a DMS</a><a href="../#pricing">Pricing</a><a href="../demo/">Live demo</a>
+      </div>
+    </div>
+    <div>
+      <div class="fhead">Legal</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="../legal/privacy.html">Privacy policy</a>
+        <a href="../legal/terms.html">Terms of service</a>
+        <a href="../legal/data-deletion.html">Data deletion</a>
+        <a href="../legal/support.html">Support</a>
+      </div>
+    </div>
+    <div>
+      <div class="fhead">Talk to us</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="../#contact">Claim a founding spot</a>
+        <a href="mailto:david@litespeedmarketing.com">david@litespeedmarketing.com</a>
+      </div>
+    </div>
+  </div>
+  <div class="fbot">
+    <span>&copy; 2026 Litespeed Marketing LLC. Rooftop Auto is a DBA of Litespeed Marketing LLC.</span>
+    <span>Vancouver, WA</span>
+  </div>
+</div></footer>
+
+</body>
+</html>
