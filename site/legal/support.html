@@ -42,9 +42,12 @@ li{margin:7px 0}
 .tiny{font-size:13px}
 .logo{display:flex;align-items:center;gap:11px}
 .logo svg{flex:0 0 auto}
+.logo .mk{width:87px;height:34px}
+@media(max-width:520px){.logo .mk{width:67px;height:26px}}
 .stackt{display:flex;flex-direction:column}
 .wordmark{font-family:var(--fh);font-style:italic;font-weight:900;font-size:20px;letter-spacing:-.5px;color:#fff;line-height:1;white-space:nowrap}
-.wordmark i{font-style:italic;color:var(--brand)}
+.wordmark i{position:relative;display:inline-block;width:.363em;height:0;vertical-align:baseline;font-style:normal}
+.wordmark i svg{position:absolute;left:0;bottom:-.218em;width:.476em;height:1.089em;fill:var(--brand);overflow:visible}
 .logo .sub{font-size:9.5px;font-weight:600;letter-spacing:1.7px;color:#8e97a6;text-transform:uppercase;margin-top:5px;font-family:var(--ff);font-style:normal;line-height:1}
 .nav{position:sticky;top:0;z-index:50;background:rgba(15,22,32,.94);backdrop-filter:blur(12px);border-bottom:1px solid #1f2835}
 .nav .in{max-width:var(--max);margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:26px}
@@ -78,19 +81,26 @@ footer a:hover{color:#fff;text-decoration:none}
 .fgrid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
 .fhead{font-family:var(--fh);color:#fff;font-weight:700;margin-bottom:10px}
 .fbot{margin-top:34px;padding-top:24px;border-top:1px solid #1f2835;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;font-size:13.5px}
+
+/* very narrow phones: the v2 mark is wide, so the whole lockup steps down again */
+@media(max-width:400px){
+  .nav .in{gap:8px;padding:10px 12px}
+  .logo{gap:6px}
+  .logo .mk{width:52px;height:20px}
+  .wordmark{font-size:15px}
+  .logo .sub{font-size:8px;letter-spacing:1.1px;margin-top:3px}
+  .nav .btn{padding:8px 11px;font-size:12.5px}
+}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="ra-mark" viewBox="0 0 1000 390"><path fill="#3D8BFF" d="m371 2-5 2-20 8-6 3-8 3-4 2-4 1-7 3-2 1-3 1-11 5-8 3-33 14-5 2-29 13-4 1-3 2-3 1-37 16-4 2-70 30-15 6-8 3-7 3-16 7-11 5-8 3-40 18q-1 6 6 4l15-6 12-5 9-3 8-3 9-4 10-4 51-19 12-4 8-3 20-8 6-2 30-11 13-5 29-11 46-17 3-1 1-1h2l2-1 4-2 7-2 14-6 14-6 9-3 40-14 4 1 9 3 7 2 91 26 15 4 8 3 8 2 6 2 4 1 5 1 12 4 15 4 4 1 5 1 14 4 7 2 7 2 7 2 17 5 6 2h4l22 6 7 2 16 5 10 3 11 3 21 6 5 1 8 2h1l4 1 14 4 30 8 11 3 45 12 5 2 10 2 7 2 4 2h4l3 1 14 4 5 2 33 8 6 2 28 7q12 4 11-1c0-3 0-3-16-8l-7-2-86-27-10-4-10-3-58-18-5-1-46-14-36-12-8-2-13-4-33-10-5-2-9-2-23-7-8-3-14-4-15-4-13-4-8-3-25-7-24-7-28-8-6-2-7-2-28-8-8-2-9-3-25-7-5-1q-5-2-11 1m55 134h-12l-38 4-9 1-17 3-29 6-3 1-8 2a359 359 0 0 0-65 18l-15 5-11 4h-6l-10-1-14-1a544 544 0 0 0-109 0q-15 2-30-1-16-4-9 7c5 11 12 16 31 17 11 2 11 2 11-5q0-11 7 1 8 7-3 7l-7 2-6 1c-21 4-24 7-30 28l-3 8q-4 10-2 22 2 13-3 13-7 2-6 8l1 3 4 16 4 12 6 16q3 6 13 8l20 6 7 1 9 2 4 1 6 1q23 5 20-3-1-2-13-6c-26-8-35-15-44-34q-10-26-21-28v-3l1-10c1-15 2-19 9-22l4-2c29-13 37-27 15-27q-6 0 1-2l24-4 16-2a522 522 0 0 1 114 0l29 6 24 4 7 1q7 1 4 4l-2 4c-2 5-1 4-7 4l-23-1h-55q-1 3 2 5l34 4h5l7 1 20 1 10 1 4 1v2l1 9 4 16q3 5 0 5l-4 1-15 2-9 1-9 1q-5 1-5 3c0 2 1 3 24 3 27 0 23-2 29 10l14 24q6 6 1 5l-9-1-15-1c-15-2-18-2-18-1q-3 4 3 5l45 7q3-1 6 3l13 11-38-2h-26l-33-1-13-1-1 2q-5 4 10 5l64 4 33 3 11 1 9 1 40 5-102 1-103-1 4-5c17-18 21-31 21-58a96 96 0 0 0-10-48l-3-4q-18-27-43-22l-8 2c-8 3-26 19-26 23l-3 5-4 7a91 91 0 0 0-7 31c-3 22 4 46 20 64l4 5-50 1c-61 0-67 0-68 3-1 2 4 3 27 4l24 1 28 2 104 4 35 1a3192 3192 0 0 0 182 5l144 2q5-2-5-7-23-11-30-38l-1-2v-2c-2-8-2-24 0-34v-2l4-12 2-5a62 62 0 0 1 36-32c4-2 18-1 23 1 15 5 32 28 37 49q3 15 1 24v7l-1 4a166 166 0 0 1-22 47q-2 2 2 3l358-4c29-1 28-1 29-3 1-3-1-4-14-5l-61-3a3030 3030 0 0 0-224 2l-39-3c-27-2-25-1-22-7l5-11c2-4 3-7 5-19q3-17-1-38-5-17-10-26l-4-5q-8-14-19-21l-6-4a57 57 0 0 0-41-7c-12 2-29 15-39 30a101 101 0 0 0-15 45 121 121 0 0 0 8 51l1 1h-5l-130-11-14-1h-6l-7-4q-23-11-12-9a375 375 0 0 0 59 7h6l12 1 27 1h21l1-4 1-6c0-7 3-19 6-25l1-3c2-7 9-20 17-31q6-8 2-9l-128 2-23 1-41 2h-5l-1-1-2-7-4-13-1-6-1-3h28c26 0 26 0 26-2q0-4-4-4l-25-2-6-1-6-1-10-1 2-5 3-5h3l6 1 4 1 5 1 38 5 4 1h6a719 719 0 0 0 142 0l11-1 28-3a281 281 0 0 1 62 1l10 4 13 7 2 1 3 2h1l4 3 3 2 39 25 6 5c18 12 21 13 21 9 0-5-29-33-45-44l-5-4 19 10 9 4 19 10 16 7 17 6 10 3 14 4 22 7 15 4 13 3 4 1 1-2c3-2 2-3-19-10l-7-2-16-6-16-6a559 559 0 0 1-91-42l-9-4-40-11-6-1a287 287 0 0 0-89 2l-12 1c-9 0-8 1-11-3l-4-6-5-6-2-3-3-4-24-23-18-16a469 469 0 0 1 99 8l6 1 20 6 6 2 2 1 5 2 48 21 62 30q3 2 6-1 3-1-1-4l-3-3-1-1 12 1a229 229 0 0 1 46 4l35 7 5 1 9 3 5 1 6 2 6 2 6 2 5 2h2l1 1 4 1 6 3 33 15 7 4 36 23c6 5 11 3 7-2l-14-12-19-14-13-9-10-6c-5-3-26-15-34-18l-6-3-5-2q-17-8-52-14c-28-6-65-7-91-3-4 1-4 1-9-2l-5-3-7-3-48-25-5-2a428 428 0 0 0-83-29l-6-1-13-2a504 504 0 0 0-87-4m-9 24q10 3 26 14a267 267 0 0 1 51 44 795 795 0 0 1-179-12l15-27 5-9 3-5 5-1a353 353 0 0 1 74-4m-90 7-2 3-3 4-3 6-6 10-6 11q-2 6-8 3l-7-1-39-11 3-2 4-1 12-6 5-1 7-3 7-3 15-4 5-2 5-1 5-1zm-148 19 16 1-17 4-61 8-8 1c-1 1-6-5-8-9q-3-2 7-2c22-3 42-3 71-3m2 61a64 64 0 0 1 26 39c8 12 1 51-12 74l-3 5 1 2h-17c-17 0-19-1-24-3a40 40 0 0 1-15-16 79 79 0 0 1-8-24v-28q5-26 20-42 10-10 22-9 6 0 10 2m302 41-3 3a181 181 0 0 0-23 39l-8 1a271 271 0 0 1-60-1l-22-1-17-1c-12-1-14-1-16-4l-14-19-2-3-7-14 86-1zm264 16h-4c-5 0-15 3-21 6q-8 5-19 20l-4 6-11 16q-9 9-2 8l6 1 16 2c10 3 20 3 69 3 35-1 38-1 39-3v-3l-19-2-78-8 6-8 4-5q14-15 27-18a214 214 0 0 1 43 4h9a770 770 0 0 0 114 2l-1 3-1 2-3 9-3 8c-2 4-1 4 13 10l23 9c2-2 1-3-10-14l-11-11v-3c0-7 9-26 14-29q3-2 0-3l-1-1-19 3-12 2a902 902 0 0 1-118-3l-17-2-11-1z"/></symbol></svg>
 
 <nav class="nav"><div class="in">
   <a class="logo" href="../" aria-label="Rooftop Auto home">
-    <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
-      <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
-      <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
-      <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
-    </svg>
+    <svg class="mk" viewBox="0 0 1000 390" aria-hidden="true"><use href="#ra-mark"/></svg>
     <span class="stackt">
-      <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+      <span class="wordmark">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</span>
       <span class="sub">A Litespeed company</span>
     </span>
   </a>
@@ -181,13 +191,9 @@ Vancouver, Washington, United States<br>
   <div class="fgrid">
     <div style="max-width:340px">
       <a class="logo" href="../" aria-label="Rooftop Auto home">
-        <svg width="34" height="30" viewBox="2 3 60 52" aria-hidden="true">
-      <path d="M5 25 L32 6 L59 25" fill="none" stroke="#3D8BFF" stroke-width="5.5" stroke-linecap="square" stroke-linejoin="miter"/>
-      <path fill-rule="evenodd" fill="#F4F7FA" d="M6 47 Q6 42 11 40.5 L23.5 36 L29.5 30.5 Q32.5 28.5 38.5 29.5 L47 33 Q54.5 36 57 41 Q59 43 58.5 47 Z M28.6 36.2 L32.2 32.6 Q34.2 31.7 37.4 32.3 L43.6 34.6 Z M11.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z M37.4 47 a7.6 7.6 0 1 0 15.2 0 a7.6 7.6 0 1 0 -15.2 0 Z"/>
-      <path fill-rule="evenodd" fill="#F4F7FA" d="M13.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M16.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z M39.6 47 a5.4 5.4 0 1 0 10.8 0 a5.4 5.4 0 1 0 -10.8 0 Z M42.9 47 a2.1 2.1 0 1 0 4.2 0 a2.1 2.1 0 1 0 -4.2 0 Z"/>
-    </svg>
+        <svg class="mk" viewBox="0 0 1000 390" aria-hidden="true"><use href="#ra-mark"/></svg>
         <span class="stackt">
-          <span class="wordmark">ROOFTOP<i>/</i>AUTO</span>
+          <span class="wordmark">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</span>
           <span class="sub">A Litespeed company</span>
         </span>
       </a>
