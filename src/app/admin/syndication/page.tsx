@@ -246,7 +246,14 @@ export default async function SyndicationPage({
 
               <div className="mt-3 space-y-1.5 border-t border-ink-100 pt-3">
                 {conns.map((c) => (
-                  <div key={c.channel_connections.id} className="flex items-center gap-2 text-[11px]">
+                  // The whole row is the target rather than a trailing chevron:
+                  // on a phone in a dealership office this is the difference
+                  // between the setup screen being reachable and not.
+                  <Link
+                    key={c.channel_connections.id}
+                    href={`/admin/syndication/${c.channel_connections.id}`}
+                    className="-mx-1 flex items-center gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-ink-50"
+                  >
                     <span
                       className={cn(
                         'h-1.5 w-1.5 shrink-0 rounded-full',
@@ -268,7 +275,7 @@ export default async function SyndicationPage({
                         ? `synced ${relativeTime(c.channel_connections.lastSyncAt)}`
                         : CONNECTION_STATUS_LABEL[c.channel_connections.status]}
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
 

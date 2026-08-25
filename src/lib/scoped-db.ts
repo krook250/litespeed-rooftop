@@ -234,6 +234,30 @@ export async function assertRooftopInScope(scope: Scope, rooftopId: string) {
   return rows[0] ?? null;
 }
 
+/**
+ * One channel connection, with its channel and rooftop, or null.
+ *
+ * Scoped through `rooftopIds` like everything else here: a connection id from
+ * another dealer group resolves to null rather than to a row, so the screen
+ * above it can 404 without ever having to think about tenancy.
+ */
+export async function getConnectionInScope(scope: Scope, connectionId: string) {
+  if (!scope.rooftopIds.length) return null;
+  const rows = await db
+    .select()
+    .from(t.channelConnections)
+    .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
+    .innerJoin(t.rooftops, eq(t.channelConnections.rooftopId, t.rooftops.id))
+    .where(
+      and(
+        eq(t.channelConnections.id, connectionId),
+        inArray(t.channelConnections.rooftopId, scope.rooftopIds),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** In-flight: departed, not yet arrived, not called off. */
 const OPEN_TRANSFER = () =>
   and(isNull(t.vehicleTransfers.arrivedAt), isNull(t.vehicleTransfers.cancelledAt));
