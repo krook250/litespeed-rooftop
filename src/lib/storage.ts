@@ -1,22 +1,28 @@
 /**
  * Rooftop Auto — small binary storage, behind a seam.
  *
- * WHY THIS EXISTS RATHER THAN R2
- * Roadmap item 3 is the vehicle photo pipeline: R2, a CDN, variant generation,
- * and a patched `sharp` because that is where untrusted image input starts being
- * processed at volume. A dealer *logo* is one small image, uploaded once and
- * changed almost never — it exercises none of that. Building R2 to hold it would
- * pay item 3's cost without item 3's benefit, and the interface would likely be
- * reshaped anyway once real photo requirements land.
+ * WHY LOGOS LIVE IN POSTGRES AND VEHICLE PHOTOS DO NOT
+ * A dealer *logo* is one small image, uploaded once and changed almost never. A
+ * vehicle photo set is forty units times thirty frames, fetched by other
+ * companies' infrastructure on their schedule. Those are different problems and
+ * they got different answers.
  *
- * So: the seam is the deliverable, not the backend. Everything above this module
- * deals in opaque keys. When item 3 lands, `put`/`get`/`del` grow an R2
- * implementation, keys are migrated, and no caller changes.
+ * Vehicle photos shipped 6–7 Aug 2026 on **Vercel Blob** — `put()` from
+ * `@vercel/blob`, called directly in `src/lib/actions.ts`, content-addressed so an
+ * edited photo always gets a new URL. They do NOT come through this seam, and
+ * they should not: a public CDN URL is the whole point there.
+ *
+ * (This comment used to say R2 was coming with "roadmap item 3." Item 3 shipped
+ * on Blob instead, and R2 was never used. Corrected 25 Aug 2026 — the sizing
+ * argument below is unchanged and still correct.)
  *
  * Sizing sanity check, since "images in Postgres" deserves one: a logo capped at
  * 600px wide is ~40–100KB. Four hundred dealers is under 40MB. That is nothing
  * on Neon — and it is fine *because it is logos only*. The same arithmetic is
  * exactly why vehicle photos must not come here.
+ *
+ * The seam is still the deliverable. If logo storage ever needs to move, `put` /
+ * `get` / `del` grow a new implementation, keys migrate, and no caller changes.
  */
 
 import 'server-only';

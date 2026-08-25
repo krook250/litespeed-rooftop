@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
+import { staffSession } from '@/lib/ops/guard';
 import { loadCarGurusFeed } from '@/lib/cargurus/feed';
 
 export const runtime = 'nodejs';
@@ -35,9 +36,18 @@ export async function GET(
 
   await requireSession();
   const scope = await sessionScope();
-  // A rooftop id from another tenant is a 404, not a 403 — a 403 would confirm
-  // the id exists.
-  if (!(await assertRooftopInScope(scope, rooftopId))) {
+
+  // Two ways to be allowed here, and they are not the same right.
+  //
+  // A dealer may download their own rooftop's file. Rooftop staff may download
+  // anybody's, because uploading it to CarGurus' FTP is our job — see
+  // `src/lib/ops/guard.ts` and the `staff` table comment in the schema.
+  //
+  // The tenant check runs first so that the ordinary case never touches the
+  // staff table, and a rooftop id from another tenant is a 404 rather than a
+  // 403 — a 403 would confirm the id exists.
+  const inScope = await assertRooftopInScope(scope, rooftopId);
+  if (!inScope && !(await staffSession())) {
     return new NextResponse('Not found', { status: 404 });
   }
 

@@ -419,6 +419,38 @@ export const users = pgTable('users', {
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Rooftop staff. Not dealers.
+ *
+ * WHY A TABLE AND NOT A ROLE. `userRoleEnum` is OWNER / MANAGER / SALES /
+ * LOT_PORTER — all of them jobs inside a dealership — and adding a fifth value
+ * would not have worked anyway. `users.groupId` is NOT NULL and every scope in
+ * `src/lib/scoped-db.ts` is derived from it, so a "staff" user would still be
+ * pinned to whichever tenant they were created under. Operator work is
+ * cross-tenant by definition, so the grant has to live somewhere that is not a
+ * property of a dealer membership.
+ *
+ * It also sidesteps the Better Auth footgun documented in
+ * `claude/auth-hosting-and-scale.md` §3: a new column on `users` is invisible to
+ * the session unless it is declared in `user.additionalFields`, and the failure
+ * is silent. A separate table needs no declaration.
+ *
+ * THIS IS A DELIBERATE HOLE IN TENANT ISOLATION AND SHOULD BE READ THAT WAY.
+ * A row here lets one signed-in user read across every dealer group in the
+ * database. That is the entire point of an operator surface, and it is why
+ * every cross-tenant query lives in one module that checks this table first,
+ * rather than the `Scope` brand being widened to allow it. Granting is a manual
+ * INSERT on purpose — there is no UI, and there should not be one until there
+ * is someone other than David to grant it to.
+ */
+export const staff = pgTable('staff', {
+  id: cuid().primaryKey(),
+  userId: text().notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  /** Who granted this and why. Free text; read by humans during an audit. */
+  note: text().notNull().default(''),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
 /* --------------------------------------------------------- auth (Better Auth) */
 
 export const sessions = pgTable(
