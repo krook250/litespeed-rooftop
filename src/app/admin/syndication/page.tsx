@@ -14,6 +14,7 @@ import {
   SYNC_STATUS_LABEL,
   CONNECTION_STATUS_LABEL,
   activePrice,
+  carriesListings,
   relativeTime,
   shortTitle,
   usd,
@@ -170,8 +171,8 @@ export default async function SyndicationPage({
           const counts = tally(ch.id);
           const conns = shownConnections.filter((c) => c.channels.id === ch.id);
           const anyError = conns.some((c) => c.channel_connections.status === 'ERROR');
-          const anyOffline = conns.some((c) =>
-            ['DISCONNECTED', 'PENDING_SETUP'].includes(c.channel_connections.status),
+          const anyOffline = conns.some(
+            (c) => !carriesListings(c.channel_connections.status),
           );
           const feedConn = conns.find(
             (c) => c.channel_connections.status === 'CONNECTED' && ch.syncMode === 'FEED_PULL',
@@ -253,6 +254,10 @@ export default async function SyndicationPage({
                         c.channel_connections.status === 'ERROR' && 'bg-red-500',
                         c.channel_connections.status === 'DISCONNECTED' && 'bg-ink-300',
                         c.channel_connections.status === 'PENDING_SETUP' && 'bg-amber-400',
+                        // Amber-500 rather than 400: this is the one state where
+                        // nothing moves unless somebody picks up the phone.
+                        c.channel_connections.status === 'AWAITING_DEALER' && 'bg-amber-500',
+                        c.channel_connections.status === 'SUBMITTED' && 'bg-sky-400',
                       )}
                     />
                     <span className="truncate text-ink-600">

@@ -199,6 +199,31 @@ export const CONNECTION_STATUS_INTERNAL: Record<string, string> = {
   ERROR: 'Needs attention',
 };
 
+/**
+ * Is this connection actually carrying listings?
+ *
+ * Written as a positive set rather than a list of exclusions, and that is the
+ * whole point. The three call sites of this test used to spell it
+ * `DISCONNECTED || PENDING_SETUP`, so when migration `0009` split the middle of
+ * the lifecycle into AWAITING_DEALER and SUBMITTED, every one of them silently
+ * started treating a connection nobody has submitted yet as live. A dealer who
+ * has not yet named us to their CarGurus rep would have had sync rows queued
+ * against a channel that has never heard of them.
+ *
+ * ERROR counts as carrying. It means a connection that was live and broke, so
+ * its listings are presumably still up and its vehicles still have sync state —
+ * `sync-engine.ts` handles it a few lines further on, by refusing the change and
+ * saying why. That is a different thing from a channel that was never wired up.
+ *
+ * Anything added to `connectionStatusEnum` later is not carrying until someone
+ * adds it here on purpose, which is the safe direction to fail.
+ */
+const CARRYING_CONNECTION_STATUSES = new Set(['CONNECTED', 'ERROR']);
+
+export function carriesListings(status: string): boolean {
+  return CARRYING_CONNECTION_STATUSES.has(status);
+}
+
 /** Only front-line ready units belong on paid marketplaces. */
 export function isSyndicatable(status: string) {
   return status === 'FRONT_LINE_READY' || status === 'PENDING_SALE' || status === 'PHOTOS_PENDING';

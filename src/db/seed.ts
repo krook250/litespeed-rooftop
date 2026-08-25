@@ -9,6 +9,7 @@ import { db } from './index';
 import * as t from './schema';
 import { SEED_CHANNELS, SEED_VEHICLES, SOLD_POOL, type SeedVehicle } from './seed-data';
 import { buildVin } from '@/lib/vin';
+import { carriesListings } from '@/lib/domain';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 import { auth } from '@/lib/auth-config';
 import { assertSafeToWipe } from './guard';
@@ -359,7 +360,7 @@ async function main() {
         }
       }
 
-      if (conn.status === 'DISCONNECTED' || conn.status === 'PENDING_SETUP') {
+      if (!carriesListings(conn.status)) {
         status = 'NOT_LISTED';
         lastSyncedAt = null;
       }

@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
-import { isSyndicatable } from '@/lib/domain';
+import { carriesListings, isSyndicatable } from '@/lib/domain';
 import { feedSyncError } from '@/lib/feed';
 
 /**
@@ -74,7 +74,7 @@ export async function enqueueChange(
 
     // Excluded by the dealer, or the account is not usable — nothing to send.
     if (state.status === 'EXCLUDED') continue;
-    if (conn.status === 'DISCONNECTED' || conn.status === 'PENDING_SETUP') continue;
+    if (!carriesListings(conn.status)) continue;
 
     // A broken connection cannot carry the change. Say so instead of pretending.
     if (conn.status === 'ERROR') {
