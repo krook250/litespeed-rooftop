@@ -62,6 +62,18 @@ export type CgVehicle = {
 
 export type CgRooftop = {
   id: string;
+  /**
+   * What goes in the Dealer ID column.
+   *
+   * Normally our own `rooftops.id`, which CarGurus explicitly blesses: *"CarGurus
+   * does not require you to use our dealer ID to match up to a dealer. Just use
+   * the unique dealer ID your system uses."* It is a separate field from `id`
+   * because `channelConnections.providerDealerId` exists for the day they ask us
+   * to switch one rooftop to theirs, and the schema comment on that column is
+   * emphatic: never derive it, read it and fall back. Resolving that fallback is
+   * the loader's job, not this module's.
+   */
+  dealerId: string;
   name: string;
   addressLine1: string;
   city: string;
@@ -399,7 +411,7 @@ export function buildCarGurusFeed(
         // about whether they honour our ordering.
         'Main Image': photos[0] ?? '',
         'Image URLs': photos.join(sep),
-        'Dealer ID': lot.id,
+        'Dealer ID': lot.dealerId,
         'Dealer Name': flat(lot.name),
         'Dealer Street Address': flat(lot.addressLine1),
         'Dealer City': flat(lot.city),

@@ -42,6 +42,7 @@ const BLOB = 'https://abc123.public.blob.vercel-storage.com/vehicles/v1';
 
 const LOT: CgRooftop = {
   id: 'lot_demo',
+  dealerId: 'lot_demo',
   name: 'Evergreen Motors Vancouver',
   addressLine1: '1200 SE Mill Plain Blvd',
   city: 'Vancouver',

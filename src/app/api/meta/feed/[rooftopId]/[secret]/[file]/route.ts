@@ -42,6 +42,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { safeEqual } from '@/lib/meta/tokens';
 import { appOrigin } from '@/lib/meta/connect';
+import { dealerSiteBase } from '@/lib/storefront-url';
 import {
   blocksFeed,
   buildFeed,
@@ -203,7 +204,7 @@ export async function GET(
     // `photoBase` is the app origin, not `siteBase`. They diverge the moment a
     // dealer is on their own domain: the storefront lives at
     // cascademotorswa.com while /api/photo is only ever served by the app.
-    { siteBase: await siteBaseFor(rooftopId), photoBase: appOrigin().replace(/\/$/, ''), now, mode },
+    { siteBase: await dealerSiteBase(rooftopId), photoBase: appOrigin().replace(/\/$/, ''), now, mode },
   );
 
   const tsv = toTsv(built.columns, built.rows);
@@ -240,31 +241,4 @@ export async function GET(
       'referrer-policy': 'no-referrer',
     },
   });
-}
-
-/**
- * Where this lot's vehicle detail pages live.
- *
- * A dealer on their own domain gets `https://theirdomain.com/{stock}`, because
- * `src/proxy.ts` rewrites the host into `/s/[slug]` and the dealer never sees
- * `/s/`. Everyone else gets the shared host. Falling back to the app origin
- * rather than erroring is deliberate: a lot with no storefront yet still has a
- * working feed, and a 404 on a VDP is a better failure than no listing at all.
- */
-async function siteBaseFor(rooftopId: string): Promise<string> {
-  const rows = await db
-    .select({ slug: t.storefronts.slug, domain: t.storefronts.domain, status: t.storefronts.domainStatus })
-    .from(t.storefrontRooftops)
-    .innerJoin(t.storefronts, eq(t.storefrontRooftops.storefrontId, t.storefronts.id))
-    .where(eq(t.storefrontRooftops.rooftopId, rooftopId));
-
-  const origin = appOrigin().replace(/\/$/, '');
-  if (!rows.length) return origin;
-
-  // Prefer a domain that is actually serving. A domain mid-verification would
-  // put every vehicle URL in the catalog on a hostname that does not resolve.
-  const live = rows.find((r) => r.domain && r.status === 'LIVE');
-  if (live?.domain) return `https://${live.domain}`;
-
-  return `${origin}/s/${rows[0]!.slug}`;
 }
