@@ -4,6 +4,7 @@ import { nextCookies } from 'better-auth/next-js';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import * as t from '@/db/schema';
+import { sendEmail, resetPasswordEmail } from '@/lib/email';
 
 /**
  * The Better Auth instance.
@@ -56,6 +57,33 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     autoSignIn: true,
+
+    /**
+     * One hour. Better Auth's own default, kept deliberately rather than
+     * lengthened: the token is a bearer credential sitting in an inbox, and a
+     * dealer who asks for a reset acts on it within minutes or asks again. A
+     * day-long window buys nothing and widens the blast radius of a forwarded
+     * or shoulder-read email.
+     */
+    resetPasswordTokenExpiresIn: 3600,
+
+    /**
+     * `url` arrives as `{baseURL}/api/auth/reset-password/{token}?callbackURL=…`
+     * — a Better Auth endpoint that validates the token, then redirects to our
+     * `/reset-password` page with it attached. So an expired or forged link
+     * fails at their route and never reaches our form, and our page only ever
+     * sees a token that was live a moment ago.
+     *
+     * Send failures are swallowed inside `sendEmail`. That is intentional here:
+     * this callback runs inside the reset endpoint, and throwing would turn a
+     * neutral "if that address exists, check your email" into a 500 for real
+     * addresses only — which is an account-enumeration oracle built out of an
+     * error handler.
+     */
+    async sendResetPassword({ user, url }) {
+      const msg = resetPasswordEmail(url, (user as { name?: string }).name ?? '');
+      await sendEmail({ ...msg, to: user.email });
+    },
   },
 
   user: {

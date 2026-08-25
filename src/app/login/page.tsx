@@ -6,9 +6,9 @@ import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, reset } = await searchParams;
   if (await getSessionUser()) redirect('/admin');
 
   async function submit(formData: FormData) {
@@ -30,6 +30,7 @@ export default async function LoginPage({
       title="Sign in to your rooftop"
       subtitle="Inventory, merchandising and syndication in one place."
       error={error ? 'That email and password combination did not match.' : null}
+      notice={reset ? 'Password updated. Sign in with your new one.' : null}
       footer={
         <>
           No account yet?{' '}
@@ -50,6 +51,12 @@ export default async function LoginPage({
         />
         <SubmitButton>Sign in</SubmitButton>
       </form>
+
+      <p className="mt-4 text-center text-xs">
+        <Link href="/forgot-password" className="text-ink-400 hover:text-ink-200">
+          Forgot your password?
+        </Link>
+      </p>
     </AuthShell>
   );
 }

@@ -30,12 +30,15 @@ export function AuthShell({
   title,
   subtitle,
   error,
+  notice,
   children,
   footer,
 }: {
   title: string;
   subtitle?: string;
   error?: string | null;
+  /** Confirmation of something that went right, e.g. a completed reset. */
+  notice?: string | null;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -52,6 +55,12 @@ export function AuthShell({
 
           {error ? (
             <p className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
+          ) : null}
+
+          {notice ? (
+            <p className="mt-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+              {notice}
+            </p>
           ) : null}
 
           {children}
