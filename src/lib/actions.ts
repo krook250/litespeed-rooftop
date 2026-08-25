@@ -14,7 +14,8 @@ import {
   setChannelExclusion,
 } from '@/lib/sync-engine';
 import { buildVin } from '@/lib/vin';
-import { put } from '@vercel/blob';
+import { createHash } from 'node:crypto';
+import { del, put } from '@vercel/blob';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 import { requireSession } from '@/lib/auth';
 import { assertVehicleInScope, sessionScope } from '@/lib/queries';
@@ -518,6 +519,7 @@ export async function deletePhoto(formData: FormData) {
   if (!photo) return;
   if (!(await loadWritableVehicle(photo.vehicleId))) return;
   await db.delete(t.vehiclePhotos).where(eq(t.vehiclePhotos.id, photoId));
+  await forgetBlob(photo.url);
   if (photo.isPrimary) {
     const next = (
       await db
@@ -533,6 +535,34 @@ export async function deletePhoto(formData: FormData) {
   }
   await enqueueChange(photo.vehicleId, 'UPDATE_PHOTOS', {}, 'Photo removed');
   refreshAll(photo.vehicleId);
+}
+
+/**
+ * Drop the stored bytes once the last row referencing them is gone.
+ *
+ * Two guards, both load-bearing. Generated tiles are `/api/photo?…` and live in
+ * no store at all, so `del` on one is a pointless round trip. And because photo
+ * URLs are content-addressed, two rows on a vehicle can legitimately share a
+ * URL — the same file added twice — so removing one row must not pull the image
+ * out from under the other. Random suffixes used to make that impossible; hashes
+ * make it a case worth handling.
+ *
+ * Best-effort on purpose. A failure here leaks bytes that cost fractions of a
+ * cent; throwing would fail a deletion the dealer has already watched succeed.
+ */
+async function forgetBlob(url: string) {
+  if (!/^https?:\/\/[^/]+\.blob\.vercel-storage\.com\//.test(url)) return;
+  const stillUsed = await db
+    .select({ id: t.vehiclePhotos.id })
+    .from(t.vehiclePhotos)
+    .where(eq(t.vehiclePhotos.url, url))
+    .limit(1);
+  if (stillUsed.length > 0) return;
+  try {
+    await del(url);
+  } catch {
+    // An orphaned blob is cheaper than a delete that appears to fail.
+  }
 }
 
 /**
@@ -557,6 +587,12 @@ const UPLOADABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
  * failure has to be caught here where it can be explained.
  */
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/**
+ * One year. Safe only because photo pathnames are a hash of the bytes, so a
+ * given URL can never point at different pixels. Blob's own default is a month.
+ */
+const PHOTO_CACHE_SECONDS = 31_536_000;
 
 export async function addPhoto(formData: FormData) {
   const vehicleId = String(formData.get('vehicleId'));
@@ -622,10 +658,24 @@ export async function addPhoto(formData: FormData) {
  * `feed-spec.ts` needs and the generated tiles never had: `/api/photo?…` is
  * root-relative and cost a full day of feed rejections on 6 Aug 2026.
  *
- * `addRandomSuffix` matters more than it looks. Two dealers photographing the
- * same stock number, or one dealer replacing a photo, must not collide — and
- * Blob URLs are immutable and cached hard, so reusing a pathname would serve
- * the old image from a CDN edge long after it was replaced.
+ * CONTENT-ADDRESSED, NOT RANDOM-SUFFIXED. The pathname is a sha256 of the
+ * bytes, so the URL changes if and only if the image changes. That is exactly
+ * the property CarGurus needs: they cache images for 24 hours and only re-check
+ * a URL they have been told is mutable, with a HEAD request on their own
+ * schedule. A changed photo arrives as a new URL and is picked up on the next
+ * feed rather than waiting on their sweep; an unchanged photo keeps its URL, so
+ * nothing anywhere re-downloads it.
+ *
+ * The same property makes the bytes genuinely immutable, which is what earns
+ * the year-long cache above, and makes re-uploading the same photograph a no-op
+ * that lands on the same URL. `allowOverwrite` is safe here for precisely that
+ * reason — the only thing that can collide with this pathname is a
+ * byte-identical copy of the same image.
+ *
+ * The vehicle id stays in the prefix deliberately. It costs duplicate storage
+ * when one photograph goes on two vehicles, and buys scoped deletion and no
+ * single blob spanning two dealers. The tenant-isolation reasoning in
+ * `src/lib/storage.ts` applies here too.
  */
 async function uploadVehiclePhoto(
   v: Awaited<ReturnType<typeof loadWritableVehicle>> & {},
@@ -637,10 +687,14 @@ async function uploadVehiclePhoto(
   if (file.size > MAX_UPLOAD_BYTES) return;
 
   const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-  const blob = await put(`vehicles/${v.id}/${scene.toLowerCase()}.${ext}`, file, {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const sha = createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+  const blob = await put(`vehicles/${v.id}/${sha}.${ext}`, bytes, {
     access: 'public',
-    addRandomSuffix: true,
+    addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: file.type,
+    cacheControlMaxAge: PHOTO_CACHE_SECONDS,
   });
 
   const maxRow = await db
