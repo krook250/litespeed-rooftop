@@ -175,8 +175,26 @@ export const SYNC_STATUS_LABEL: Record<string, string> = {
 };
 
 export const CONNECTION_STATUS_LABEL: Record<string, string> = {
-  CONNECTED: 'Connected',
-  PENDING_SETUP: 'Setup pending',
+  CONNECTED: 'Live',
+  PENDING_SETUP: 'Not set up',
+  AWAITING_DEALER: 'Waiting on you',
+  SUBMITTED: 'Submitted',
+  DISCONNECTED: 'Not connected',
+  ERROR: 'Needs attention',
+};
+
+/**
+ * The same states, said to ourselves rather than to the dealer.
+ *
+ * "Waiting on you" is correct on the dealer's screen and useless on ours — the
+ * whole point of splitting the middle states is that each one names a different
+ * queue, and the internal queue board needs the other half of the sentence.
+ */
+export const CONNECTION_STATUS_INTERNAL: Record<string, string> = {
+  CONNECTED: 'Live',
+  PENDING_SETUP: 'Not started',
+  AWAITING_DEALER: 'Waiting on dealer',
+  SUBMITTED: 'Waiting on channel',
   DISCONNECTED: 'Not connected',
   ERROR: 'Needs attention',
 };

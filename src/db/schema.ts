@@ -60,8 +60,21 @@ export const syncModeEnum = pgEnum('sync_mode', ['PUSH_API', 'FEED_PULL']);
 export const syncStatusEnum = pgEnum('sync_status', [
   'NOT_LISTED', 'PENDING', 'QUEUED', 'SYNCING', 'LIVE', 'ERROR', 'REMOVED', 'EXCLUDED',
 ]);
+/**
+ * Where a rooftop's connection to one channel actually stands.
+ *
+ * The two middle states exist because "pending" is the least useful word in
+ * this product. On a real feed channel the wait is either **on the dealer**
+ * (they have to confirm they hold a paid account, and name us to their rep) or
+ * **on the destination** (we have submitted and CarGurus has not switched the
+ * source over yet). Those are different sentences to a dealer, different queues
+ * to us, and collapsing them into PENDING_SETUP is how a lot sits unlisted for
+ * three weeks with nobody able to say whose turn it is.
+ *
+ * PENDING_SETUP is retained as the "nothing has started" state.
+ */
 export const connectionStatusEnum = pgEnum('connection_status', [
-  'CONNECTED', 'PENDING_SETUP', 'DISCONNECTED', 'ERROR',
+  'CONNECTED', 'PENDING_SETUP', 'AWAITING_DEALER', 'SUBMITTED', 'DISCONNECTED', 'ERROR',
 ]);
 export const syncActionEnum = pgEnum('sync_action', [
   'CREATE', 'UPDATE_PRICE', 'UPDATE_PHOTOS', 'UPDATE_DETAILS', 'REMOVE', 'RELIST',
@@ -635,12 +648,53 @@ export const channelConnections = pgTable(
     id: cuid().primaryKey(),
     rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
     channelId: text().notNull().references(() => channels.id, { onDelete: 'cascade' }),
-    status: connectionStatusEnum().notNull().default('CONNECTED'),
+    status: connectionStatusEnum().notNull().default('PENDING_SETUP'),
     accountLabel: text().notNull().default(''),
     feedUrl: text(),
     lastSyncAt: timestamp({ withTimezone: true }),
     nextSyncAt: timestamp({ withTimezone: true }),
     errorMessage: text(),
+
+    /**
+     * The dealer identifier we put in the outbound feed for this channel.
+     *
+     * Null means "use `rooftopId`", which is the normal case and the one
+     * CarGurus explicitly blesses: *"CarGurus does not require you to use our
+     * dealer ID to match up to a dealer. Just use the unique dealer ID your
+     * system uses."* This column exists for the channels that do assign one,
+     * and for the day CarGurus asks us to switch a specific rooftop over to
+     * theirs. Never derive it — read it, fall back to `rooftopId`.
+     */
+    providerDealerId: text(),
+
+    /**
+     * The lead-return address we declare to this channel.
+     *
+     * On CarGurus this is a required feed column (`Dealer CRM Email`) and they
+     * ask us to state whether it accepts ADF. That means the entire "dealer
+     * pastes an address into their marketplace portal" step — the standard
+     * industry workflow — collapses into a field we control. Per-connection
+     * rather than per-rooftop so one channel's leads can be routed differently
+     * while we are debugging a parser, without touching the others.
+     */
+    leadEmail: text(),
+
+    /** Dealer asked for this channel. Starts the clock we report against. */
+    requestedAt: timestamp({ withTimezone: true }),
+    /**
+     * The dealer confirmed the thing only they can confirm: that they hold a
+     * paid, active account at this destination. We cannot check this — there is
+     * no API anywhere in this category that answers it — so it is an attested
+     * fact with a timestamp, not a verified one.
+     */
+    dealerConfirmedAt: timestamp({ withTimezone: true }),
+    /** We put them in the feed / sent the provisioning request. Our part done. */
+    submittedAt: timestamp({ withTimezone: true }),
+    /** The destination confirmed it is carrying the inventory. */
+    liveAt: timestamp({ withTimezone: true }),
+
+    /** Internal only. Never rendered on a dealer-facing screen. */
+    internalNote: text().notNull().default(''),
   },
   (t) => [uniqueIndex('channel_connections_rooftop_channel_uq').on(t.rooftopId, t.channelId)],
 );
