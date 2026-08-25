@@ -19,6 +19,59 @@ import { requireStaff } from './guard';
 
 export type OpsConnection = Awaited<ReturnType<typeof opsConnections>>[number];
 
+/**
+ * Every rooftop, every channel, and which pairs already have a connection row.
+ *
+ * Signup provisions a dealer group, a rooftop and a storefront — and no channel
+ * connections at all. Only `seed.ts` ever created those, so a real dealer who
+ * signed up landed on an empty `/admin/syndication` with no way to ask for
+ * anything. This is what the provisioning card on `/ops` reads.
+ */
+export async function opsRooftopChannels() {
+  await requireStaff();
+
+  const [rooftops, existing, channels] = await Promise.all([
+    db
+      .select({
+        rooftopId: t.rooftops.id,
+        rooftopName: t.rooftops.name,
+        rooftopSlug: t.rooftops.slug,
+        groupName: t.dealerGroups.name,
+        addressLine1: t.rooftops.addressLine1,
+        city: t.rooftops.city,
+        state: t.rooftops.state,
+        postalCode: t.rooftops.postalCode,
+        phone: t.rooftops.phone,
+        latitude: t.rooftops.latitude,
+        longitude: t.rooftops.longitude,
+      })
+      .from(t.rooftops)
+      .innerJoin(t.dealerGroups, eq(t.rooftops.groupId, t.dealerGroups.id))
+      .orderBy(asc(t.dealerGroups.name), asc(t.rooftops.name)),
+    db
+      .select({ rooftopId: t.channelConnections.rooftopId, channelId: t.channelConnections.channelId })
+      .from(t.channelConnections),
+    db.select().from(t.channels).orderBy(asc(t.channels.sortOrder)),
+  ]);
+
+  const have = new Set(existing.map((e) => `${e.rooftopId}:${e.channelId}`));
+
+  return rooftops.map((r) => ({
+    ...r,
+    missing: channels.filter((c) => !have.has(`${r.rooftopId}:${c.id}`)),
+    /** What the feed builders need and signup does not collect. */
+    incomplete: [
+      !r.addressLine1 && 'street',
+      !r.city && 'city',
+      !r.state && 'state',
+      !r.postalCode && 'ZIP',
+      !r.phone && 'phone',
+      r.latitude == null && 'latitude',
+      r.longitude == null && 'longitude',
+    ].filter(Boolean) as string[],
+  }));
+}
+
 export async function opsConnections() {
   await requireStaff();
 

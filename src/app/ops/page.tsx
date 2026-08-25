@@ -16,8 +16,14 @@
 import Link from 'next/link';
 import { Card, CardHeader, Badge, Button, EmptyState } from '@/components/ui';
 import { relativeTime, CONNECTION_STATUS_INTERNAL } from '@/lib/domain';
-import { opsConnections, type OpsConnection } from '@/lib/ops/queries';
-import { markSubmitted, markLive, markError, saveOpsFields } from '@/lib/ops/actions';
+import { opsConnections, opsRooftopChannels, type OpsConnection } from '@/lib/ops/queries';
+import {
+  markSubmitted,
+  markLive,
+  markError,
+  saveOpsFields,
+  provisionChannels,
+} from '@/lib/ops/actions';
 import { CARGURUS_CHANNEL_KEY } from '@/lib/cargurus/feed';
 
 export const dynamic = 'force-dynamic';
@@ -161,6 +167,68 @@ function Bucket({
   );
 }
 
+/**
+ * Rooftops that cannot be onboarded yet, and why.
+ *
+ * Deliberately at the top and above the queue. A dealer with no channel rows is
+ * invisible in every bucket below — they are not waiting on anybody, they simply
+ * do not exist to the syndication system — so without this card a signed-up
+ * dealer could sit untouched indefinitely and nothing on this page would say so.
+ */
+async function Provisioning() {
+  const rooftops = await opsRooftopChannels();
+  const needsWork = rooftops.filter((r) => r.missing.length > 0 || r.incomplete.length > 0);
+  if (needsWork.length === 0) return null;
+
+  return (
+    <Card className="mb-5 ring-1 ring-blue-300">
+      <CardHeader
+        title={`Rooftops needing setup (${needsWork.length})`}
+        subtitle="Signup creates a group, a rooftop and a storefront — not channel connections, and not an address. Both are done here."
+      />
+      <div>
+        {needsWork.map((r) => (
+          <div key={r.rooftopId} className="border-t border-ink-100 px-5 py-4 first:border-t-0">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-sm font-semibold text-ink-900">{r.groupName}</span>
+              <span className="text-ink-300">/</span>
+              <span className="text-sm text-ink-700">{r.rooftopName}</span>
+              <span className="ml-auto text-[11px] text-ink-400">{r.rooftopSlug}</span>
+            </div>
+
+            {r.incomplete.length > 0 ? (
+              <p className="mt-1.5 text-xs text-amber-800">
+                Missing {r.incomplete.join(', ')} — CarGurus requires the address and Meta
+                requires coordinates on every item, so this lot cannot feed anything until
+                the dealer fills these in on their Lots screen.
+              </p>
+            ) : null}
+
+            {r.missing.length > 0 ? (
+              <form action={provisionChannels} className="mt-2.5">
+                <input type="hidden" name="rooftopId" value={r.rooftopId} />
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {r.missing.map((c) => (
+                    <label key={c.id} className="flex items-center gap-1.5 text-xs text-ink-700">
+                      <input type="checkbox" name="channelId" value={c.id} />
+                      {c.shortName}
+                    </label>
+                  ))}
+                </div>
+                <Button type="submit" size="sm" className="mt-2.5">
+                  Add selected channels
+                </Button>
+              </form>
+            ) : (
+              <p className="mt-1.5 text-xs text-ink-500">All channels provisioned.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default async function OpsPage() {
   const all = await opsConnections();
   const now = new Date();
@@ -183,8 +251,13 @@ export default async function OpsPage() {
         {all.length} connections across every dealer group. Ordered by whose move it is.
       </p>
 
+      <Provisioning />
+
       {all.length === 0 ? (
-        <EmptyState title="No connections yet" body="Nothing to work." />
+        <EmptyState
+          title="No connections yet"
+          body="Provision channels for a rooftop above and they will appear here."
+        />
       ) : null}
 
       <Bucket

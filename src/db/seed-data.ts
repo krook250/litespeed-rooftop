@@ -420,8 +420,12 @@ export const SEED_CHANNELS: SeedChannel[] = [
   },
   {
     key: 'cargurus', name: 'CarGurus', shortName: 'CarGurus', kind: 'MARKETPLACE',
-    syncMode: 'FEED_PULL', cadenceMinutes: 60, brandHex: '#0d5c63', initials: 'CG',
-    blurb: 'Hourly feed pull. Price changes affect deal rating on their next index.',
+    // 720 = twice daily, which is their own published guidance and the fastest
+    // they ask for: "Please schedule your system for daily or twice-a-day
+    // export." This said 60 and the blurb said "hourly" — invented, and the same
+    // wrong number that reached the live /features page as "~6 hr pickup".
+    syncMode: 'FEED_PULL', cadenceMinutes: 720, brandHex: '#0d5c63', initials: 'CG',
+    blurb: 'We upload your inventory twice a day. Price changes affect deal rating on their next index.',
     maxPhotos: 30, sortOrder: 5,
   },
   {

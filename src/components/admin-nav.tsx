@@ -16,6 +16,7 @@ const LINKS: { href: string; label: string; exact?: boolean; match?: string }[] 
   { href: '/admin/syndication', label: 'Syndication' },
   { href: '/admin/ad-desk', label: 'Ad Desk' },
   { href: '/admin/website', label: 'Website' },
+  { href: '/admin/lots', label: 'Lots' },
   { href: '/admin/reporting', label: 'Reporting' },
 ];
 

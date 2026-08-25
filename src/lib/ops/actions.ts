@@ -36,6 +36,52 @@ async function loadConnection(connectionId: string) {
 }
 
 /**
+ * Give a rooftop its channel connections.
+ *
+ * WHY THIS IS AN OPERATOR ACTION AND NOT PART OF SIGNUP. Every dealer does not
+ * get every channel. Carfax is gated on them holding a ~$1,900/mo Advantage
+ * account, Craigslist and OfferUp suit some lots and not others, and a row in
+ * `PENDING_SETUP` is a promise on their syndication screen that somebody will
+ * eventually connect it. Creating nine of those for a dealer who wanted two
+ * makes the screen a list of things we are not doing.
+ *
+ * So it is a deliberate act with a checkbox per channel, taken while you are
+ * onboarding them and know which ones they actually pay for.
+ *
+ * `leadEmail` is stamped now rather than derived later. It costs nothing, it is
+ * the same value the CarGurus loader would fall back to, and having it on the
+ * row means the ops screen can show what we are declaring to each channel
+ * instead of everyone having to know the convention.
+ */
+export async function provisionChannels(formData: FormData) {
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const channelIds = formData.getAll('channelId').map(String).filter(Boolean);
+  await requireStaff();
+  if (!rooftopId || channelIds.length === 0) return;
+
+  const rooftop = (
+    await db.select({ id: t.rooftops.id }).from(t.rooftops).where(eq(t.rooftops.id, rooftopId)).limit(1)
+  )[0];
+  if (!rooftop) return;
+
+  await db
+    .insert(t.channelConnections)
+    .values(
+      channelIds.map((channelId) => ({
+        rooftopId,
+        channelId,
+        status: 'PENDING_SETUP' as const,
+        leadEmail: `leads-${rooftopId}@inbound.rooftopauto.com`,
+      })),
+    )
+    // The unique index on (rooftopId, channelId) makes a double submit a no-op
+    // rather than a crash. Two operators on the same dealer is a real scenario.
+    .onConflictDoNothing();
+
+  refresh(rooftopId);
+}
+
+/**
  * We have put this rooftop in the outbound file. Now it is the channel's move.
  *
  * Only from `AWAITING_DEALER`, and only once the dealer has actually confirmed.
