@@ -1,5 +1,5 @@
 import 'server-only';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, notExists, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from './guard';
@@ -26,6 +26,22 @@ export type OpsConnection = Awaited<ReturnType<typeof opsConnections>>[number];
  * connections at all. Only `seed.ts` ever created those, so a real dealer who
  * signed up landed on an empty `/admin/syndication` with no way to ask for
  * anything. This is what the provisioning card on `/ops` reads.
+ *
+ * DEALER GROUPS CONTAINING A STAFF USER ARE EXCLUDED. Signing up is the only way
+ * to create an account, and it always provisions a tenant — so every Rooftop
+ * operator necessarily owns a dealer group that is not a dealership. Left in,
+ * `Rooftop Ops` would sit at the top of this card forever asking to be given
+ * nine channels, and a list whose first row is permanently ignorable stops being
+ * read at all.
+ *
+ * Filtering on staff membership rather than on a name or a flag means it stays
+ * true for the next operator without anybody remembering to maintain it.
+ *
+ * The trap, stated so nobody has to rediscover it: a staff member who genuinely
+ * wanted a demo lot of their own could not provision its channels from this
+ * screen. That is a fair trade at one operator, and the escape hatch is a row in
+ * `channel_connections` — but if Rooftop staff ever run a real lot, this filter
+ * is the reason it looks broken.
  */
 export async function opsRooftopChannels() {
   await requireStaff();
@@ -47,6 +63,15 @@ export async function opsRooftopChannels() {
       })
       .from(t.rooftops)
       .innerJoin(t.dealerGroups, eq(t.rooftops.groupId, t.dealerGroups.id))
+      .where(
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(t.users)
+            .innerJoin(t.staff, eq(t.staff.userId, t.users.id))
+            .where(eq(t.users.groupId, t.rooftops.groupId)),
+        ),
+      )
       .orderBy(asc(t.dealerGroups.name), asc(t.rooftops.name)),
     db
       .select({ rooftopId: t.channelConnections.rooftopId, channelId: t.channelConnections.channelId })

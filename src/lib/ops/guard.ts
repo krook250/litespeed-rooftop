@@ -8,6 +8,14 @@ import { getSessionUser, type SessionUser } from '@/lib/auth';
 /**
  * Rooftop staff, and the one place that decides who counts as one.
  *
+ * This module is request-bound and not unit-testable, and that is inherent
+ * rather than an oversight: `getSessionUser` reads the request headers, so
+ * `requireStaff` cannot mean anything outside a request. Deferring the `next/*`
+ * imports to make it loadable from a script was tried on 25 Aug and abandoned —
+ * `@/lib/auth` pulls `next/headers` regardless, so it bought nothing but
+ * indirection. The cross-tenant SQL in `./queries.ts` is verified against a real
+ * database instead.
+ *
  * READ THE COMMENT ON `staff` IN `src/db/schema.ts` BEFORE CHANGING ANYTHING HERE.
  * The short version: a row in `staff` lets one signed-in user read across every
  * dealer group in the database. Everything else in this codebase is arranged so
