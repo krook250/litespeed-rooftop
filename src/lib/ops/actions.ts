@@ -20,7 +20,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from '@/lib/ops/guard';
 import { runCarGurusUpload } from '@/lib/cargurus/run';
-import { openMissingSyncStates } from '@/lib/sync-states';
+import { reconcileRooftopSync } from '@/lib/sync-states';
 
 function refresh(rooftopId: string) {
   revalidatePath('/ops');
@@ -87,7 +87,7 @@ export async function provisionChannels(formData: FormData) {
    * permanently, and the syndication screen shows a lower count than the lot
    * with no indication why.
    */
-  await openMissingSyncStates(rooftopId);
+  await reconcileRooftopSync(rooftopId);
 
   refresh(rooftopId);
 }

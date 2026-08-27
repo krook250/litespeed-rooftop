@@ -4,7 +4,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { hexForColor } from '@/lib/intake/parse';
 import { assertRooftopInScope, type Scope } from '@/lib/scoped-db';
-import { openMissingSyncStates } from '@/lib/sync-states';
+import { reconcileRooftopSync } from '@/lib/sync-states';
 import type { ImportPlan, PlannedRow, VehicleDraft } from './plan';
 
 /**
@@ -229,7 +229,7 @@ export async function commitImport(
    * channel — because the grid is built from `vehicle_sync_states` and there
    * are none. See the comment on `openMissingSyncStates`.
    */
-  result.syncStatesOpened = await openMissingSyncStates(rooftopId);
+  result.syncStatesOpened = (await reconcileRooftopSync(rooftopId)).opened;
 
   return result;
 }

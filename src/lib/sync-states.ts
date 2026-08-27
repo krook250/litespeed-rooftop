@@ -1,7 +1,8 @@
 import 'server-only';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
+import { SYNDICATABLE_STATUSES } from '@/lib/domain';
 
 /**
  * Every vehicle on a lot needs a row against every channel that lot is
@@ -89,4 +90,114 @@ export async function openMissingSyncStates(rooftopId: string): Promise<number> 
   }
 
   return missing.length;
+}
+
+/* ------------------------------------------------------------- own site */
+
+/** `channels.key` for the dealer's own storefront. */
+export const OWN_SITE_CHANNEL_KEY = 'dealer_site';
+
+/**
+ * The dealer's own website is not a marketplace, and pretending it is one is
+ * why a freshly onboarded lot shows "Website — 0 live" while the storefront is
+ * sitting there rendering all twenty-one cars.
+ *
+ * TWO THINGS ARE WRONG BY DEFAULT AND BOTH ARE FIXED HERE.
+ *
+ * **The connection.** `provisionChannels` opens every channel in
+ * `PENDING_SETUP`, which is right for CarGurus — somebody at CarGurus has to
+ * switch a source over. There is nobody to wait for on the dealer's own site.
+ * It is connected the moment it exists, so this promotes it.
+ *
+ * **The rows.** The storefront renders straight from `vehicles`, filtered by
+ * status — it never consults `vehicle_sync_states`. So for this one channel the
+ * sync row is not a queue, it is a *mirror*: a unit is live on the website
+ * exactly when `isSyndicatable()` says it is, with no ETA and nothing in
+ * flight. Computing it is therefore honest, where computing it for CarGurus
+ * would be a lie.
+ *
+ * Runs in both directions, so a sold unit stops claiming to be live. Leaves
+ * `EXCLUDED` alone — that is the dealer deliberately pulling a car, and it is
+ * not this function's business to overrule them.
+ */
+export async function reconcileOwnSite(rooftopId: string): Promise<number> {
+  const conn = (
+    await db
+      .select({ id: t.channelConnections.id, status: t.channelConnections.status })
+      .from(t.channelConnections)
+      .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
+      .where(
+        and(
+          eq(t.channelConnections.rooftopId, rooftopId),
+          eq(t.channels.key, OWN_SITE_CHANNEL_KEY),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!conn) return 0;
+
+  const now = new Date();
+
+  // Nobody to wait for. DISCONNECTED is left alone — that is a deliberate act.
+  if (conn.status === 'PENDING_SETUP' || conn.status === 'AWAITING_DEALER' || conn.status === 'SUBMITTED') {
+    await db
+      .update(t.channelConnections)
+      .set({ status: 'CONNECTED', lastSyncAt: now })
+      .where(eq(t.channelConnections.id, conn.id));
+  }
+
+  const publicIds = db
+    .select({ id: t.vehicles.id })
+    .from(t.vehicles)
+    .where(
+      and(
+        eq(t.vehicles.rooftopId, rooftopId),
+        inArray(t.vehicles.status, [...SYNDICATABLE_STATUSES]),
+      ),
+    );
+
+  const hiddenIds = db
+    .select({ id: t.vehicles.id })
+    .from(t.vehicles)
+    .where(
+      and(
+        eq(t.vehicles.rooftopId, rooftopId),
+        notInArray(t.vehicles.status, [...SYNDICATABLE_STATUSES]),
+      ),
+    );
+
+  const live = await db
+    .update(t.vehicleSyncStates)
+    .set({ status: 'LIVE', lastSyncedAt: now, pendingSince: null, dueAt: null, errorMessage: null })
+    .where(
+      and(
+        eq(t.vehicleSyncStates.connectionId, conn.id),
+        notInArray(t.vehicleSyncStates.status, ['LIVE', 'EXCLUDED']),
+        inArray(t.vehicleSyncStates.vehicleId, publicIds),
+      ),
+    )
+    .returning({ id: t.vehicleSyncStates.id });
+
+  await db
+    .update(t.vehicleSyncStates)
+    .set({ status: 'NOT_LISTED', lastSyncedAt: null, pendingSince: null, dueAt: null })
+    .where(
+      and(
+        eq(t.vehicleSyncStates.connectionId, conn.id),
+        eq(t.vehicleSyncStates.status, 'LIVE'),
+        inArray(t.vehicleSyncStates.vehicleId, hiddenIds),
+      ),
+    );
+
+  return live.length;
+}
+
+/**
+ * Everything that has to be true about a rooftop's syndication grid after
+ * inventory or connections change. Call this, not the two halves.
+ */
+export async function reconcileRooftopSync(rooftopId: string) {
+  const opened = await openMissingSyncStates(rooftopId);
+  const ownSiteLive = await reconcileOwnSite(rooftopId);
+  return { opened, ownSiteLive };
 }

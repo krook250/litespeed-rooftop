@@ -224,9 +224,23 @@ export function carriesListings(status: string): boolean {
   return CARRYING_CONNECTION_STATUSES.has(status);
 }
 
-/** Only front-line ready units belong on paid marketplaces. */
+/**
+ * The statuses a unit is publicly visible in.
+ *
+ * This is one list doing two jobs that are genuinely the same job: what goes out
+ * to a paid marketplace, and what the dealer's own storefront renders. The
+ * storefront had its own copy of this set — inline in `s/[slug]/page.tsx`,
+ * inline again in `s/[slug]/[stock]/page.tsx`, and once more as
+ * `PUBLIC_STATUSES` in `domains/units.ts` — three copies of a list that must
+ * agree with this function or a car is on the website and not in the feed.
+ */
+export const SYNDICATABLE_STATUSES = [
+  'PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE',
+] as const;
+
+/** Only front-line ready units belong on paid marketplaces, or on the storefront. */
 export function isSyndicatable(status: string) {
-  return status === 'FRONT_LINE_READY' || status === 'PENDING_SALE' || status === 'PHOTOS_PENDING';
+  return (SYNDICATABLE_STATUSES as readonly string[]).includes(status);
 }
 
 export const DRIVETRAIN_LABEL: Record<string, string> = {
