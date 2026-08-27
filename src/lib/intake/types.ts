@@ -156,6 +156,8 @@ export type ScanWarning = {
     | 'PRICE_IMPLAUSIBLE'
     | 'DUPLICATE_VIN'
     | 'READER_UNAVAILABLE'
+    | 'READER_MISCONFIGURED'
+    | 'READER_TIMEOUT'
     | 'PARTIAL_READ';
   /** Written for a person standing on a lot holding a phone. */
   message: string;

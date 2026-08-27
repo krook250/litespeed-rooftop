@@ -72,13 +72,40 @@ export async function scan(req: ScanRequest): Promise<ScanResult> {
 
   const warnings: ScanWarning[] = [];
   if (read.error) {
-    const unavailable = availableReader() === 'none';
-    warnings.push({
-      code: unavailable ? 'READER_UNAVAILABLE' : 'PARTIAL_READ',
-      message: unavailable
-        ? 'Document reading is not switched on for this environment yet. You can still scan a VIN barcode or type the VIN in.'
-        : 'The reader could not finish this document. Try a straighter, better-lit photo, or type the VIN in.',
-    });
+    /**
+     * Tell the truth about whose problem this is.
+     *
+     * The old wording said "try a straighter, better-lit photo" for every
+     * failure including a rejected API key — which sent somebody standing on a
+     * lot into a loop of retaking photographs of a perfectly good document
+     * against a fault no photograph could fix. Advice that cannot work is worse
+     * than no advice.
+     */
+    if (availableReader() === 'none') {
+      warnings.push({
+        code: 'READER_UNAVAILABLE',
+        message:
+          'Document reading is not switched on for this environment yet. You can still scan a VIN barcode or type the VIN in.',
+      });
+    } else if (read.errorKind === 'CONFIG') {
+      warnings.push({
+        code: 'READER_MISCONFIGURED',
+        message:
+          'Document reading is switched on but the reader rejected the request — that is a setup problem on our side, not your photo. Type the VIN in for now and tell us; retaking it will not help.',
+      });
+    } else if (read.errorKind === 'TIMEOUT') {
+      warnings.push({
+        code: 'READER_TIMEOUT',
+        message:
+          'The reader took too long to answer. Try once more, or type the VIN in — this one is usually a bad moment rather than a bad photo.',
+      });
+    } else {
+      warnings.push({
+        code: 'PARTIAL_READ',
+        message:
+          'The reader could not finish this document. Try a straighter, better-lit photo, or type the VIN in.',
+      });
+    }
   }
 
   /* --- 2 & 3. VIN, then decode ------------------------------------------- */

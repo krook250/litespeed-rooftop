@@ -42,6 +42,18 @@ import type { DocumentKind, ReaderKind } from './types';
 const MODEL = process.env.INTAKE_MODEL || 'claude-haiku-4-5';
 const MODEL_ESCALATE = process.env.INTAKE_MODEL_ESCALATE || 'claude-sonnet-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+
+/**
+ * Only needed for an **identity-linked** API key, which requires the caller to
+ * name the workspace the request acts in. A plain workspace key does not, and
+ * sending this with one is harmless.
+ *
+ * Left optional rather than required because most keys do not need it — but
+ * without it an identity-linked key fails every single call with a 400 in about
+ * 140ms, before the model ever sees the image. Which is exactly how this was
+ * found: two scans on a lot, both blamed on the photograph.
+ */
+const WORKSPACE_ID = process.env.ANTHROPIC_WORKSPACE_ID;
 const ANTHROPIC_VERSION = '2023-06-01';
 const READ_TIMEOUT_MS = 45_000;
 
@@ -84,7 +96,42 @@ export type ReadOutcome = {
   raw: unknown;
   escalated: boolean;
   error?: string;
+  /**
+   * What KIND of failure, so the person holding the phone is told something
+   * true. `CONFIG` means our credentials or setup are wrong and no photograph
+   * will ever succeed; telling that person to find better light is worse than
+   * saying nothing, because they will keep trying.
+   */
+  errorKind?: ReadErrorKind;
 };
+
+export type ReadErrorKind = 'CONFIG' | 'TIMEOUT' | 'READ';
+
+class ReadError extends Error {
+  constructor(message: string, readonly kind: ReadErrorKind) {
+    super(message);
+    this.name = 'ReadError';
+  }
+}
+
+/**
+ * Separate "we are misconfigured" from "that document was hard to read".
+ *
+ * 401/403/404 are never about the image. A 400 usually is not either — the
+ * cases seen in the wild are a missing workspace header, an unknown model id and
+ * a rejected media type, all of which repeat forever until somebody changes a
+ * setting. Rate limits and 5xx are transient and worth a retry, so they stay
+ * READ.
+ */
+function classify(status: number, body: string): ReadErrorKind {
+  if (status === 401 || status === 403 || status === 404) return 'CONFIG';
+  if (status === 400) {
+    return /workspace|api[_ -]?key|authentication|permission|model|credit|billing|media[_ -]?type/i.test(body)
+      ? 'CONFIG'
+      : 'READ';
+  }
+  return 'READ';
+}
 
 export function emptyClaims(): DocClaims {
   return {
@@ -243,6 +290,7 @@ async function callClaude(pages: Page[], model: string): Promise<{ claims: DocCl
       'content-type': 'application/json',
       'x-api-key': process.env.ANTHROPIC_API_KEY!,
       'anthropic-version': ANTHROPIC_VERSION,
+      ...(WORKSPACE_ID ? { 'anthropic-workspace-id': WORKSPACE_ID } : {}),
     },
     body: JSON.stringify({
       model,
@@ -271,7 +319,10 @@ async function callClaude(pages: Page[], model: string): Promise<{ claims: DocCl
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`anthropic ${res.status}: ${body.slice(0, 400)}`);
+    throw new ReadError(
+      `anthropic ${res.status}: ${body.slice(0, 400)}`,
+      classify(res.status, body),
+    );
   }
 
   const json = (await res.json()) as {
@@ -438,6 +489,12 @@ export async function readDocument(
           raw: null,
           escalated: false,
           error: String(err),
+          errorKind:
+            err instanceof ReadError
+              ? err.kind
+              : err instanceof Error && err.name === 'TimeoutError'
+                ? 'TIMEOUT'
+                : 'READ',
         };
       }
     }
