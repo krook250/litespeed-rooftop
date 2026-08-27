@@ -4,6 +4,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { hexForColor } from '@/lib/intake/parse';
 import { assertRooftopInScope, type Scope } from '@/lib/scoped-db';
+import { openMissingSyncStates } from '@/lib/sync-states';
 import type { ImportPlan, PlannedRow, VehicleDraft } from './plan';
 
 /**
@@ -44,6 +45,8 @@ export type CommitResult = {
   updated: number;
   skipped: number;
   photosAdded: number;
+  /** Vehicle-times-channel rows opened so the syndication grid can see them. */
+  syncStatesOpened: number;
   /** VINs that failed to write, with the reason. Never throws for one bad row. */
   failed: { vin: string; error: string }[];
 };
@@ -129,7 +132,9 @@ export async function commitImport(
   }
 
   const now = new Date();
-  const result: CommitResult = { created: 0, updated: 0, skipped: 0, photosAdded: 0, failed: [] };
+  const result: CommitResult = {
+    created: 0, updated: 0, skipped: 0, photosAdded: 0, syncStatesOpened: 0, failed: [],
+  };
 
   const importable = plan.rows.filter((r): r is PlannedRow & { draft: VehicleDraft } =>
     r.draft !== null && r.action !== 'skip');
@@ -216,6 +221,15 @@ export async function commitImport(
       result.failed.push({ vin: draft.vin, error: e instanceof Error ? e.message : String(e) });
     }
   }
+
+  /**
+   * Open a sync row for every vehicle against every channel this lot is
+   * connected to. Without this the import succeeds, the vehicles are on the
+   * dealer's own storefront, and `/admin/syndication` shows zero on every
+   * channel — because the grid is built from `vehicle_sync_states` and there
+   * are none. See the comment on `openMissingSyncStates`.
+   */
+  result.syncStatesOpened = await openMissingSyncStates(rooftopId);
 
   return result;
 }

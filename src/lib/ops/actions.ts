@@ -20,6 +20,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from '@/lib/ops/guard';
 import { runCarGurusUpload } from '@/lib/cargurus/run';
+import { openMissingSyncStates } from '@/lib/sync-states';
 
 function refresh(rooftopId: string) {
   revalidatePath('/ops');
@@ -78,6 +79,15 @@ export async function provisionChannels(formData: FormData) {
     // The unique index on (rooftopId, channelId) makes a double submit a no-op
     // rather than a crash. Two operators on the same dealer is a real scenario.
     .onConflictDoNothing();
+
+  /**
+   * The inventory already on this lot needs a row against the channels we just
+   * connected. Nothing else ever revisits this: without it, every car the
+   * dealer owned before you provisioned CarGurus is missing from CarGurus
+   * permanently, and the syndication screen shows a lower count than the lot
+   * with no indication why.
+   */
+  await openMissingSyncStates(rooftopId);
 
   refresh(rooftopId);
 }

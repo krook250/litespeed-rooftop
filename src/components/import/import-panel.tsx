@@ -48,6 +48,7 @@ type CommitResponse = {
   updated: number;
   skipped: number;
   photosAdded: number;
+  syncStatesOpened: number;
   failed: { vin: string; error: string }[];
 };
 
@@ -196,6 +197,9 @@ export function ImportPanel({ rooftops }: { rooftops: { id: string; name: string
           <p className="mt-2 text-xs text-emerald-800">
             Imported vehicles are set to <strong>photos pending</strong>, which is a state that
             syndicates. Check the prices before connecting a channel.
+            {done.syncStatesOpened > 0
+              ? ` They are now tracked against every connected channel on the syndication screen (${done.syncStatesOpened.toLocaleString()} rows).`
+              : ''}
           </p>
         </Card>
       ) : null}
