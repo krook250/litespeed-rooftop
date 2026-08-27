@@ -67,7 +67,9 @@ async function main() {
   /* ------------------------------------------------------------- tenancy */
   const [group] = await db
     .insert(t.dealerGroups)
-    .values({ name: 'Rooftop Demo Motors Group', slug: 'rooftop-demo' })
+    // isDemo keeps this group's invented VINs out of every outbound marketplace
+    // file. Set here rather than by hand so a reseed cannot forget it.
+    .values({ name: 'Rooftop Demo Motors Group', slug: 'rooftop-demo', isDemo: true })
     .returning();
 
   const [vanRooftop, bgRooftop] = await db

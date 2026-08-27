@@ -119,6 +119,7 @@ export async function opsConnections() {
       rooftopName: t.rooftops.name,
       rooftopSlug: t.rooftops.slug,
       groupName: t.dealerGroups.name,
+      isDemo: t.dealerGroups.isDemo,
     })
     .from(t.channelConnections)
     .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))

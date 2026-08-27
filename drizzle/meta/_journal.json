@@ -85,6 +85,13 @@
       "when": 1787807274770,
       "tag": "0011_vengeful_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787809142825,
+      "tag": "0012_goofy_maverick",
+      "breakpoints": true
     }
   ]
 }

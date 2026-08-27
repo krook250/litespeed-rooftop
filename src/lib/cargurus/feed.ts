@@ -216,10 +216,16 @@ export async function carGurusBatchRooftops(): Promise<{ id: string; name: strin
     .from(t.channelConnections)
     .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
     .innerJoin(t.rooftops, eq(t.channelConnections.rooftopId, t.rooftops.id))
+    .innerJoin(t.dealerGroups, eq(t.rooftops.groupId, t.dealerGroups.id))
     .where(
       and(
         eq(t.channels.key, CARGURUS_CHANNEL_KEY),
         inArray(t.channelConnections.status, [...CARGURUS_FILE_STATUSES]),
+        // Our own demo lot is not a dealership. See `dealerGroups.isDemo` — its
+        // invented VINs must never reach a real marketplace, and its row count
+        // must never enter the short-file guard's baseline, where a reseed would
+        // read as a real dealer collapsing.
+        eq(t.dealerGroups.isDemo, false),
       ),
     )
     .orderBy(asc(t.rooftops.name));

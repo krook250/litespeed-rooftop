@@ -218,6 +218,29 @@ export const dealerGroups = pgTable('dealer_groups', {
    * forced into the same view as the receptionist.
    */
   feedStyle: feedStyleEnum().notNull().default('SOCIAL'),
+  /**
+   * This group is ours, not a customer's — the seeded demo lot, or anything
+   * else we stand up to show the product.
+   *
+   * IT EXISTS TO KEEP FAKE INVENTORY OUT OF REAL MARKETPLACES. Outbound feeds
+   * are vendor-level: one CarGurus file carries every dealer we send. Without
+   * this flag the demo group rides along in it, publishing invented VINs under
+   * an invented dealer ID, and — worse — sitting in the short-file guard's
+   * baseline, where a reseed that changes its row count reads as a real dealer
+   * collapsing.
+   *
+   * Why a column and not "just delete the demo data": `dave@rooftopauto.com` is
+   * the account Meta's reviewers sign into, so the demo lot has to keep
+   * existing and keep looking populated. See the handoff.
+   *
+   * Why not the staff-membership filter the provisioning card uses: the demo
+   * group's owner is the demo user, who is deliberately NOT staff. Different
+   * question, different answer.
+   *
+   * Defaults false, so a real dealer signing up is never accidentally excluded
+   * from their own syndication — the failure direction that would be invisible.
+   */
+  isDemo: boolean().notNull().default(false),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -53,6 +53,13 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
     <div className="border-t border-ink-100 px-5 py-4 first:border-t-0">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="text-sm font-semibold text-ink-900">{c.groupName}</span>
+        {c.isDemo ? (
+          // Otherwise the exclusion is invisible, and "why isn't the demo lot in
+          // the CarGurus file" becomes a debugging session instead of a glance.
+          <span title="Our own lot — held out of every outbound marketplace file.">
+            <Badge tone="violet">demo</Badge>
+          </span>
+        ) : null}
         <span className="text-ink-300">/</span>
         <span className="text-sm text-ink-700">{c.rooftopName}</span>
         <span className="text-ink-300">/</span>
@@ -320,7 +327,7 @@ async function FeedUploads() {
     <Card className="mb-6">
       <CardHeader
         title="CarGurus uploads"
-        subtitle="Twice daily at 2am and 2pm Pacific. A refused run is the guard working, not a fault — read the reason before forcing it."
+        subtitle="Twice daily at 2am and 2pm Pacific. Demo groups are held out. A refused run is the guard working, not a fault — read the reason before forcing it."
         action={
           <div className="flex shrink-0 gap-2">
             <form action={runCarGurusNow}>
