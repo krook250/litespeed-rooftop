@@ -74,6 +74,27 @@ export async function scopeForGroup(groupId: string): Promise<Scope> {
 /* --------------------------------------------------------------- helpers */
 
 /**
+ * Every VIN this tenant already holds.
+ *
+ * The importer needs it to tell a create from an update. Scoped rather than a
+ * bare `select vin from vehicles` because the honest answer to "do we already
+ * have this car" is tenant-local: `vehicles.vin` is unique across the whole
+ * table, so an unscoped version would quietly report another dealer's stock as
+ * ours and turn a create into an update against a row we may not touch.
+ *
+ * A tenant with no rooftops returns nothing rather than reaching the database —
+ * `inArray` with an empty list is a syntax error in Postgres, not an empty set.
+ */
+export async function vinsInScope(scope: Scope): Promise<Set<string>> {
+  if (scope.rooftopIds.length === 0) return new Set();
+  const rows = await db
+    .select({ vin: t.vehicles.vin })
+    .from(t.vehicles)
+    .where(inArray(t.vehicles.rooftopId, scope.rooftopIds));
+  return new Set(rows.map((r) => r.vin));
+}
+
+/**
  * The vehicle, if it belongs to this scope. null otherwise — never a throw,
  * because callers legitimately race a deleted unit and a 404 is the right
  * answer either way.

@@ -131,6 +131,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             </Link>
           </div>
           <Link
+            href="/admin/inventory/import"
+            className="rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-ink-800 ring-1 ring-inset ring-ink-300 hover:bg-ink-50"
+          >
+            Import
+          </Link>
+          <Link
             href="/admin/inventory/new"
             className="rounded-lg bg-ink-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-ink-800"
           >
