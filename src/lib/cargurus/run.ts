@@ -126,7 +126,9 @@ export async function runCarGurusUpload(opts: { force?: boolean } = {}): Promise
     ? { lots: (previous.lots ?? []).map((l) => ({ ...l })), sent: previous.rowCount }
     : null;
 
-  const verdict = opts.force ? { ok: true as const } : guardBatch(current, baseline);
+  // Note this passes `force` INTO the guard rather than skipping it. The floor —
+  // never send an empty file — is not forceable; see `guardBatch`.
+  const verdict = guardBatch(current, baseline, { force: opts.force });
   if (!verdict.ok) {
     return record('SKIPPED', verdict.reason);
   }

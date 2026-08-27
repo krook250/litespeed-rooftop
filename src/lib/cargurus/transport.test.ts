@@ -48,8 +48,17 @@ const CREDS = {
 };
 
 test('filename is UTC and sortable', () => {
-  const name = feedFilename(new Date('2026-08-26T07:05:00Z'));
-  assert.equal(name, 'rooftopauto-20260826-0705.csv.gz');
+  const name = feedFilename(new Date('2026-08-26T07:05:09Z'));
+  assert.equal(name, 'rooftopauto-20260826-070509.csv.gz');
+});
+
+test('two runs in the same minute do not overwrite each other', () => {
+  // "Run now" clicked twice, or a force straight after a refusal. Minutes are
+  // not enough granularity for either.
+  assert.notEqual(
+    feedFilename(new Date('2026-08-26T07:05:09Z')),
+    feedFilename(new Date('2026-08-26T07:05:41Z')),
+  );
 });
 
 test('filename does not drift with the local timezone', () => {

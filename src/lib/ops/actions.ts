@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from '@/lib/ops/guard';
+import { runCarGurusUpload } from '@/lib/cargurus/run';
 
 function refresh(rooftopId: string) {
   revalidatePath('/ops');
@@ -167,4 +168,24 @@ export async function saveOpsFields(formData: FormData) {
     .where(eq(t.channelConnections.id, connectionId));
 
   refresh(conn.rooftopId);
+}
+
+/**
+ * Push the CarGurus file now, instead of waiting for the 2am cron.
+ *
+ * This is how the first real upload happens: you want to watch it, not discover
+ * it. It is also the retry after a transport failure, and after the credentials
+ * finally arrive.
+ *
+ * `force` skips the short-file guard and nothing else. The guard cannot tell a
+ * dealer who was deliberately disconnected from a dealer whose photos all broke
+ * overnight — both look like "was carrying, now sends nothing." A human can, so
+ * a human confirms it. Every forced run is still recorded in `feed_uploads`
+ * exactly like any other, so nobody has to take somebody's word for it later.
+ */
+export async function runCarGurusNow(formData: FormData) {
+  await requireStaff();
+  const force = String(formData.get('force') ?? '') === '1';
+  await runCarGurusUpload({ force });
+  revalidatePath('/ops');
 }

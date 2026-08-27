@@ -1,5 +1,5 @@
 import 'server-only';
-import { asc, eq, notExists, sql } from 'drizzle-orm';
+import { asc, desc, eq, notExists, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from './guard';
@@ -125,4 +125,27 @@ export async function opsConnections() {
     .innerJoin(t.rooftops, eq(t.channelConnections.rooftopId, t.rooftops.id))
     .innerJoin(t.dealerGroups, eq(t.rooftops.groupId, t.dealerGroups.id))
     .orderBy(asc(t.dealerGroups.name), asc(t.rooftops.name), asc(t.channels.sortOrder));
+}
+
+export type OpsFeedUpload = Awaited<ReturnType<typeof opsFeedUploads>>[number];
+
+/**
+ * The recent history of vendor-level feed pushes.
+ *
+ * Not tenant-scoped and not tenant-scopable — one CarGurus file carries every
+ * dealer we send, so there is no rooftop this belongs to. That is exactly why it
+ * lives behind `requireStaff()` here rather than anywhere a dealer can reach.
+ *
+ * The reason this is a screen at all: the short-file guard's whole value is that
+ * somebody sees it fire. A run that refused to upload because a dealer would have
+ * been delisted is the single most important thing this system can tell a human,
+ * and until now it only existed in a Vercel function log.
+ */
+export async function opsFeedUploads(limit = 12) {
+  await requireStaff();
+  return db
+    .select()
+    .from(t.feedUploads)
+    .orderBy(desc(t.feedUploads.startedAt))
+    .limit(limit);
 }

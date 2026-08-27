@@ -98,15 +98,22 @@ export function ftpConfigured(): boolean {
 }
 
 /**
- * A dated, sortable name. UTC on purpose — a twice-daily schedule crossing a DST
- * boundary in local time produces two files with the same name in the fall and
- * a missing one in the spring, and neither is worth debugging at 2am.
+ * A dated, sortable name.
+ *
+ * UTC on purpose — a twice-daily schedule crossing a DST boundary in local time
+ * produces two files with the same name in the fall and a missing one in the
+ * spring, and neither is worth debugging at 2am.
+ *
+ * Seconds are in the stamp because minutes are not enough. The scheduled runs
+ * are twelve hours apart and would never collide, but "Run now" on `/ops` and a
+ * forced retry immediately after a refusal both happen inside one minute, and a
+ * collision there silently overwrites a file CarGurus may not have swept yet.
  */
 export function feedFilename(now: Date = new Date(), prefix = 'rooftopauto'): string {
   const p = (n: number) => String(n).padStart(2, '0');
   const stamp =
     `${now.getUTCFullYear()}${p(now.getUTCMonth() + 1)}${p(now.getUTCDate())}` +
-    `-${p(now.getUTCHours())}${p(now.getUTCMinutes())}`;
+    `-${p(now.getUTCHours())}${p(now.getUTCMinutes())}${p(now.getUTCSeconds())}`;
   return `${prefix}-${stamp}.csv.gz`;
 }
 

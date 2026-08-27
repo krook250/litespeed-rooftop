@@ -666,10 +666,22 @@ export type CgGuardVerdict =
  * Decide whether `current` is safe to send given the last file that actually
  * landed. `previous` is null on the very first upload, which is always allowed —
  * there is nothing live to delist yet.
+ *
+ * THE FLOOR IS NOT FORCEABLE, AND THAT IS THE WHOLE POINT OF THE `force` FLAG
+ * LIVING HERE RATHER THAN AT THE CALL SITE.
+ *
+ * `force` exists for one case: a dealer was disconnected on purpose and their
+ * cars *should* leave the file. That is a comparison against last night, so it
+ * is the comparison that gets waived. An empty file is a different animal — it
+ * says every dealer has no inventory, and on a destination where absence is
+ * removal, one click would take the entire platform's listings down at once.
+ * There is no situation where that is what somebody meant, so there is no flag
+ * that permits it.
  */
 export function guardBatch(
   current: CgGuardInput,
   previous: CgGuardInput | null,
+  opts: { force?: boolean } = {},
 ): CgGuardVerdict {
   if (current.lots.length === 0) {
     return { ok: false, reason: 'No rooftops are eligible for the CarGurus file.' };
@@ -680,7 +692,7 @@ export function guardBatch(
       reason: `No vehicles qualified across ${current.lots.length} eligible rooftop(s).`,
     };
   }
-  if (!previous) return { ok: true };
+  if (opts.force || !previous) return { ok: true };
 
   // A lot that was carrying and now carries nothing. The sharpest signal there
   // is, and the one that takes an entire dealership dark in one upload.

@@ -14,15 +14,22 @@
  */
 
 import Link from 'next/link';
-import { Card, CardHeader, Badge, Button, EmptyState } from '@/components/ui';
+import { Card, CardHeader, Badge, Button, EmptyState, cn } from '@/components/ui';
 import { relativeTime, CONNECTION_STATUS_INTERNAL } from '@/lib/domain';
-import { opsConnections, opsRooftopChannels, type OpsConnection } from '@/lib/ops/queries';
+import {
+  opsConnections,
+  opsFeedUploads,
+  opsRooftopChannels,
+  type OpsConnection,
+  type OpsFeedUpload,
+} from '@/lib/ops/queries';
 import {
   markSubmitted,
   markLive,
   markError,
   saveOpsFields,
   provisionChannels,
+  runCarGurusNow,
 } from '@/lib/ops/actions';
 import { CARGURUS_CHANNEL_KEY } from '@/lib/cargurus/feed';
 
@@ -229,6 +236,135 @@ async function Provisioning() {
   );
 }
 
+
+/**
+ * The CarGurus upload log.
+ *
+ * Placed above the onboarding queue on purpose. A refused upload is time-
+ * sensitive in a way that a connection sitting in AWAITING_DEALER is not: the
+ * guard stops one push, and if nobody looks, the next scheduled run stops too,
+ * and the dealer's inventory quietly goes stale rather than dark. Stale is
+ * harder to notice and takes longer to explain.
+ */
+function UploadRow({ u, now }: { u: OpsFeedUpload; now: Date }) {
+  const tone = u.status === 'UPLOADED' ? 'green' : u.status === 'SKIPPED' ? 'amber' : 'red';
+  const lots = (u.lots ?? []).filter((l) => l.sent > 0 || l.excluded > 0);
+
+  return (
+    <div className="border-t border-ink-200 px-5 py-3 first:border-t-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={tone}>{u.status}</Badge>
+        <span className="text-sm font-medium text-ink-900">
+          {u.rowCount} {u.rowCount === 1 ? 'vehicle' : 'vehicles'} · {u.lotCount}{' '}
+          {u.lotCount === 1 ? 'lot' : 'lots'}
+        </span>
+        {u.excludedCount > 0 ? (
+          <span className="text-xs text-ink-500">{u.excludedCount} held out</span>
+        ) : null}
+        <span className="ml-auto text-xs text-ink-400">
+          {relativeTime(u.startedAt, now)}
+        </span>
+      </div>
+
+      {u.message ? (
+        <p
+          className={cn(
+            'mt-1.5 text-sm',
+            u.status === 'FAILED' ? 'text-red-700' : 'text-amber-800',
+          )}
+        >
+          {u.message}
+        </p>
+      ) : null}
+
+      {u.status === 'UPLOADED' ? (
+        <p className="mt-1 font-mono text-xs text-ink-400">
+          {u.filename} · {Math.round(u.bytes / 1024)} KB
+        </p>
+      ) : null}
+
+      {u.warnings && u.warnings.length > 0 ? (
+        <ul className="mt-1.5 space-y-0.5">
+          {u.warnings.map((w, i) => (
+            <li key={i} className="text-xs text-amber-700">
+              {w}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {lots.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {lots.map((l) => (
+            <span
+              key={l.rooftopId}
+              className="inline-flex items-center gap-1 rounded-md bg-ink-100 px-2 py-0.5 text-xs text-ink-700"
+              title={`${l.excluded} held out`}
+            >
+              {l.rooftopName}
+              <span className={cn('font-medium', l.sent === 0 && 'text-red-600')}>{l.sent}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+async function FeedUploads() {
+  const uploads = await opsFeedUploads();
+  const now = new Date();
+  const last = uploads[0];
+
+  return (
+    <Card className="mb-6">
+      <CardHeader
+        title="CarGurus uploads"
+        subtitle="Twice daily at 2am and 2pm Pacific. A refused run is the guard working, not a fault — read the reason before forcing it."
+        action={
+          <div className="flex shrink-0 gap-2">
+            <form action={runCarGurusNow}>
+              <Button type="submit" size="sm" variant="secondary">
+                Run now
+              </Button>
+            </form>
+            <form action={runCarGurusNow}>
+              <input type="hidden" name="force" value="1" />
+              <Button
+                type="submit"
+                size="sm"
+                variant="ghost"
+                className="text-red-600 hover:bg-red-50"
+                title="Skips the short-file guard. Only for a dealer who was disconnected on purpose."
+              >
+                Force
+              </Button>
+            </form>
+          </div>
+        }
+      />
+      {uploads.length === 0 ? (
+        <p className="px-5 py-4 text-sm text-ink-500">
+          Nothing has been pushed yet. Until CarGurus issues FTP credentials, a run records{' '}
+          <span className="font-medium">SKIPPED</span> and sends nothing.
+        </p>
+      ) : (
+        <>
+          {last && last.status !== 'UPLOADED' ? (
+            <p className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">
+              The most recent run did not send. Nothing was delisted — but nothing was updated
+              either, and the next scheduled run will reach the same conclusion.
+            </p>
+          ) : null}
+          {uploads.map((u) => (
+            <UploadRow key={u.id} u={u} now={now} />
+          ))}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default async function OpsPage() {
   const all = await opsConnections();
   const now = new Date();
@@ -250,6 +386,8 @@ export default async function OpsPage() {
       <p className="mb-6 text-sm text-ink-500">
         {all.length} connections across every dealer group. Ordered by whose move it is.
       </p>
+
+      <FeedUploads />
 
       <Provisioning />
 

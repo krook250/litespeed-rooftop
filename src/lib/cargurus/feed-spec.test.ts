@@ -493,6 +493,17 @@ describe('refusing to send a file that would delist somebody', () => {
     assert.equal(guardBatch(input([lot('a', justUnder)]), prev).ok, true);
   });
 
+  it('waives the comparison under force, but only the comparison', () => {
+    const prev = input([lot('a', 40), lot('b', 12, 'Bravo Cars')]);
+    // The case force exists for: Bravo was disconnected on purpose.
+    assert.equal(guardBatch(input([lot('a', 40)]), prev, { force: true }).ok, true);
+    // The case no flag may ever permit: every dealer's lot going out empty.
+    const empty = guardBatch({ lots: [], sent: 0 }, prev, { force: true });
+    assert.equal(empty.ok, false);
+    const nothingQualified = guardBatch(input([lot('a', 0), lot('b', 0)]), prev, { force: true });
+    assert.equal(nothingQualified.ok, false);
+  });
+
   it('never sends an empty file, previous run or not', () => {
     const none = guardBatch({ lots: [], sent: 0 }, null);
     assert.equal(none.ok, false);
