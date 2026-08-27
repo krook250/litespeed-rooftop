@@ -3,6 +3,7 @@ import { requireSession, signOut } from '@/lib/auth';
 import { getGroup, getStorefronts, resolveFeedStyle } from '@/lib/queries';
 import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/admin-nav';
+import { AdminMobileNav } from '@/components/admin-mobile-nav';
 import { RooftopLockup } from '@/components/brand';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -26,16 +27,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/login');
   }
 
-  return (
-    <div className="flex min-h-screen bg-ink-50">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 lg:flex">
-        <div className="px-5 py-5">
-          <RooftopLockup compact />
-        </div>
+  /**
+   * Built once and rendered twice — into the desktop sidebar and into the
+   * mobile drawer. Two copies of a link list is how a menu quietly goes stale
+   * on the platform nobody on the team is testing on.
+   */
+  const sidebar = (
+    <>
+      <AdminNav feedLabel={feed.style === 'LOG' ? 'Activity' : 'Lot Walk'} />
 
-        <AdminNav feedLabel={feed.style === 'LOG' ? 'Activity' : 'Lot Walk'} />
-
-        <div className="mt-auto border-t border-ink-800 px-3 py-4">
+      <div className="mt-auto border-t border-ink-800 px-3 py-4">
           <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">
             Storefronts
           </div>
@@ -62,10 +63,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Sign out
             </button>
           </form>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-ink-50">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 lg:flex">
+        <div className="px-5 py-5">
+          <RooftopLockup compact />
         </div>
+        {sidebar}
       </aside>
 
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        {/* The horizontal lockup, not the compact one — `compact` stacks the mark
+            above the wordmark, which is right for a 240px sidebar and eats a
+            third of a phone screen above every single page. */}
+        <AdminMobileNav brand={<RooftopLockup />}>{sidebar}</AdminMobileNav>
+        {children}
+      </div>
     </div>
   );
 }
