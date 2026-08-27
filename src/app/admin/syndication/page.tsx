@@ -74,6 +74,26 @@ export default async function SyndicationPage({
     (c) => !activeRooftop || c.channel_connections.rooftopId === activeRooftop.id,
   );
 
+  /**
+   * Only channels this dealer actually has a connection to.
+   *
+   * `getChannels()` returns the platform's whole catalogue — every destination
+   * Rooftop supports, whether or not this dealer has asked for any of them.
+   * Rendering that list unfiltered is how a freshly onboarded lot with zero
+   * connections sees nine cards reading "0 live" and concludes the product is
+   * broken. It is not broken; nothing has been set up. Those are very different
+   * sentences and the screen was telling the wrong one.
+   *
+   * (It cost a real debugging session: nine cards at zero read as nine failing
+   * connections, when the truth was that the connections did not exist.)
+   *
+   * A channel appears once ANY shown rooftop is connected to it, so the
+   * "All rooftops" view is the union rather than the intersection — a channel one
+   * lot uses should not vanish because the other lot does not.
+   */
+  const connectedChannelIds = new Set(shownConnections.map((c) => c.channels.id));
+  const visibleChannels = channels.filter((ch) => connectedChannelIds.has(ch.id));
+
   const tally = (channelId: string) => {
     const counts: Record<string, number> = {};
     for (const v of inventory) {
@@ -166,8 +186,21 @@ export default async function SyndicationPage({
       ) : null}
 
       {/* ------------------------------------------------------- channels */}
+      {visibleChannels.length === 0 ? (
+        <div className="mb-6">
+          <EmptyState
+            title="No channels connected yet"
+            body={
+              inventory.length > 0
+                ? `Your ${inventory.length} ${inventory.length === 1 ? 'vehicle is' : 'vehicles are'} on your own website. Nothing is going out to a marketplace until we connect one — we do that for you, so ask and we will set it up.`
+                : 'Add inventory first, then we will connect the marketplaces you want to appear on.'
+            }
+          />
+        </div>
+      ) : null}
+
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {channels.map((ch) => {
+        {visibleChannels.map((ch) => {
           const counts = tally(ch.id);
           const conns = shownConnections.filter((c) => c.channels.id === ch.id);
           const anyError = conns.some((c) => c.channel_connections.status === 'ERROR');
@@ -298,6 +331,10 @@ export default async function SyndicationPage({
       </div>
 
       {/* --------------------------------------------------------- matrix */}
+      {/* A grid of "every unit against every channel" with no channels is a
+          table of two columns and a promise nobody kept. Hidden until there is
+          at least one connection to be a column. */}
+      {visibleChannels.length === 0 ? null : (
       <Card className="mb-6 overflow-hidden">
         <CardHeader
           title="Per-VIN sync status"
@@ -332,7 +369,7 @@ export default async function SyndicationPage({
                   Unit
                 </th>
                 <th className="px-3 py-2.5 text-left text-xs font-semibold text-ink-600">Price</th>
-                {channels.map((ch) => (
+                {visibleChannels.map((ch) => (
                   <th key={ch.id} className="px-2 py-2.5 text-center">
                     <div
                       className="mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[10px] font-bold text-white"
@@ -372,7 +409,7 @@ export default async function SyndicationPage({
                     <td className="px-3 py-2">
                       <PriceQuickEdit vehicleId={v.id} price={activePrice(v)} compact />
                     </td>
-                    {channels.map((ch) => {
+                    {visibleChannels.map((ch) => {
                       const cell = row?.get(ch.id);
                       const status = cell?.vehicle_sync_states.status ?? 'NOT_LISTED';
                       const s = cell?.vehicle_sync_states;
@@ -418,6 +455,7 @@ export default async function SyndicationPage({
           </table>
         </div>
       </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ------------------------------------------------------- errors */}
