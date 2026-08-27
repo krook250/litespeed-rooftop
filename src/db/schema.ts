@@ -79,6 +79,19 @@ export const connectionStatusEnum = pgEnum('connection_status', [
 export const syncActionEnum = pgEnum('sync_action', [
   'CREATE', 'UPDATE_PRICE', 'UPDATE_PHOTOS', 'UPDATE_DETAILS', 'REMOVE', 'RELIST',
 ]);
+/**
+ * How one push of a whole-vendor feed file ended.
+ *
+ * `SKIPPED` is the important one and the reason this enum is not a boolean. On
+ * a destination whose only removal mechanism is absence, deciding *not* to send
+ * tonight's file is a real, deliberate action with consequences, and it has to
+ * be as visible in the log as a failure is. A run that quietly did nothing is
+ * indistinguishable from a scheduler that never fired.
+ */
+export const feedUploadStatusEnum = pgEnum('feed_upload_status', [
+  'UPLOADED', 'FAILED', 'SKIPPED',
+]);
+
 export const userRoleEnum = pgEnum('user_role', ['OWNER', 'MANAGER', 'SALES', 'LOT_PORTER']);
 
 /** Which screen a user lands on after signing in. Feed is the default bet. */
@@ -793,6 +806,66 @@ export const vehicleChannelOverrides = pgTable(
     priceOverride: integer(),
   },
   (t) => [uniqueIndex('vehicle_channel_overrides_uq').on(t.vehicleId, t.channelId)],
+);
+
+/**
+ * One row per attempt to push a vendor-level feed file. Append-only.
+ *
+ * WHY THIS IS NOT SCOPED TO A TENANT, AND WHY IT IS NOT `sync_events`
+ *
+ * `sync_events` is a per-vehicle log and requires a `vehicleId`. This is a
+ * per-*file* log, and one file carries every dealer we send for CarGurus —
+ * because we hold one vendor account, not one per dealer. There is no rooftop
+ * this row belongs to. Trying to force it into either shape loses the only
+ * thing it is for.
+ *
+ * WHAT IT IS ACTUALLY FOR: knowing whether tonight's file is safe to send.
+ *
+ * CarGurus has no availability column. A unit's absence from the file is the
+ * entire removal mechanism, which means a file that is unexpectedly short does
+ * not fail — it silently delists the difference, and the first person to notice
+ * is the dealer whose lot went dark. The scheduler cannot detect that from
+ * tonight alone; it needs last night's numbers. `lots` is the column that makes
+ * that possible: a rooftop that sent forty rows yesterday and would send zero
+ * tonight is a stop-and-shout, not a smaller upload.
+ *
+ * `contentHash` answers the cheaper question — did anything change at all —
+ * without keeping the files. Combined with the deterministic ordering in
+ * `combineFeeds`, an unchanged lot hashes identically two nights running.
+ *
+ * Not tenant-scoped, so it is never reachable through `scoped-db.ts`. Anything
+ * dealer-facing that wants to say "last synced at" reads
+ * `channel_connections.lastSyncAt`, which is scoped, and which the scheduler
+ * stamps from here.
+ */
+export const feedUploads = pgTable(
+  'feed_uploads',
+  {
+    id: cuid().primaryKey(),
+    /** `channels.key`, not an id — the account is ours, not a tenant's connection. */
+    channelKey: text().notNull(),
+    filename: text().notNull(),
+    status: feedUploadStatusEnum().notNull(),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp({ withTimezone: true }),
+    /** Rooftops eligible by connection state, whether or not they contributed rows. */
+    lotCount: integer().notNull().default(0),
+    rowCount: integer().notNull().default(0),
+    excludedCount: integer().notNull().default(0),
+    /** Compressed and uncompressed size. A ratio that moves means the builder changed. */
+    bytes: integer().notNull().default(0),
+    rawBytes: integer().notNull().default(0),
+    /** sha256 of the CSV before compression. */
+    contentHash: text(),
+    /** Per-lot counts. This is the column the short-file guard reads. */
+    lots: jsonb().$type<
+      { rooftopId: string; rooftopName: string; sent: number; excluded: number }[]
+    >(),
+    warnings: jsonb().$type<string[]>(),
+    /** Why it failed, or why it was skipped. Null on a clean upload. */
+    message: text(),
+  },
+  (t) => [index('feed_uploads_channel_started_idx').on(t.channelKey, t.startedAt)],
 );
 
 /* -------------------------------------------------------------- reporting */

@@ -1,11 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cle1"],
+  "regions": [
+    "cle1"
+  ],
   "framework": "nextjs",
   "crons": [
     {
       "path": "/api/cron/domain-nudge",
       "schedule": "0 16 * * 2"
+    },
+    {
+      "path": "/api/cron/cargurus-feed",
+      "schedule": "0 9,21 * * *"
     }
   ]
 }

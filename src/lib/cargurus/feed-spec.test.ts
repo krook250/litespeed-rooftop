@@ -31,6 +31,8 @@ import {
   buildCarGurusFeed,
   combineFeeds,
   evaluate,
+  guardBatch,
+  SHORT_FILE_DROP_RATIO,
   feedablePhotos,
   inCarGurusFile,
   liveWindow,
@@ -426,5 +428,78 @@ describe('combining several dealers into one file', () => {
   it('still keeps the control fields out of the combined header', () => {
     const b = combineFeeds([part('lot_a', 'Alpha Auto', ['A1'])]);
     for (const f of OMITTED_CONTROL_FIELDS) assert.ok(!b.columns.includes(f), f);
+  });
+});
+
+/* ------------------------------------------------------------- the guard */
+
+const lot = (rooftopId: string, sent: number, rooftopName = rooftopId) => ({
+  rooftopId,
+  rooftopName,
+  sent,
+});
+const input = (lots: ReturnType<typeof lot>[]) => ({
+  lots,
+  sent: lots.reduce((n, l) => n + l.sent, 0),
+});
+
+describe('refusing to send a file that would delist somebody', () => {
+  it('allows the first upload, since there is nothing live to lose', () => {
+    assert.deepEqual(guardBatch(input([lot('a', 12)]), null), { ok: true });
+  });
+
+  it('allows an ordinary night', () => {
+    const v = guardBatch(input([lot('a', 40), lot('b', 12)]), input([lot('a', 39), lot('b', 12)]));
+    assert.equal(v.ok, true);
+  });
+
+  it('allows growth', () => {
+    assert.equal(guardBatch(input([lot('a', 400)]), input([lot('a', 40)])).ok, true);
+  });
+
+  it('refuses when a carrying lot would drop to zero', () => {
+    const v = guardBatch(
+      input([lot('a', 40), lot('b', 0, 'Bravo Cars')]),
+      input([lot('a', 40), lot('b', 12, 'Bravo Cars')]),
+    );
+    assert.equal(v.ok, false);
+    assert.match(v.ok === false ? v.reason : '', /Bravo Cars would drop from 12 vehicle\(s\) to 0/);
+  });
+
+  it('refuses when a carrying lot vanishes from the file entirely', () => {
+    const v = guardBatch(input([lot('a', 40)]), input([lot('a', 40), lot('b', 12, 'Bravo Cars')]));
+    assert.equal(v.ok, false);
+    assert.match(v.ok === false ? v.reason : '', /Bravo Cars .* no longer eligible/);
+  });
+
+  it('does not fire for a lot that was already sending nothing', () => {
+    // Nothing of theirs is live, so there is nothing to delist.
+    const v = guardBatch(input([lot('a', 40)]), input([lot('a', 40), lot('b', 0, 'Bravo Cars')]));
+    assert.equal(v.ok, true);
+  });
+
+  it('refuses a group-wide collapse that never takes any single lot to zero', () => {
+    const v = guardBatch(
+      input([lot('a', 20), lot('b', 5), lot('c', 5)]),
+      input([lot('a', 40), lot('b', 30), lot('c', 30)]),
+    );
+    assert.equal(v.ok, false);
+    assert.match(v.ok === false ? v.reason : '', /would drop from 100 to 30 vehicles \(70%\)/);
+  });
+
+  it('lets a drop just under the limit through', () => {
+    const prev = input([lot('a', 100)]);
+    const justUnder = Math.ceil(100 * (1 - SHORT_FILE_DROP_RATIO)) + 1;
+    assert.equal(guardBatch(input([lot('a', justUnder)]), prev).ok, true);
+  });
+
+  it('never sends an empty file, previous run or not', () => {
+    const none = guardBatch({ lots: [], sent: 0 }, null);
+    assert.equal(none.ok, false);
+    assert.match(none.ok === false ? none.reason : '', /No rooftops are eligible/);
+
+    const noCars = guardBatch(input([lot('a', 0), lot('b', 0)]), null);
+    assert.equal(noCars.ok, false);
+    assert.match(noCars.ok === false ? noCars.reason : '', /No vehicles qualified across 2/);
   });
 });

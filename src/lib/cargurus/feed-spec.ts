@@ -626,3 +626,103 @@ export function combineFeeds(parts: CgBatchPart[]): CgBatch {
     warnings,
   };
 }
+
+/* ------------------------------------------------- the short-file guard */
+
+/**
+ * A file that is smaller than last night's is not a smaller file. It is a
+ * delisting instruction.
+ *
+ * CarGurus has no availability column, so absence is our entire removal
+ * mechanism — `liveWindow` depends on it and the runbook documents it. The
+ * consequence nobody enjoys is that every ordinary failure upstream of the
+ * builder becomes a silent delist: a photo host having a bad morning, a
+ * half-finished migration, a query that timed out and returned fewer rows. None
+ * of those raise an error. All of them produce a valid, well-formed, shorter
+ * file, and CarGurus will faithfully do what it says.
+ *
+ * So the upload is guarded on the previous successful one. The guard's bias is
+ * deliberate and worth stating plainly: **not uploading is safe, uploading a
+ * short file is not.** Skipping leaves yesterday's listings exactly as they are.
+ * There is no symmetric risk to weigh against, which is why this refuses on
+ * suspicion rather than on proof.
+ */
+
+/** A lot losing this share of its rows, group-wide, stops the upload. */
+export const SHORT_FILE_DROP_RATIO = 0.4;
+
+export type CgGuardLot = { rooftopId: string; rooftopName: string; sent: number };
+
+export type CgGuardInput = {
+  lots: CgGuardLot[];
+  sent: number;
+};
+
+export type CgGuardVerdict =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+/**
+ * Decide whether `current` is safe to send given the last file that actually
+ * landed. `previous` is null on the very first upload, which is always allowed —
+ * there is nothing live to delist yet.
+ */
+export function guardBatch(
+  current: CgGuardInput,
+  previous: CgGuardInput | null,
+): CgGuardVerdict {
+  if (current.lots.length === 0) {
+    return { ok: false, reason: 'No rooftops are eligible for the CarGurus file.' };
+  }
+  if (current.sent === 0) {
+    return {
+      ok: false,
+      reason: `No vehicles qualified across ${current.lots.length} eligible rooftop(s).`,
+    };
+  }
+  if (!previous) return { ok: true };
+
+  // A lot that was carrying and now carries nothing. The sharpest signal there
+  // is, and the one that takes an entire dealership dark in one upload.
+  const before = new Map(previous.lots.map((l) => [l.rooftopId, l]));
+  const now = new Map(current.lots.map((l) => [l.rooftopId, l]));
+  for (const [id, was] of before) {
+    if (was.sent === 0) continue;
+    const isNow = now.get(id);
+    if (!isNow) {
+      // Gone from the file entirely. Legitimate when a dealer is disconnected on
+      // purpose — but that is an intentional act, and an intentional act can
+      // afford to be confirmed by a human. See `force`.
+      return {
+        ok: false,
+        reason:
+          `${was.rooftopName} was in the last file with ${was.sent} vehicle(s) and is no longer ` +
+          'eligible. Sending would delist them.',
+      };
+    }
+    if (isNow.sent === 0) {
+      return {
+        ok: false,
+        reason:
+          `${was.rooftopName} would drop from ${was.sent} vehicle(s) to 0. ` +
+          'Sending would delist their whole lot.',
+      };
+    }
+  }
+
+  // Partial collapse across the group. Catches the failure that is spread thin
+  // enough that no single lot hits zero.
+  if (previous.sent > 0) {
+    const dropped = (previous.sent - current.sent) / previous.sent;
+    if (dropped >= SHORT_FILE_DROP_RATIO) {
+      return {
+        ok: false,
+        reason:
+          `File would drop from ${previous.sent} to ${current.sent} vehicles ` +
+          `(${Math.round(dropped * 100)}%), past the ${Math.round(SHORT_FILE_DROP_RATIO * 100)}% limit.`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
