@@ -2,7 +2,7 @@ import 'server-only';
 import { and, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
-import { carriesListings, isSyndicatable } from '@/lib/domain';
+import { carriesListings, isSyndicatable, SYNDICATABLE_STATUSES } from '@/lib/domain';
 import { feedSyncError } from '@/lib/feed';
 
 /**
@@ -136,6 +136,102 @@ export async function enqueueChange(
   }
 
   return { queued, blocked };
+}
+
+/**
+ * Put the lot that is already here onto a channel that has just started
+ * carrying.
+ *
+ * THE MOMENT THIS EXISTS FOR. A dealer's connection sits in `SUBMITTED` for
+ * days while somebody at CarGurus switches the source over. When they do,
+ * an operator clicks Mark live — and until now that flipped one row in
+ * `channel_connections` and touched nothing else. Every car already on the lot
+ * stayed `NOT_LISTED`, and nothing in the system was ever going to look at them
+ * again. The dealer would watch a connected channel carry zero of their
+ * twenty-one vehicles, indefinitely, with no error anywhere.
+ *
+ * `enqueueChange` cannot do this job: it is keyed on **one vehicle** across all
+ * of its channels, and this is the transpose — **one channel** across all of the
+ * lot's vehicles. Doing it by looping `enqueueChange` over every vehicle also
+ * re-reads every other connection once per car, which on a 400-unit lot is a few
+ * thousand pointless queries.
+ *
+ * Rows already `LIVE`, `QUEUED`, `SYNCING` or `EXCLUDED` are left alone — this
+ * is a backlog, not a resweep, and `EXCLUDED` is the dealer's decision.
+ */
+export async function enqueueConnectionBacklog(connectionId: string) {
+  const row = (
+    await db
+      .select()
+      .from(t.channelConnections)
+      .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
+      .where(eq(t.channelConnections.id, connectionId))
+      .limit(1)
+  )[0];
+  if (!row) return { queued: 0 };
+
+  const conn = row.channel_connections;
+  const channel = row.channels;
+
+  // Not carrying yet — nothing to send, and saying otherwise would be a lie on
+  // the dealer's screen.
+  if (!carriesListings(conn.status)) return { queued: 0 };
+
+  // The dealer's own site is a mirror, not a queue. `reconcileOwnSite` owns it,
+  // and routing it through here would show a spinner on a page that is already
+  // rendering the car.
+  if (channel.key === 'dealer_site') return { queued: 0 };
+
+  const eligible = db
+    .select({ id: t.vehicles.id })
+    .from(t.vehicles)
+    .where(
+      and(
+        eq(t.vehicles.rooftopId, conn.rooftopId),
+        inArray(t.vehicles.status, [...SYNDICATABLE_STATUSES]),
+      ),
+    );
+
+  const dueAt =
+    channel.syncMode === 'PUSH_API' ? pushEta() : nextPull(channel.cadenceMinutes, conn.lastSyncAt);
+
+  const queued = await db
+    .update(t.vehicleSyncStates)
+    .set({
+      status: 'QUEUED',
+      pendingSince: new Date(),
+      dueAt,
+      lastAttemptAt: new Date(),
+      errorCode: null,
+      errorMessage: null,
+    })
+    .where(
+      and(
+        eq(t.vehicleSyncStates.connectionId, connectionId),
+        inArray(t.vehicleSyncStates.status, ['NOT_LISTED', 'PENDING', 'REMOVED']),
+        inArray(t.vehicleSyncStates.vehicleId, eligible),
+      ),
+    )
+    .returning({ id: t.vehicleSyncStates.id, vehicleId: t.vehicleSyncStates.vehicleId });
+
+  if (queued.length) {
+    await db.insert(t.syncEvents).values(
+      queued.map((q) => ({
+        vehicleId: q.vehicleId,
+        connectionId,
+        action: 'CREATE' as const,
+        status: 'QUEUED' as const,
+        message: `${channel.name} started carrying this lot.`,
+      })),
+    );
+  }
+
+  await db
+    .update(t.channelConnections)
+    .set({ nextSyncAt: dueAt })
+    .where(eq(t.channelConnections.id, connectionId));
+
+  return { queued: queued.length };
 }
 
 /**

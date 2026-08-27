@@ -21,6 +21,7 @@ import * as t from '@/db/schema';
 import { requireStaff } from '@/lib/ops/guard';
 import { runCarGurusUpload } from '@/lib/cargurus/run';
 import { reconcileRooftopSync } from '@/lib/sync-states';
+import { enqueueConnectionBacklog } from '@/lib/sync-engine';
 
 function refresh(rooftopId: string) {
   revalidatePath('/ops');
@@ -136,6 +137,13 @@ export async function markLive(formData: FormData) {
     .update(t.channelConnections)
     .set({ status: 'CONNECTED', liveAt: conn.liveAt ?? new Date(), errorMessage: null })
     .where(eq(t.channelConnections.id, connectionId));
+
+  /**
+   * Put the inventory already on the lot onto it. Flipping the status without
+   * this is the bug that made a connected channel carry zero cars forever —
+   * nothing else in the system ever revisits a `NOT_LISTED` row.
+   */
+  await enqueueConnectionBacklog(connectionId);
 
   refresh(conn.rooftopId);
 }
