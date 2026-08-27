@@ -1,13 +1,17 @@
 import 'server-only';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { appOrigin } from '@/lib/meta/connect';
 import { dealerSiteBase } from '@/lib/storefront-url';
 import {
   buildCarGurusFeed,
+  CARGURUS_FILE_STATUSES,
+  combineFeeds,
   liveWindow,
   toCsv,
+  type CgBatch,
+  type CgBatchPart,
   type CgBuildResult,
   type CgPhoto,
   type CgVehicle,
@@ -185,4 +189,83 @@ export async function loadCarGurusFeed(rooftopId: string): Promise<CarGurusFeed 
     },
     connectionStatus: conn?.status ?? null,
   };
+}
+
+/* ------------------------------------------------------- the nightly file */
+
+/**
+ * Every rooftop whose cars belong in the next upload, in file order.
+ *
+ * CROSS-TENANT BY CONSTRUCTION, AND DELIBERATELY NOT IN `src/lib/ops/`.
+ *
+ * The rule in this codebase is that cross-tenant reads live in
+ * `src/lib/ops/queries.ts` behind `requireStaff()`, so an audit reads one file.
+ * This query cannot go there: `requireStaff()` reads request headers, and the
+ * only caller of this is a scheduled job with no request and no session. The
+ * same is already true of the domain-nudge sweep, which reads storefronts for
+ * every tenant on the platform.
+ *
+ * So the gate is different in kind, and it is worth naming: **the authority
+ * here is `CRON_SECRET` on the route, not a signed-in user.** Nothing that
+ * takes a session may call this. If a screen ever needs the batch, it goes
+ * through `src/lib/ops/queries.ts` and calls this from behind `requireStaff()`.
+ */
+export async function carGurusBatchRooftops(): Promise<{ id: string; name: string }[]> {
+  return db
+    .select({ id: t.rooftops.id, name: t.rooftops.name })
+    .from(t.channelConnections)
+    .innerJoin(t.channels, eq(t.channelConnections.channelId, t.channels.id))
+    .innerJoin(t.rooftops, eq(t.channelConnections.rooftopId, t.rooftops.id))
+    .where(
+      and(
+        eq(t.channels.key, CARGURUS_CHANNEL_KEY),
+        inArray(t.channelConnections.status, [...CARGURUS_FILE_STATUSES]),
+      ),
+    )
+    .orderBy(asc(t.rooftops.name));
+}
+
+export type CarGurusBatch = CgBatch & {
+  /** Rooftops eligible by connection state, whether or not they contributed rows. */
+  considered: number;
+};
+
+/**
+ * Build the combined file for every eligible rooftop.
+ *
+ * Goes through `loadCarGurusFeed` per rooftop rather than issuing one wide
+ * query across all of them. That is more round trips, and it is the right
+ * trade: it makes the file an operator downloads for one dealer and the file we
+ * push to CarGurus *the same code path*, so they cannot drift. A bug found in
+ * one is fixed in both. Rooftop counts here are in the tens for the foreseeable
+ * future; when that stops being true this is a query to widen, not an
+ * architecture to change.
+ *
+ * Note what this does NOT do: decide whether to upload. An empty or suspiciously
+ * short file is a delisting event on a destination whose only removal mechanism
+ * is absence, and that judgement belongs to the caller with the previous run in
+ * hand — not to a builder that has only ever seen tonight.
+ */
+export async function loadCarGurusBatch(): Promise<CarGurusBatch> {
+  const lots = await carGurusBatchRooftops();
+  const parts: CgBatchPart[] = [];
+  const missing: string[] = [];
+
+  for (const lot of lots) {
+    const feed = await loadCarGurusFeed(lot.id);
+    if (!feed) {
+      // The rooftop was deleted between the two queries. Vanishingly rare and
+      // still worth a line rather than a silently shorter file.
+      missing.push(lot.id);
+      continue;
+    }
+    parts.push({ rooftopId: feed.rooftopId, rooftopName: feed.rooftopName, built: feed.built });
+  }
+
+  const batch = combineFeeds(parts);
+  for (const id of missing) {
+    batch.warnings.push(`Rooftop ${id} disappeared while the batch was building.`);
+  }
+
+  return { ...batch, considered: lots.length };
 }

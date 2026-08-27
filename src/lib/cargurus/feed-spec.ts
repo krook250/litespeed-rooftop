@@ -481,3 +481,148 @@ export function toCsv(columns: string[], rows: CgRow[]): string {
 export function liveWindow<T extends { status: string }>(vehicles: T[]): T[] {
   return vehicles.filter((v) => !SOLD_STATUSES.has(v.status));
 }
+
+/* ----------------------------------------------------------- the batch */
+
+/**
+ * Which connection states put a rooftop's cars in the upload.
+ *
+ * Positive set, for the same reason `carriesListings()` in `src/lib/domain.ts`
+ * is one: a state added to the enum later stays out of the file until somebody
+ * opts it in deliberately. Getting this wrong in the permissive direction
+ * publishes a lot that never asked to be published; getting it wrong in the
+ * restrictive direction delists one that did.
+ *
+ * `SUBMITTED` is in because that is exactly what SUBMITTED means — we have put
+ * them in the file and CarGurus has not switched the source over yet. Their
+ * rows are ignored on the far side until it does, which is the point: CarGurus
+ * needs to see the data arriving before they will flip it.
+ *
+ * `ERROR` is in because an errored connection is still a *carrying* one. The
+ * error is ours to fix; dropping the rooftop from the file while we fix it
+ * would take the dealer's whole lot down, which is the failure this feed
+ * exists to avoid.
+ *
+ * `AWAITING_DEALER` is out: the dealer has not confirmed they hold a paid
+ * account, and sending inventory for an account that may not exist is how we
+ * end up in a confusing thread with dealers@cargurus.com.
+ */
+export const CARGURUS_FILE_STATUSES = ['SUBMITTED', 'CONNECTED', 'ERROR'] as const;
+
+export function inCarGurusFile(status: string | null | undefined): boolean {
+  return status != null && (CARGURUS_FILE_STATUSES as readonly string[]).includes(status);
+}
+
+/** One rooftop's contribution, as `loadCarGurusFeed` produces it. */
+export type CgBatchPart = {
+  rooftopId: string;
+  rooftopName: string;
+  built: CgBuildResult;
+};
+
+export type CgBatchLot = {
+  rooftopId: string;
+  rooftopName: string;
+  dealerId: string;
+  sent: number;
+  excluded: number;
+};
+
+export type CgBatch = {
+  columns: string[];
+  rows: CgRow[];
+  csv: string;
+  lots: CgBatchLot[];
+  totals: { lots: number; sent: number; excluded: number };
+  /**
+   * Things a human should see in the run log. Never fatal — a warning that
+   * aborted the upload would be a way for one bad rooftop to delist every
+   * other one in the file.
+   */
+  warnings: string[];
+};
+
+/**
+ * Concatenate per-rooftop builds into the single file we send.
+ *
+ * CarGurus accepts "one file with dealer and inventory records together" across
+ * dealerships, and the runbook's §0 premise is that we hold one vendor account
+ * rather than one per dealer — so adding dealer #40 is meant to be a row in a
+ * file, not a provisioning request. This is the function that makes that true.
+ *
+ * ORDERING IS DELIBERATE AND STABLE. Lots sort by name then id, and rows keep
+ * their within-lot order. Two consecutive uploads of an unchanged lot therefore
+ * produce byte-identical files, which is the cheapest possible way to answer
+ * "did anything actually change last night" without storing the files.
+ *
+ * A column mismatch throws. `CG_COLUMNS` is a module constant so this cannot
+ * happen today, but a file whose rows silently disagree about what column three
+ * is would be the single worst bug this module could ship — every price in the
+ * lot landing in the mileage field is not something the far end would reject,
+ * it is something they would publish.
+ */
+export function combineFeeds(parts: CgBatchPart[]): CgBatch {
+  const warnings: string[] = [];
+  const ordered = [...parts].sort(
+    (a, b) =>
+      a.rooftopName.localeCompare(b.rooftopName) || a.rooftopId.localeCompare(b.rooftopId),
+  );
+
+  const columns = ordered[0] ? [...ordered[0].built.columns] : [...CG_COLUMNS];
+  const rows: CgRow[] = [];
+  const lots: CgBatchLot[] = [];
+  const seen = new Map<string, string>();
+
+  for (const part of ordered) {
+    const cols = part.built.columns;
+    if (cols.length !== columns.length || cols.some((c, i) => c !== columns[i])) {
+      throw new Error(
+        `CarGurus batch: column mismatch on rooftop ${part.rooftopId} — ` +
+          'every lot in one file must share a header row.',
+      );
+    }
+
+    const excluded = part.built.vehicles.filter((v) => v.row === null).length;
+    lots.push({
+      rooftopId: part.rooftopId,
+      rooftopName: part.rooftopName,
+      dealerId: part.built.rows[0]?.['Dealer ID'] ?? part.rooftopId,
+      sent: part.built.rows.length,
+      excluded,
+    });
+
+    if (part.built.rows.length === 0) {
+      // Named, not dropped. A lot that contributes nothing is either brand new
+      // or has just lost every photo, and those are very different mornings.
+      warnings.push(
+        `${part.rooftopName} contributed 0 rows (${excluded} held out) — nothing of theirs will be listed.`,
+      );
+    }
+
+    for (const row of part.built.rows) {
+      const vin = row.VIN;
+      const prior = seen.get(vin);
+      if (prior && prior !== part.rooftopId) {
+        // A VIN cannot be on two lots at once — `vehicles.rooftopId` is single —
+        // so this means a transfer wrote a duplicate somewhere. Reported rather
+        // than resolved: guessing which copy is real is how the wrong one wins.
+        warnings.push(`VIN ${vin} appears under two rooftops (${prior} and ${part.rooftopId}).`);
+      }
+      seen.set(vin, part.rooftopId);
+      rows.push(row);
+    }
+  }
+
+  return {
+    columns,
+    rows,
+    csv: toCsv(columns, rows),
+    lots,
+    totals: {
+      lots: lots.length,
+      sent: rows.length,
+      excluded: lots.reduce((n, l) => n + l.excluded, 0),
+    },
+    warnings,
+  };
+}

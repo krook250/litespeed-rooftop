@@ -23,16 +23,21 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CARGURUS_FILE_STATUSES,
   CG_COLUMNS,
   IMAGE_URL_SEPARATOR,
   OMITTED_CONTROL_FIELDS,
   activePrice,
   buildCarGurusFeed,
+  combineFeeds,
   evaluate,
   feedablePhotos,
+  inCarGurusFile,
   liveWindow,
   prettyPhone,
   toCsv,
+  type CgBatchPart,
+  type CgBuildResult,
   type CgRooftop,
   type CgVehicle,
 } from './feed-spec';
@@ -300,5 +305,126 @@ describe('phone formatting', () => {
 
   it('passes anything unrecognisable through rather than mangling it', () => {
     assert.equal(prettyPhone('ext 4'), 'ext 4');
+  });
+});
+
+/* ------------------------------------------------------------ the batch */
+
+describe('which rooftops go in the file', () => {
+  it('includes SUBMITTED, because that is what SUBMITTED means', () => {
+    assert.equal(inCarGurusFile('SUBMITTED'), true);
+  });
+
+  it('keeps an errored connection in the file rather than delisting the lot', () => {
+    assert.equal(inCarGurusFile('ERROR'), true);
+  });
+
+  it('leaves out every state where the dealer has not confirmed a paid account', () => {
+    for (const s of ['PENDING_SETUP', 'AWAITING_DEALER', 'DISCONNECTED']) {
+      assert.equal(inCarGurusFile(s), false, s);
+    }
+  });
+
+  it('treats an unknown or absent state as out', () => {
+    // The positive-set property: a state added to the enum later is excluded
+    // until somebody opts it in on purpose.
+    assert.equal(inCarGurusFile('SOME_FUTURE_STATE'), false);
+    assert.equal(inCarGurusFile(null), false);
+    assert.equal(inCarGurusFile(undefined), false);
+  });
+
+  it('names exactly three states, so widening it is a visible diff', () => {
+    assert.deepEqual([...CARGURUS_FILE_STATUSES].sort(), ['CONNECTED', 'ERROR', 'SUBMITTED']);
+  });
+});
+
+/** A build result carrying `n` rows for one dealer, without touching a database. */
+function part(rooftopId: string, rooftopName: string, vins: string[]): CgBatchPart {
+  const built = buildCarGurusFeed(
+    vins.map((vin, i) => vehicle({ id: `veh_${rooftopId}_${i}`, vin, stockNumber: `S${i}` })),
+    { ...LOT, id: rooftopId, dealerId: rooftopId, name: rooftopName },
+    { photoBase: PHOTO_BASE },
+  );
+  return { rooftopId, rooftopName, built };
+}
+
+describe('combining several dealers into one file', () => {
+  it('emits one header row for the whole file', () => {
+    const b = combineFeeds([part('lot_a', 'Alpha Auto', ['A1', 'A2']), part('lot_b', 'Bravo Cars', ['B1'])]);
+    const lines = b.csv.trim().split('\n');
+    assert.equal(lines.length, 4, 'header + three vehicles');
+    assert.equal(lines[0], CG_COLUMNS.map((c) => `"${c}"`).join(','));
+  });
+
+  it('carries each dealer\'s own Dealer ID on their own rows', () => {
+    const b = combineFeeds([part('lot_a', 'Alpha Auto', ['A1']), part('lot_b', 'Bravo Cars', ['B1'])]);
+    const ids = b.rows.map((r) => r['Dealer ID']);
+    assert.deepEqual(ids, ['lot_a', 'lot_b']);
+  });
+
+  it('orders lots by name, so two uploads of an unchanged file are identical', () => {
+    const a = part('lot_z', 'Alpha Auto', ['A1']);
+    const b = part('lot_a', 'Zulu Motors', ['Z1']);
+    assert.equal(combineFeeds([a, b]).csv, combineFeeds([b, a]).csv);
+    assert.deepEqual(combineFeeds([b, a]).lots.map((l) => l.rooftopName), ['Alpha Auto', 'Zulu Motors']);
+  });
+
+  it('totals rows and held-out units across every lot', () => {
+    const a = part('lot_a', 'Alpha Auto', ['A1', 'A2']);
+    // One unit with no usable photo is held back by the builder, not by us.
+    const bBuilt = buildCarGurusFeed(
+      [vehicle({ id: 'v_b1', vin: 'B1', photos: [] })],
+      { ...LOT, id: 'lot_b', dealerId: 'lot_b', name: 'Bravo Cars' },
+      { photoBase: PHOTO_BASE },
+    );
+    const b: CgBatchPart = { rooftopId: 'lot_b', rooftopName: 'Bravo Cars', built: bBuilt };
+    const combined = combineFeeds([a, b]);
+    assert.equal(combined.totals.lots, 2);
+    assert.equal(combined.totals.sent, 2);
+    assert.equal(combined.totals.excluded, 1);
+  });
+
+  it('warns, loudly and non-fatally, about a lot that contributed nothing', () => {
+    const empty: CgBatchPart = {
+      rooftopId: 'lot_b',
+      rooftopName: 'Bravo Cars',
+      built: buildCarGurusFeed([], { ...LOT, id: 'lot_b', dealerId: 'lot_b' }, {}),
+    };
+    const combined = combineFeeds([part('lot_a', 'Alpha Auto', ['A1']), empty]);
+    assert.equal(combined.rows.length, 1, 'the other lot still ships');
+    assert.match(combined.warnings.join(' '), /Bravo Cars contributed 0 rows/);
+  });
+
+  it('reports a VIN appearing under two rooftops instead of picking one', () => {
+    const combined = combineFeeds([
+      part('lot_a', 'Alpha Auto', ['SHARED1']),
+      part('lot_b', 'Bravo Cars', ['SHARED1']),
+    ]);
+    assert.match(combined.warnings.join(' '), /VIN SHARED1 appears under two rooftops/);
+    assert.equal(combined.rows.length, 2, 'reported, not silently dropped');
+  });
+
+  it('an empty batch is a valid header-only file, not a crash', () => {
+    const combined = combineFeeds([]);
+    assert.equal(combined.rows.length, 0);
+    assert.equal(combined.totals.lots, 0);
+    assert.deepEqual(combined.columns, [...CG_COLUMNS]);
+    // Deciding not to send this is the caller's job — see loadCarGurusBatch.
+    assert.equal(combined.csv.trim().split('\n').length, 1);
+  });
+
+  it('throws rather than shipping a file whose rows disagree about column three', () => {
+    const good = part('lot_a', 'Alpha Auto', ['A1']);
+    const bent = part('lot_b', 'Bravo Cars', ['B1']);
+    const wrong: CgBuildResult = { ...bent.built, columns: ['VIN', 'Make'] };
+    assert.throws(
+      () => combineFeeds([good, { ...bent, built: wrong }]),
+      /column mismatch on rooftop lot_b/,
+    );
+  });
+
+  it('still keeps the control fields out of the combined header', () => {
+    const b = combineFeeds([part('lot_a', 'Alpha Auto', ['A1'])]);
+    for (const f of OMITTED_CONTROL_FIELDS) assert.ok(!b.columns.includes(f), f);
   });
 });
