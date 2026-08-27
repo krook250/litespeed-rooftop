@@ -33,7 +33,7 @@ export function ClassicLayout({ view }: { view: StorefrontView }) {
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink-900">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">
             {filters.make || filters.body
               ? `${filters.make} ${filters.body ? BODY_LABEL[filters.body] ?? '' : ''} inventory`.trim()
               : 'Current inventory'}
@@ -47,14 +47,14 @@ export function ClassicLayout({ view }: { view: StorefrontView }) {
 
       <div className="mt-5 lg:grid lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-8">
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <details className="rounded-xl border border-ink-200 bg-white p-4 lg:hidden">
-            <summary className="cursor-pointer list-none text-sm font-semibold text-ink-900">
+          <details className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 lg:hidden">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
               Filters {activeFilterCount ? `(${activeFilterCount})` : ''}
             </summary>
             <div className="mt-4">{rail('m')}</div>
           </details>
           <div className="hidden lg:block">
-            <h2 className="mb-3 text-sm font-semibold text-ink-900">Filters</h2>
+            <h2 className="mb-3 text-sm font-semibold text-[var(--text)]">Filters</h2>
             {rail('d')}
           </div>
         </aside>

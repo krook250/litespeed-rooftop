@@ -35,9 +35,9 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       {hero ? (
-        <section className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] shadow-sm">
           <Link href={`${basePath}/${hero.stockNumber}`} className="block">
-            <div className="relative aspect-[16/8] w-full bg-ink-100">
+            <div className="relative aspect-[16/8] w-full bg-[var(--paper-2)]">
               {heroPhoto ? (
                 <img
                   src={heroPhoto.url}
@@ -46,25 +46,25 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
                   fetchPriority="high"
                 />
               ) : null}
-              <div className="absolute left-4 top-4 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
+              <div className="absolute left-4 top-4 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--on-accent)]">
                 On the front line
               </div>
             </div>
             <div className="flex flex-wrap items-end justify-between gap-4 p-5">
               <div className="min-w-0">
-                <h1 className="truncate text-2xl font-bold tracking-tight text-ink-900">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-[var(--text)]">
                   {vehicleTitle(hero)}
                 </h1>
-                <p className="tnum mt-1 text-sm text-ink-600">
+                <p className="tnum mt-1 text-sm text-[var(--text-2)]">
                   {miles(hero.mileage)} · {BODY_LABEL[hero.bodyStyle] ?? hero.bodyStyle} ·{' '}
                   {DRIVETRAIN_LABEL[hero.drivetrain] ?? hero.drivetrain} · Stock #{hero.stockNumber}
                 </p>
               </div>
               <div className="text-right">
-                <div className="tnum text-3xl font-black text-[var(--brand)]">
+                <div className="tnum text-3xl font-black text-[var(--brand-text)]">
                   {usd(activePrice(hero))}
                 </div>
-                <span className="text-xs font-semibold text-ink-500 group-hover:underline">
+                <span className="text-xs font-semibold text-[var(--text-3)] group-hover:underline">
                   See details and photos →
                 </span>
               </div>
@@ -75,7 +75,7 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
 
       <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-ink-900">
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">
             {hero ? 'More on the lot' : 'Current inventory'}
           </h2>
           <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
@@ -85,8 +85,8 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
 
       <ActivePills activeKeys={activeKeys} basePath={basePath} sp={sp} filters={filters} />
 
-      <details className="mt-4 rounded-xl border border-ink-200 bg-white p-4">
-        <summary className="cursor-pointer list-none text-sm font-semibold text-ink-900">
+      <details className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
           Narrow it down {activeFilterCount ? `(${activeFilterCount})` : ''}
         </summary>
         <div className="mt-4">

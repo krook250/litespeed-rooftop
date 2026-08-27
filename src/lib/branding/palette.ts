@@ -247,3 +247,262 @@ export function quantize(pixels: Uint8ClampedArray, step = 4): WeightedColor[] {
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 24);
 }
+
+/* ----------------------------------------------------------- store themes */
+
+/**
+ * The three ways a storefront can be painted.
+ *
+ * WHY THIS IS A THEME AND NOT A HEADER SETTING
+ * It started as one — light or dark *header* — on the reasoning that a page of
+ * vehicle photographs wants a white background. That is true of the photographs
+ * and untrue of everything around them: plenty of dealers want a dark site, buyers
+ * increasingly expect one, and a dark header sitting on a white page reads as a
+ * mistake rather than a choice. So the switch covers the whole page.
+ *
+ * The photographs are protected a different way: every image sits on `--paper`
+ * with its own border, and the chips that overlay photos use `--scrim`, which is
+ * dark in BOTH themes. Nothing that sits on top of a photograph inverts.
+ *
+ *   LIGHT — white page, brand color on links and the top rule. The default, and
+ *           what every storefront rendered before this existed.
+ *   DARK  — near-black page, cards a step lighter. The accent carries the header
+ *           because a brand color chosen to read on white usually will not.
+ *   BRAND — light page, header and footer filled with the dealer's own color.
+ *           The loudest option, and the one most dealers picture when they say
+ *           "put my colors on it".
+ */
+export const STORE_THEMES = ['LIGHT', 'DARK', 'BRAND'] as const;
+export type StoreTheme = (typeof STORE_THEMES)[number];
+
+export function isStoreTheme(v: string): v is StoreTheme {
+  return (STORE_THEMES as readonly string[]).includes(v);
+}
+
+export const STORE_THEME_META: Record<StoreTheme, { name: string; blurb: string }> = {
+  LIGHT: {
+    name: 'Light',
+    blurb: 'White page, your color on the links and the line across the top.',
+  },
+  DARK: {
+    name: 'Dark',
+    blurb: 'Near-black page. Photos pop; prices and the phone number carry your accent.',
+  },
+  BRAND: {
+    name: 'Your color',
+    blurb: 'Light page, but the header and footer are filled with your brand color.',
+  },
+};
+
+/** Linear blend in sRGB. `t` is how much of `b` to mix into `a`, 0–1. */
+export function mix(a: string, b: string, t: number): string {
+  const ca = hexToRgb(a), cb = hexToRgb(b);
+  const k = Math.max(0, Math.min(1, t));
+  return rgbToHex({
+    r: ca.r + (cb.r - ca.r) * k,
+    g: ca.g + (cb.g - ca.g) * k,
+    b: ca.b + (cb.b - ca.b) * k,
+  });
+}
+
+/**
+ * Move `color` away from `bg` in lightness until it is readable on it.
+ *
+ * Hue and saturation are left alone — the hue is the dealer's, and a phone
+ * number in a hue nobody chose is worse than one a shade off. Direction comes
+ * from the background rather than the color, so a mid-tone accent lands on the
+ * correct side on both a white page and a black one. This is what makes DARK
+ * safe to offer at all: a navy brand color is invisible on near-black, and no
+ * dealer is going to pick a second color for the dark version of their site.
+ */
+export function contrastify(color: string, bg: string, min = 4.5): string {
+  if (contrast(color, bg) >= min) return color;
+  const hsl = hexToHsl(color);
+  const lighten = luminance(bg) < 0.5;
+  let out = color;
+  let l = hsl.l;
+  for (let i = 0; i < 48 && contrast(out, bg) < min; i++) {
+    l = lighten ? Math.min(1, l + 0.02) : Math.max(0, l - 0.02);
+    out = hslToHex({ ...hsl, l });
+    if (l <= 0 || l >= 1) break;
+  }
+  return out;
+}
+
+/**
+ * Swap the two colors.
+ *
+ * Cheap and used constantly: our guess at which of a dealer's two colors is the
+ * "brand" one is a frequency count, and a logo that is mostly one color with a
+ * small bright mark in another gets it backwards about half the time. Rather
+ * than explain that, the Design card offers a button.
+ */
+export function swapPair(s: { brand: string; accent: string }): { brand: string; accent: string } {
+  return { brand: s.accent, accent: s.brand };
+}
+
+/**
+ * Every color the storefront needs, resolved from one theme and the dealer's pair.
+ *
+ * Flat hex rather than Tailwind classes because four surfaces consume it — the
+ * storefront itself, the drawn layout thumbnails, the live preview in the Design
+ * card, and (later) the OG image renderer — and only two of them are Tailwind
+ * documents. One function means the preview cannot drift from the site it is
+ * previewing, which is exactly what had happened before it existed: the
+ * thumbnails drew a brand-filled header while the storefront rendered a white one.
+ */
+export type StoreThemeTokens = {
+  /** Page background, behind everything. */
+  page: string;
+  /** Cards, inputs, panels. */
+  paper: string;
+  /** A step off `paper`: hover rows, photo wells, inset blocks. */
+  paper2: string;
+  /** Every hairline. */
+  line: string;
+  /** Body text. */
+  text: string;
+  /** Secondary text — specs, labels. */
+  text2: string;
+  /** Faint text — disclaimers, hints. */
+  text3: string;
+  /** The dealer's colors, verbatim, for filled surfaces. */
+  brand: string;
+  accent: string;
+  /** Text on top of a `brand` / `accent` fill. */
+  onBrand: string;
+  onAccent: string;
+  /** The dealer's colors nudged until they read as text on `paper`. */
+  brandOnPage: string;
+  accentOnPage: string;
+  headerBg: string;
+  headerFg: string;
+  headerMuted: string;
+  headerLink: string;
+  headerBorder: string;
+  /** The thin rule above the header, or null when the bar carries the color. */
+  headerRule: string | null;
+  footerBg: string;
+  footerText: string;
+  footerMuted: string;
+  /**
+   * Background for chips that sit on top of a photograph. Dark in BOTH themes —
+   * a photo does not invert, so neither can the thing written across it.
+   */
+  scrim: string;
+};
+
+const LIGHT_BASE = {
+  page: '#f6f7f9',
+  paper: '#ffffff',
+  paper2: '#f6f7f9',
+  line: '#d6dae2',
+  text: '#18202c',
+  text2: '#4f5c72',
+  text3: '#66748c',
+} as const;
+
+const DARK_BASE = {
+  page: '#0e141d',
+  paper: '#18202c',
+  paper2: '#212b3a',
+  line: '#2e394a',
+  text: '#f3f5f8',
+  text2: '#b2bac8',
+  text3: '#8794a8',
+} as const;
+
+export function storeTheme(theme: StoreTheme, brand: string, accent: string): StoreThemeTokens {
+  const base = theme === 'DARK' ? DARK_BASE : LIGHT_BASE;
+  const common = {
+    ...base,
+    brand,
+    accent,
+    onBrand: readableOn(brand),
+    onAccent: readableOn(accent),
+    brandOnPage: contrastify(brand, base.paper),
+    accentOnPage: contrastify(accent, base.paper),
+    scrim: '#0e141d',
+  };
+
+  if (theme === 'DARK') {
+    const headerBg = '#131b26';
+    return {
+      ...common,
+      headerBg,
+      headerFg: '#ffffff',
+      headerMuted: DARK_BASE.text3,
+      headerLink: contrastify(accent, headerBg),
+      headerBorder: DARK_BASE.line,
+      headerRule: brand,
+      footerBg: '#0a0f16',
+      footerText: DARK_BASE.text,
+      footerMuted: DARK_BASE.text3,
+    };
+  }
+
+  if (theme === 'BRAND') {
+    const fg = readableOn(brand);
+    return {
+      ...common,
+      headerBg: brand,
+      headerFg: fg,
+      headerMuted: mix(fg, brand, 0.4),
+      headerLink: fg,
+      headerBorder: mix(brand, '#000000', 0.18),
+      headerRule: null,
+      /* A wash rather than a second full band: two solid brand bars on one page
+         is more color than any dealer's logo can carry. */
+      footerBg: mix(brand, '#ffffff', 0.9),
+      footerText: LIGHT_BASE.text,
+      footerMuted: LIGHT_BASE.text3,
+    };
+  }
+
+  return {
+    ...common,
+    headerBg: '#ffffff',
+    headerFg: LIGHT_BASE.text,
+    headerMuted: LIGHT_BASE.text3,
+    headerLink: contrastify(brand, '#ffffff'),
+    headerBorder: LIGHT_BASE.line,
+    headerRule: brand,
+    footerBg: LIGHT_BASE.page,
+    footerText: LIGHT_BASE.text,
+    footerMuted: LIGHT_BASE.text3,
+  };
+}
+
+/**
+ * The tokens as CSS custom properties, ready to spread onto a style attribute.
+ *
+ * Set once on the storefront's root element. Every component below reads
+ * `var(--paper)` / `var(--text)` and takes no color prop, which is what lets a
+ * fourth layout — or a fourth theme — arrive without touching any of them.
+ */
+export function storeThemeVars(t: StoreThemeTokens): Record<string, string> {
+  return {
+    '--brand': t.brand,
+    '--accent': t.accent,
+    '--on-brand': t.onBrand,
+    '--on-accent': t.onAccent,
+    '--brand-text': t.brandOnPage,
+    '--accent-text': t.accentOnPage,
+    '--page': t.page,
+    '--paper': t.paper,
+    '--paper-2': t.paper2,
+    '--line': t.line,
+    '--text': t.text,
+    '--text-2': t.text2,
+    '--text-3': t.text3,
+    '--scrim': t.scrim,
+    '--header-bg': t.headerBg,
+    '--header-fg': t.headerFg,
+    '--header-muted': t.headerMuted,
+    '--header-link': t.headerLink,
+    '--header-line': t.headerBorder,
+    '--footer-bg': t.footerBg,
+    '--footer-text': t.footerText,
+    '--footer-muted': t.footerMuted,
+  };
+}

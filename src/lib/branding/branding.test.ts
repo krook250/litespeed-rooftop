@@ -15,16 +15,23 @@ import assert from 'node:assert/strict';
 import {
   ROOFTOP_ACCENT,
   ROOFTOP_BRAND,
+  STORE_THEMES,
   contrast,
+  contrastify,
   hexToHsl,
   hueDistance,
   isCandidateColor,
   isDefaultPalette,
+  isStoreTheme,
   makeUsable,
+  mix,
   normalizeHex,
   quantize,
   readableOn,
+  storeTheme,
+  storeThemeVars,
   suggestPalette,
+  swapPair,
 } from './palette';
 
 import {
@@ -315,5 +322,151 @@ describe('explain', () => {
 
   it('names the host, so the message is about their site and not ours', () => {
     assert.match(explain(new FetchFailure('timeout', ''), 'malabartruckandtrade.com'), /malabartruckandtrade\.com/);
+  });
+});
+
+/* ------------------------------------------------------------ store themes */
+
+describe('mix', () => {
+  it('returns the endpoints unchanged', () => {
+    assert.equal(mix('#ff0000', '#0000ff', 0), '#ff0000');
+    assert.equal(mix('#ff0000', '#0000ff', 1), '#0000ff');
+  });
+
+  it('clamps out-of-range amounts rather than extrapolating', () => {
+    assert.equal(mix('#ff0000', '#0000ff', -3), '#ff0000');
+    assert.equal(mix('#ff0000', '#0000ff', 9), '#0000ff');
+  });
+
+  it('lands halfway at the midpoint', () => {
+    assert.equal(mix('#000000', '#ffffff', 0.5), '#808080');
+  });
+});
+
+describe('contrastify', () => {
+  it('leaves a color that already reads alone', () => {
+    assert.equal(contrastify('#18202c', '#ffffff'), '#18202c');
+  });
+
+  it('lightens against a dark background', () => {
+    // A navy brand color is invisible on the dark theme's page until it moves.
+    const out = contrastify('#1b2a6b', '#0e141d');
+    assert.ok(contrast(out, '#0e141d') >= 4.5, `got ${contrast(out, '#0e141d')}`);
+    assert.ok(hexToHsl(out).l > hexToHsl('#1b2a6b').l);
+  });
+
+  it('darkens against a light background', () => {
+    const out = contrastify('#ffe066', '#ffffff');
+    assert.ok(contrast(out, '#ffffff') >= 4.5);
+    assert.ok(hexToHsl(out).l < hexToHsl('#ffe066').l);
+  });
+
+  it('keeps the hue — the hue is the part that is theirs', () => {
+    const before = hexToHsl('#1b2a6b').h;
+    const after = hexToHsl(contrastify('#1b2a6b', '#0e141d')).h;
+    assert.ok(hueDistance(before, after) < 1, `${before} vs ${after}`);
+  });
+});
+
+describe('swapPair', () => {
+  it('exchanges the two', () => {
+    assert.deepEqual(swapPair({ brand: '#111111', accent: '#222222' }), {
+      brand: '#222222',
+      accent: '#111111',
+    });
+  });
+
+  it('is its own inverse', () => {
+    const p = { brand: '#f66912', accent: '#12f6db' };
+    assert.deepEqual(swapPair(swapPair(p)), p);
+  });
+});
+
+describe('isStoreTheme', () => {
+  it('accepts the three and nothing else', () => {
+    for (const t of STORE_THEMES) assert.equal(isStoreTheme(t), true);
+    assert.equal(isStoreTheme('light'), false);   // case matters: it is a DB enum
+    assert.equal(isStoreTheme('SOLARIZED'), false);
+    assert.equal(isStoreTheme(''), false);
+  });
+});
+
+describe('storeTheme', () => {
+  const BRAND = '#3d8bff';
+  const ACCENT = '#ffb020';
+
+  it('DARK actually inverts the page', () => {
+    const light = storeTheme('LIGHT', BRAND, ACCENT);
+    const dark = storeTheme('DARK', BRAND, ACCENT);
+    assert.ok(contrast(dark.page, '#ffffff') > 4.5, 'dark page must not be near-white');
+    assert.ok(contrast(light.page, '#000000') > 4.5, 'light page must not be near-black');
+  });
+
+  it('BRAND fills the header and LIGHT does not', () => {
+    assert.equal(storeTheme('BRAND', BRAND, ACCENT).headerBg, BRAND);
+    assert.equal(storeTheme('BRAND', BRAND, ACCENT).headerRule, null);
+    assert.equal(storeTheme('LIGHT', BRAND, ACCENT).headerRule, BRAND);
+  });
+
+  /*
+   * The whole reason a theme switcher is safe to ship: a dealer picks two colors
+   * once, against a white page, and must not have to pick a second pair for the
+   * dark version. Every text-on-surface pair has to clear AA on its own.
+   */
+  it('keeps body text readable on every surface, in every theme', () => {
+    for (const theme of STORE_THEMES) {
+      const t = storeTheme(theme, BRAND, ACCENT);
+      for (const [name, fg, bg] of [
+        ['text/paper', t.text, t.paper],
+        ['text/page', t.text, t.page],
+        ['text2/paper', t.text2, t.paper],
+        ['headerFg/headerBg', t.headerFg, t.headerBg],
+        ['headerLink/headerBg', t.headerLink, t.headerBg],
+        ['onBrand/brand', t.onBrand, t.brand],
+        ['onAccent/accent', t.onAccent, t.accent],
+        ['footerText/footerBg', t.footerText, t.footerBg],
+      ] as const) {
+        assert.ok(contrast(fg, bg) >= 4.5, `${theme} ${name}: ${contrast(fg, bg).toFixed(2)}`);
+      }
+    }
+  });
+
+  it('rescues a brand color that would be invisible on its own theme', () => {
+    // Near-black brand on the dark page, and a near-white one on the light page.
+    for (const [theme, brand] of [['DARK', '#0f1622'], ['LIGHT', '#fdfdfb']] as const) {
+      const t = storeTheme(theme, brand, ACCENT);
+      assert.ok(contrast(t.brandOnPage, t.paper) >= 4.5, `${theme} brandOnPage`);
+    }
+  });
+
+  it('survives the pathological pairs — pure white and pure black', () => {
+    for (const theme of STORE_THEMES) {
+      for (const [b, a] of [['#ffffff', '#000000'], ['#000000', '#ffffff']] as const) {
+        const t = storeTheme(theme, b, a);
+        assert.ok(contrast(t.onBrand, t.brand) >= 4.5);
+        assert.ok(contrast(t.headerFg, t.headerBg) >= 4.5);
+      }
+    }
+  });
+
+  it('never inverts the scrim — a photograph does not have a dark mode', () => {
+    for (const theme of STORE_THEMES) {
+      const t = storeTheme(theme, BRAND, ACCENT);
+      assert.ok(contrast('#ffffff', t.scrim) >= 4.5, `${theme} scrim`);
+    }
+  });
+});
+
+describe('storeThemeVars', () => {
+  it('emits a value for every custom property the storefront reads', () => {
+    const vars = storeThemeVars(storeTheme('DARK', '#3d8bff', '#ffb020'));
+    for (const key of [
+      '--brand', '--accent', '--on-brand', '--on-accent', '--brand-text', '--accent-text',
+      '--page', '--paper', '--paper-2', '--line', '--text', '--text-2', '--text-3', '--scrim',
+      '--header-bg', '--header-fg', '--header-muted', '--header-link', '--header-line',
+      '--footer-bg', '--footer-text', '--footer-muted',
+    ]) {
+      assert.match(vars[key] ?? '', /^#[0-9a-f]{6}$/i, `${key} = ${vars[key]}`);
+    }
   });
 });

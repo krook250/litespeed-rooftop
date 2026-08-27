@@ -43,7 +43,7 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
 
   if (!count) {
     return (
-      <div className="flex aspect-[3/2] w-full items-center justify-center rounded-xl border border-ink-200 bg-ink-100 text-sm text-ink-500">
+      <div className="flex aspect-[3/2] w-full items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--paper-2)] text-sm text-[var(--text-3)]">
         Photos are being shot today — call for a walkaround.
       </div>
     );
@@ -74,7 +74,7 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
             go(count - 1);
           }
         }}
-        className="relative overflow-hidden rounded-xl border border-ink-200 bg-ink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+        className="relative overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper-2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
       >
         <img
           key={current.url}
@@ -89,7 +89,7 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
           type="button"
           onClick={() => go(index - 1)}
           aria-label="Previous photo"
-          className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-ink-800 shadow-sm transition hover:bg-white"
+          className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-[var(--paper)]/90 p-2 text-[var(--text)] shadow-sm transition hover:bg-[var(--paper)]"
         >
           <Arrow dir="left" />
         </button>
@@ -97,17 +97,17 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
           type="button"
           onClick={() => go(index + 1)}
           aria-label="Next photo"
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-ink-800 shadow-sm transition hover:bg-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[var(--paper)]/90 p-2 text-[var(--text)] shadow-sm transition hover:bg-[var(--paper)]"
         >
           <Arrow dir="right" />
         </button>
 
         <div className="absolute bottom-3 right-3 flex items-center gap-2">
-          <span className="tnum rounded-md bg-ink-950/75 px-2 py-1 text-xs font-semibold text-white">
+          <span className="tnum rounded-md bg-[var(--scrim)]/75 px-2 py-1 text-xs font-semibold text-white">
             {index + 1} / {count}
           </span>
           {TAG_LABEL[current.tag] ? (
-            <span className="rounded-md bg-ink-950/55 px-2 py-1 text-xs font-medium text-white">
+            <span className="rounded-md bg-[var(--scrim)]/55 px-2 py-1 text-xs font-medium text-white">
               {TAG_LABEL[current.tag]}
             </span>
           ) : null}

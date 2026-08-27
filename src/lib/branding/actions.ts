@@ -25,7 +25,7 @@ import { sessionScope } from '@/lib/queries';
 import { assertStorefrontInScope } from '@/lib/scoped-db';
 import { MAX_LOGO_BYTES, owns, put, sniffImage } from '@/lib/storage';
 import { scanSite, fetchImage } from './site-scan';
-import { isHex, suggestPalette, type Suggestion } from './palette';
+import { isHex, isStoreTheme, suggestPalette, type Suggestion } from './palette';
 import type { ActionResult } from '@/lib/domains/actions';
 
 /** How many candidates we are willing to download for one scan. */
@@ -140,9 +140,13 @@ export async function saveStorefrontDesign(_prev: unknown, formData: FormData): 
   const layout = String(formData.get('layout') ?? sf.layout);
   const brandColor = String(formData.get('brandColor') ?? sf.brandColor);
   const accentColor = String(formData.get('accentColor') ?? sf.accentColor);
+  const theme = String(formData.get('theme') ?? sf.theme);
 
   if (!isHex(brandColor) || !isHex(accentColor)) {
     return { ok: false, error: 'Colors must be six-digit hex values like #3d8bff.' };
+  }
+  if (!isStoreTheme(theme)) {
+    return { ok: false, error: 'Unknown theme.' };
   }
   if (!(t.storefrontLayoutEnum.enumValues as readonly string[]).includes(layout)) {
     return { ok: false, error: 'Unknown layout.' };
@@ -171,7 +175,7 @@ export async function saveStorefrontDesign(_prev: unknown, formData: FormData): 
 
   await db
     .update(t.storefronts)
-    .set({ layout: layout as typeof sf.layout, brandColor, accentColor, logoKey })
+    .set({ layout: layout as typeof sf.layout, theme, brandColor, accentColor, logoKey })
     .where(eq(t.storefronts.id, storefrontId));
 
   revalidatePath('/admin/website');

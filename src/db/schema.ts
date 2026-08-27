@@ -156,6 +156,20 @@ export const storefrontLayoutEnum = pgEnum('storefront_layout', [
 ]);
 
 /**
+ * How the whole storefront is painted — see `STORE_THEMES` in
+ * `src/lib/branding/palette.ts`, which holds the token values and the reasoning.
+ * Keep the two lists in step.
+ *
+ * `LIGHT` is the default because it is what every storefront rendered before
+ * this column existed; adding it must not repaint a live dealer's website.
+ */
+export const storefrontThemeEnum = pgEnum('storefront_theme', [
+  'LIGHT',
+  'DARK',
+  'BRAND',
+]);
+
+/**
  * Where a storefront's custom domain came from. This is not cosmetic: a
  * PURCHASED domain sits in our Vercel team and we hold the account of record,
  * so the transfer-out path and the renewal exposure only apply to those.
@@ -396,6 +410,7 @@ export const storefronts = pgTable('storefronts', {
   hoursNote: text(),
 
   layout: storefrontLayoutEnum().notNull().default('CLASSIC'),
+  theme: storefrontThemeEnum().notNull().default('LIGHT'),
   /**
    * Content-addressed key into `blobs`. Not a URL: the storage implementation is
    * swappable (Postgres today, R2 when roadmap item 3 lands) and a stored URL
@@ -1318,6 +1333,7 @@ export type HomeView = (typeof homeViewEnum.enumValues)[number];
 export type FeedStyle = (typeof feedStyleEnum.enumValues)[number];
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type StorefrontLayout = (typeof storefrontLayoutEnum.enumValues)[number];
+export type StorefrontTheme = (typeof storefrontThemeEnum.enumValues)[number];
 export type DomainStatus = (typeof domainStatusEnum.enumValues)[number];
 export type DomainSource = (typeof domainSourceEnum.enumValues)[number];
 export type DomainOrder = typeof domainOrders.$inferSelect;

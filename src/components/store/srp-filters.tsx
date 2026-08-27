@@ -161,10 +161,10 @@ export type FacetOption = { value: string; label: string; count: number };
 const MILEAGE_STEPS = [25_000, 50_000, 75_000, 100_000, 125_000, 150_000];
 
 const fieldClass =
-  'w-full rounded-md border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900 ' +
+  'w-full rounded-md border border-[var(--line)] bg-[var(--paper)] px-2.5 py-2 text-sm text-[var(--text)] ' +
   'focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20';
 
-const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-500';
+const labelClass = 'mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]';
 
 function Facet({
   idPrefix,
@@ -271,7 +271,7 @@ export function SrpFilters({
             aria-label="Minimum price"
             className={cn(fieldClass, 'tnum')}
           />
-          <span className="text-ink-400">to</span>
+          <span className="text-[var(--text-3)]">to</span>
           <input
             type="number"
             inputMode="numeric"
@@ -328,13 +328,13 @@ export function SrpFilters({
       <div className="flex items-center gap-2 pt-1">
         <button
           type="submit"
-          className="flex-1 rounded-md bg-[var(--brand)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90"
+          className="flex-1 rounded-md bg-[var(--brand)] px-3 py-2 text-sm font-semibold text-[var(--on-brand)] hover:opacity-90"
         >
           Show matches
         </button>
         <Link
           href={basePath}
-          className="rounded-md px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+          className="rounded-md px-3 py-2 text-sm font-medium text-[var(--text-2)] hover:bg-[var(--paper-2)]"
         >
           Reset
         </Link>

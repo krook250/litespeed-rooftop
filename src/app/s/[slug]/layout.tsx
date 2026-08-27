@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
+import { storeTheme, storeThemeVars } from '@/lib/branding/palette';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -70,22 +71,41 @@ export default async function StorefrontLayout({
   const homeHref = base || '/';
 
   /*
-   * Brand and accent are set once here as CSS custom properties. Every layout
-   * and every primitive reads `var(--brand)` / `var(--accent)`, so no component
-   * ever takes a color prop and a fourth layout inherits theming for free.
+   * The dealer's theme, resolved once here into flat CSS custom properties.
+   *
+   * Every component below reads `var(--paper)` / `var(--text)` / `var(--brand)`
+   * and takes no color prop, so a fourth layout — or a fourth theme — inherits
+   * the whole thing for free. The resolution itself lives in
+   * `src/lib/branding/palette.ts` so that the admin preview and these pages
+   * cannot disagree about what a theme looks like.
    */
-  const brandVars = {
-    '--brand': sf.brandColor,
-    '--accent': sf.accentColor,
-  } as React.CSSProperties;
+  const tokens = storeTheme(sf.theme, sf.brandColor, sf.accentColor);
+  const themeVars = storeThemeVars(tokens) as React.CSSProperties;
 
   const logoUrl = sf.logoKey ? `/api/logo/${sf.logoKey}` : null;
 
   return (
-    <div style={brandVars} className="flex min-h-screen flex-col bg-white">
-      <div className="h-1 w-full bg-[var(--brand)]" />
+    <div
+      data-store-theme={sf.theme}
+      style={themeVars}
+      className="flex min-h-screen flex-col bg-[var(--page)] text-[var(--text)]"
+    >
+      {/*
+        The root element paints the page, but overscroll and the strip below a
+        short page show `body`, which the admin theme leaves light grey — a white
+        flash at the bottom of a dark storefront. Custom properties only inherit
+        downward, so `body` cannot read `--page`; it gets the literal value.
+      */}
+      <style>{`body{background:${tokens.page}}`}</style>
+      {/* Null on the BRAND theme, where the header bar is the color. */}
+      {tokens.headerRule ? (
+        <div className="h-1 w-full" style={{ background: tokens.headerRule }} />
+      ) : null}
 
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
+      <header
+        className="sticky top-0 z-30 border-b bg-[var(--header-bg)]"
+        style={{ borderColor: 'var(--header-line)' }}
+      >
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
           <Link href={homeHref} className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
@@ -97,19 +117,24 @@ export default async function StorefrontLayout({
                 className="h-9 w-auto max-w-[180px] shrink-0 object-contain"
               />
             ) : (
+              /* The no-logo fallback. Deliberately header-fg on header-bg rather
+                 than the brand color: on the BRAND theme a brand-colored tile
+                 sits on a brand-colored bar and disappears. */
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-black text-white"
-                style={{ background: 'var(--brand)' }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-black"
+                style={{ background: 'var(--header-fg)', color: 'var(--header-bg)' }}
               >
                 {sf.name.replace(/[^A-Za-z ]/g, '').split(' ').slice(0, 2).map((w) => w[0]).join('')}
               </span>
             )}
             <span className="min-w-0">
-              <span className="block truncate text-[15px] font-semibold leading-tight text-ink-900">
+              <span className="block truncate text-[15px] font-semibold leading-tight text-[var(--header-fg)]">
                 {sf.name}
               </span>
               {sf.tagline ? (
-                <span className="block truncate text-xs leading-tight text-ink-500">{sf.tagline}</span>
+                <span className="block truncate text-xs leading-tight text-[var(--header-muted)]">
+                  {sf.tagline}
+                </span>
               ) : null}
             </span>
           </Link>
@@ -117,19 +142,21 @@ export default async function StorefrontLayout({
           <nav className="ml-auto flex items-center gap-4">
             <Link
               href={homeHref}
-              className="hidden text-sm font-medium text-ink-700 hover:text-[var(--brand)] sm:block"
+              className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
             >
               Inventory
             </Link>
             <div className="text-right">
               <a
                 href={telHref(sf.phone)}
-                className="tnum block text-[15px] font-semibold leading-tight text-[var(--brand)] hover:underline"
+                className="tnum block text-[15px] font-semibold leading-tight text-[var(--header-link)] hover:underline"
               >
                 {sf.phone}
               </a>
               {sf.hoursNote ? (
-                <span className="block text-[11px] leading-tight text-ink-500">{sf.hoursNote}</span>
+                <span className="block text-[11px] leading-tight text-[var(--header-muted)]">
+                  {sf.hoursNote}
+                </span>
               ) : null}
             </div>
           </nav>
@@ -138,19 +165,24 @@ export default async function StorefrontLayout({
 
       <main className="flex-1">{children}</main>
 
-      <footer className="mt-12 border-t border-ink-200 bg-ink-50">
+      <footer
+        className="mt-12 border-t bg-[var(--footer-bg)]"
+        style={{ borderColor: 'var(--line)' }}
+      >
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-sm font-semibold text-ink-900">{sf.name}</div>
-            {sf.addressLine ? <div className="mt-1 text-sm text-ink-600">{sf.addressLine}</div> : null}
-            <div className="mt-1 text-sm text-ink-600">
+            <div className="text-sm font-semibold text-[var(--footer-text)]">{sf.name}</div>
+            {sf.addressLine ? (
+              <div className="mt-1 text-sm text-[var(--footer-muted)]">{sf.addressLine}</div>
+            ) : null}
+            <div className="mt-1 text-sm text-[var(--footer-muted)]">
               <a href={telHref(sf.phone)} className="hover:underline">
                 {sf.phone}
               </a>
-              {sf.hoursNote ? <span className="text-ink-500"> · {sf.hoursNote}</span> : null}
+              {sf.hoursNote ? <span> · {sf.hoursNote}</span> : null}
             </div>
           </div>
-          <div className="text-xs text-ink-500 md:text-right">
+          <div className="text-xs text-[var(--footer-muted)] md:text-right">
             <p>
               Prices exclude tax, title, license and a documentary service fee. Vehicles are subject
               to prior sale.
@@ -163,13 +195,13 @@ export default async function StorefrontLayout({
               deceptive. See `claude/meta-screencast-recording-guide.md` §9.
               Do not turn this back into a plain <p>.
             */}
-            <p className="mt-2 text-ink-400">
+            <p className="mt-2">
               Powered by{' '}
               <a
                 href="https://rooftopauto.com"
                 target="_blank"
                 rel="noopener"
-                className="underline hover:text-ink-600"
+                className="underline hover:text-[var(--footer-text)]"
               >
                 Rooftop Auto
               </a>

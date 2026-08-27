@@ -13,7 +13,7 @@ export type LeadAction = (prev: LeadState, formData: FormData) => Promise<LeadSt
 const INITIAL: LeadState = { status: 'idle' };
 
 const inputClass =
-  'w-full rounded-md border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 ' +
+  'w-full rounded-md border border-[var(--line)] bg-[var(--paper)] px-2.5 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text-3)] ' +
   'focus:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/20';
 
 export function LeadForm({
@@ -92,11 +92,11 @@ export function LeadForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-[var(--brand)] px-3.5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+        className="w-full rounded-md bg-[var(--brand)] px-3.5 py-2.5 text-sm font-semibold text-[var(--on-brand)] transition hover:opacity-90 disabled:opacity-60"
       >
         {pending ? 'Sending…' : 'Check availability'}
       </button>
-      <p className="text-[11px] leading-snug text-ink-500">
+      <p className="text-[11px] leading-snug text-[var(--text-3)]">
         We will only use this to answer your question on stock #{stockNumber}. No spam, no list.
       </p>
     </form>

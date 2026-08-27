@@ -70,16 +70,16 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 function SpecRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border-b border-ink-100 py-2.5">
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-ink-900">{children}</dd>
+    <div className="border-b border-[var(--line)] py-2.5">
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-3)]">{label}</dt>
+      <dd className="mt-0.5 text-sm text-[var(--text)]">{children}</dd>
     </div>
   );
 }
 
 function TrustItem({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-ink-800 ring-1 ring-inset ring-ink-200">
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--paper)] px-2.5 py-1.5 text-xs font-medium text-[var(--text)] ring-1 ring-inset ring-[var(--line)]">
       {children}
     </span>
   );
@@ -161,29 +161,29 @@ export default async function VehicleDetailPage({ params }: Params) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
-      <nav className="text-xs text-ink-500">
-        <Link href={basePath} className="hover:text-[var(--brand)] hover:underline">
+      <nav className="text-xs text-[var(--text-3)]">
+        <Link href={basePath} className="hover:text-[var(--brand-text)] hover:underline">
           Inventory
         </Link>
-        <span className="px-1.5 text-ink-300">/</span>
+        <span className="px-1.5 text-[var(--text-3)]">/</span>
         <Link
           href={`${basePath}?make=${encodeURIComponent(vehicle.make)}`}
-          className="hover:text-[var(--brand)] hover:underline"
+          className="hover:text-[var(--brand-text)] hover:underline"
         >
           {vehicle.make}
         </Link>
-        <span className="px-1.5 text-ink-300">/</span>
-        <span className="text-ink-700">
+        <span className="px-1.5 text-[var(--text-3)]">/</span>
+        <span className="text-[var(--text-2)]">
           {vehicle.model} · Stock #{vehicle.stockNumber}
         </span>
       </nav>
 
       <header className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 sm:text-[28px]">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-[28px]">
             {vehicle.year} {vehicle.make} {vehicle.model}
           </h1>
-          <p className="mt-0.5 text-base text-ink-600">{vehicle.trim || BODY_LABEL[vehicle.bodyStyle]}</p>
+          <p className="mt-0.5 text-base text-[var(--text-2)]">{vehicle.trim || BODY_LABEL[vehicle.bodyStyle]}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {vehicle.status === 'PENDING_SALE' ? (
@@ -192,13 +192,13 @@ export default async function VehicleDetailPage({ params }: Params) {
             </span>
           ) : null}
           {vehicle.status === 'PHOTOS_PENDING' ? (
-            <span className="rounded-md bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-700 ring-1 ring-inset ring-ink-300/60">
+            <span className="rounded-md bg-[var(--paper-2)] px-2.5 py-1 text-xs font-semibold text-[var(--text-2)] ring-1 ring-inset ring-[var(--line)]">
               Full photo set goes up today
             </span>
           ) : null}
           {vehicle.isCertified ? (
             <span
-              className="rounded-md px-2.5 py-1 text-xs font-semibold text-white"
+              className="rounded-md px-2.5 py-1 text-xs font-semibold text-[var(--on-brand)]"
               style={{ background: 'var(--brand)' }}
             >
               {vehicle.certifiedProgram ?? 'Certified'}
@@ -220,13 +220,13 @@ export default async function VehicleDetailPage({ params }: Params) {
         {/* sticky buy column */}
         <aside className="mt-5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0">
           <div className="space-y-4 lg:sticky lg:top-24">
-            <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-sm">
               <div className="flex items-end gap-2.5">
-                <span className="tnum text-3xl font-semibold tracking-tight text-ink-900">
+                <span className="tnum text-3xl font-semibold tracking-tight text-[var(--text)]">
                   {usd(price)}
                 </span>
                 {onSale ? (
-                  <span className="tnum pb-1 text-base text-ink-400 line-through">
+                  <span className="tnum pb-1 text-base text-[var(--text-3)] line-through">
                     {usd(vehicle.price)}
                   </span>
                 ) : null}
@@ -237,12 +237,12 @@ export default async function VehicleDetailPage({ params }: Params) {
                   <div className="tnum text-sm font-semibold text-emerald-700">
                     {usd(underMarket)} below market
                   </div>
-                  <div className="tnum text-xs text-ink-500">
+                  <div className="tnum text-xs text-[var(--text-3)]">
                     Comparable retail {usd(vehicle.marketValue)} · priced at {ptm}% of market
                   </div>
                 </div>
               ) : (
-                <div className="tnum mt-1.5 text-xs text-ink-500">
+                <div className="tnum mt-1.5 text-xs text-[var(--text-3)]">
                   Stock #{vehicle.stockNumber} · {miles(vehicle.mileage)}
                 </div>
               )}
@@ -251,9 +251,9 @@ export default async function VehicleDetailPage({ params }: Params) {
                 <PaymentEstimator price={price} />
               </div>
 
-              <div className="mt-4 border-t border-ink-100 pt-4">
-                <h2 className="text-sm font-semibold text-ink-900">Check availability</h2>
-                <p className="mb-2.5 mt-0.5 text-xs text-ink-500">
+              <div className="mt-4 border-t border-[var(--line)] pt-4">
+                <h2 className="text-sm font-semibold text-[var(--text)]">Check availability</h2>
+                <p className="mb-2.5 mt-0.5 text-xs text-[var(--text-3)]">
                   Ask about this unit and a salesperson will confirm it is still on the lot.
                 </p>
                 <LeadForm
@@ -265,21 +265,21 @@ export default async function VehicleDetailPage({ params }: Params) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-ink-200 bg-white p-4 shadow-sm">
-              <div className="text-sm font-semibold text-ink-900">{rooftop.name}</div>
-              <div className="mt-1 text-sm text-ink-600">
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-sm">
+              <div className="text-sm font-semibold text-[var(--text)]">{rooftop.name}</div>
+              <div className="mt-1 text-sm text-[var(--text-2)]">
                 {rooftop.addressLine1}
                 <br />
                 {rooftop.city}, {rooftop.state} {rooftop.postalCode}
               </div>
               <a
                 href={dealerTel}
-                className="tnum mt-3 flex w-full items-center justify-center rounded-md border border-ink-300 px-3.5 py-2.5 text-sm font-semibold text-ink-900 hover:bg-ink-50"
+                className="tnum mt-3 flex w-full items-center justify-center rounded-md border border-[var(--line)] px-3.5 py-2.5 text-sm font-semibold text-[var(--text)] hover:bg-[var(--paper-2)]"
               >
                 Call {rooftop.phone}
               </a>
               {storefront.hoursNote ? (
-                <p className="mt-2 text-center text-xs text-ink-500">{storefront.hoursNote}</p>
+                <p className="mt-2 text-center text-xs text-[var(--text-3)]">{storefront.hoursNote}</p>
               ) : null}
             </div>
           </div>
@@ -312,7 +312,7 @@ export default async function VehicleDetailPage({ params }: Params) {
                 href={vehicle.carfaxUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--brand)] ring-1 ring-inset ring-ink-200 hover:bg-ink-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-[var(--paper)] px-2.5 py-1.5 text-xs font-semibold text-[var(--brand-text)] ring-1 ring-inset ring-[var(--line)] hover:bg-[var(--paper-2)]"
               >
                 View the Carfax report
               </a>
@@ -324,7 +324,7 @@ export default async function VehicleDetailPage({ params }: Params) {
               {vehicle.callouts.map((c) => (
                 <span
                   key={c}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-white"
+                  className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-[var(--on-accent)]"
                   style={{ background: 'var(--accent)' }}
                 >
                   {c}
@@ -335,15 +335,15 @@ export default async function VehicleDetailPage({ params }: Params) {
 
           {vehicle.description ? (
             <section className="mt-6">
-              <h2 className="text-sm font-semibold text-ink-900">From the lot</h2>
-              <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink-700">
+              <h2 className="text-sm font-semibold text-[var(--text)]">From the lot</h2>
+              <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-[var(--text-2)]">
                 {vehicle.description}
               </p>
             </section>
           ) : null}
 
           <section className="mt-7">
-            <h2 className="text-sm font-semibold text-ink-900">Specifications</h2>
+            <h2 className="text-sm font-semibold text-[var(--text)]">Specifications</h2>
             <dl className="mt-2 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
               <SpecRow label="Mileage">
                 <span className="tnum">{miles(vehicle.mileage)}</span>
@@ -362,7 +362,7 @@ export default async function VehicleDetailPage({ params }: Params) {
                 <span className="inline-flex items-center gap-1.5">
                   <span
                     aria-hidden
-                    className="h-3 w-3 rounded-full ring-1 ring-inset ring-ink-300"
+                    className="h-3 w-3 rounded-full ring-1 ring-inset ring-[var(--line)]"
                     style={{ background: vehicle.exteriorColorHex }}
                   />
                   {vehicle.exteriorColor || '—'}
@@ -371,7 +371,7 @@ export default async function VehicleDetailPage({ params }: Params) {
               <SpecRow label="Interior">{vehicle.interiorColor || '—'}</SpecRow>
               <SpecRow label="Body style">
                 {BODY_LABEL[vehicle.bodyStyle]}
-                <span className="tnum text-ink-500"> · {vehicle.doors} door</span>
+                <span className="tnum text-[var(--text-3)]"> · {vehicle.doors} door</span>
               </SpecRow>
               <SpecRow label="Stock number">
                 <span className="tnum">{vehicle.stockNumber}</span>
@@ -387,10 +387,10 @@ export default async function VehicleDetailPage({ params }: Params) {
 
           {vehicle.options.length ? (
             <section className="mt-7">
-              <h2 className="text-sm font-semibold text-ink-900">Equipment</h2>
+              <h2 className="text-sm font-semibold text-[var(--text)]">Equipment</h2>
               <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {vehicle.options.map((o) => (
-                  <li key={o} className="flex items-start gap-2 text-sm text-ink-700">
+                  <li key={o} className="flex items-start gap-2 text-sm text-[var(--text-2)]">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />
                     {o}
                   </li>
@@ -401,20 +401,20 @@ export default async function VehicleDetailPage({ params }: Params) {
 
           {extraFeatures.length ? (
             <section className="mt-6">
-              <h2 className="text-sm font-semibold text-ink-900">Also included</h2>
-              <p className="mt-1.5 text-sm text-ink-600">{extraFeatures.join(' · ')}</p>
+              <h2 className="text-sm font-semibold text-[var(--text)]">Also included</h2>
+              <p className="mt-1.5 text-sm text-[var(--text-2)]">{extraFeatures.join(' · ')}</p>
             </section>
           ) : null}
         </div>
       </div>
 
       {related.length ? (
-        <section className="mt-12 border-t border-ink-200 pt-8">
+        <section className="mt-12 border-t border-[var(--line)] pt-8">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-lg font-semibold tracking-tight text-ink-900">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">
               More from {storefront.name}
             </h2>
-            <Link href={basePath} className="text-sm font-semibold text-[var(--brand)] hover:underline">
+            <Link href={basePath} className="text-sm font-semibold text-[var(--brand-text)] hover:underline">
               See all inventory
             </Link>
           </div>

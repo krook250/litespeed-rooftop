@@ -21,12 +21,12 @@ export function LotListLayout({ view }: { view: StorefrontView }) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
       {/* The call bar is the point of this layout. It stays put while you scroll. */}
-      <div className="sticky top-16 z-20 -mx-4 mb-5 border-y border-ink-200 bg-[var(--brand)] px-4 py-2.5 sm:mx-0 sm:rounded-lg sm:border">
+      <div className="sticky top-16 z-20 -mx-4 mb-5 border-y border-[var(--line)] bg-[var(--brand)] px-4 py-2.5 sm:mx-0 sm:rounded-lg sm:border">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <span className="text-sm font-semibold text-white">
+          <span className="text-sm font-semibold text-[var(--on-brand)]">
             {inventory.length} units on the lot right now
           </span>
-          <a href={tel} className="tnum text-base font-black text-white hover:underline">
+          <a href={tel} className="tnum text-base font-black text-[var(--on-brand)] hover:underline">
             Call {storefront.phone}
           </a>
         </div>
@@ -34,7 +34,7 @@ export function LotListLayout({ view }: { view: StorefrontView }) {
 
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink-900">Inventory</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">Inventory</h1>
           <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
         </div>
         <SortBar basePath={basePath} sp={sp} filters={filters} />
@@ -42,8 +42,8 @@ export function LotListLayout({ view }: { view: StorefrontView }) {
 
       <ActivePills activeKeys={activeKeys} basePath={basePath} sp={sp} filters={filters} />
 
-      <details className="mt-4 rounded-lg border border-ink-200 bg-white p-4">
-        <summary className="cursor-pointer list-none text-sm font-semibold text-ink-900">
+      <details className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--paper)] p-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
           Filters {activeFilterCount ? `(${activeFilterCount})` : ''}
         </summary>
         <div className="mt-4">
@@ -62,7 +62,7 @@ export function LotListLayout({ view }: { view: StorefrontView }) {
 
       <div className="mt-5">
         {results.length ? (
-          <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+          <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper)]">
             {results.map((v) => (
               <VehicleRow key={v.id} v={v} basePath={basePath} />
             ))}

@@ -31,11 +31,15 @@ import { saveStorefrontDesign, scanSiteForBranding, type ScannedLogo } from '@/l
 import {
   ROOFTOP_ACCENT,
   ROOFTOP_BRAND,
+  STORE_THEMES,
+  STORE_THEME_META,
   contrast,
   normalizeHex,
   quantize,
-  readableOn,
+  storeTheme,
   suggestPalette,
+  swapPair,
+  type StoreTheme,
   type Suggestion,
 } from '@/lib/branding/palette';
 
@@ -45,6 +49,7 @@ type Props = {
   storefrontId: string;
   dealerName: string;
   layout: string;
+  theme: StoreTheme;
   brandColor: string;
   accentColor: string;
   logoUrl: string | null;
@@ -67,6 +72,7 @@ export function DesignCard(props: Props) {
   const [state, save, saving] = useActionState(saveStorefrontDesign, null);
 
   const [layout, setLayout] = useState(props.layout);
+  const [theme, setTheme] = useState<StoreTheme>(props.theme);
   const [brand, setBrand] = useState(props.brandColor);
   const [accent, setAccent] = useState(props.accentColor);
 
@@ -183,6 +189,13 @@ export function DesignCard(props: Props) {
   const accentOk = /^#[0-9a-fA-F]{6}$/.test(accent);
   const faint = brandOk && contrast(brand, '#ffffff') < 2;
 
+  /* Every preview below is fed through the same resolver the storefront uses,
+   * so what the dealer approves here is what gets rendered. Half-typed hex
+   * falls back rather than throwing — this runs on every keystroke. */
+  const safeBrand = brandOk ? brand : ROOFTOP_BRAND;
+  const safeAccent = accentOk ? accent : ROOFTOP_ACCENT;
+  const tokens = storeTheme(theme, safeBrand, safeAccent);
+
   /* ----------------------------------------------------------------- nav */
 
   const wizard = step !== null;
@@ -196,6 +209,7 @@ export function DesignCard(props: Props) {
     <form action={save} className="space-y-6">
       <input type="hidden" name="storefrontId" value={storefrontId} />
       <input type="hidden" name="layout" value={layout} />
+      <input type="hidden" name="theme" value={theme} />
       <input type="hidden" name="brandColor" value={brand} />
       <input type="hidden" name="accentColor" value={accent} />
       {logoKey ? <input type="hidden" name="logoKey" value={logoKey} /> : null}
@@ -215,7 +229,7 @@ export function DesignCard(props: Props) {
                   'rounded-full px-2.5 py-1 font-medium transition',
                   step === s ? 'text-white' : seen.has(s) ? 'bg-ink-100 text-ink-700 hover:bg-ink-200' : 'text-ink-400',
                 )}
-                style={step === s ? { background: brandOk ? brand : ROOFTOP_BRAND, color: brandOk ? readableOn(brand) : '#fff' } : undefined}
+                style={step === s ? { background: safeBrand, color: storeTheme('LIGHT', safeBrand, safeAccent).onBrand } : undefined}
               >
                 {i + 1}. {STEP_LABELS[s]}
               </button>
@@ -298,7 +312,7 @@ export function DesignCard(props: Props) {
                         'group rounded-lg border-2 bg-white p-2 text-left transition',
                         logoKey === l.key ? 'border-[var(--pick)]' : 'border-ink-200 hover:border-ink-400',
                       )}
-                      style={{ ['--pick' as string]: brandOk ? brand : ROOFTOP_BRAND }}
+                      style={{ ['--pick' as string]: safeBrand }}
                     >
                       <span className="flex h-10 items-center justify-center">
                         <img src={l.url} alt={l.hint} className="max-h-10 max-w-full object-contain" />
@@ -350,7 +364,8 @@ export function DesignCard(props: Props) {
           <h3 className="text-base font-semibold text-ink-900">Your colors</h3>
           <p className="mt-0.5 text-sm text-ink-600">
             The brand color is your header and your links. The accent is the one thing on the page you
-            want clicked — the price, the button, the phone number.
+            want clicked — the price, the button, the phone number. Then pick how light or dark the
+            site sits.
           </p>
         </div>
 
@@ -402,6 +417,20 @@ export function DesignCard(props: Props) {
           )}
         </div>
 
+        {/*
+          Which of a dealer's two colors is the "brand" one is a frequency count
+          off their logo, and a logo that is mostly one color with a small bright
+          mark in another gets it backwards about half the time. Cheaper to offer
+          the swap than to explain the guess.
+        */}
+        <button
+          type="button"
+          onClick={() => { touchedColors.current = true; const p = swapPair({ brand, accent }); setBrand(p.brand); setAccent(p.accent); }}
+          className="inline-flex items-center gap-2 rounded-md border border-ink-300 px-3 py-1.5 text-sm font-medium text-ink-700 hover:border-ink-400 hover:bg-ink-50"
+        >
+          <span aria-hidden>⇄</span> Swap the two colors
+        </button>
+
         {faint ? (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
             That brand color is very light. White text on it will be hard to read — worth going a shade
@@ -409,21 +438,82 @@ export function DesignCard(props: Props) {
           </p>
         ) : null}
 
-        {/* a real header, in their colors, at real size */}
+        {/* ------------------------------------------------- light or dark */}
+        <div className="border-t border-ink-100 pt-4">
+          <p className="text-sm font-medium text-ink-800">Light or dark</p>
+          <p className="mt-0.5 text-xs text-ink-500">
+            This is the whole page, not just the top — background, cards and text all move together.
+            Photos never invert, so your inventory looks the same either way.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {STORE_THEMES.map((id) => (
+              <label
+                key={id}
+                className={cn(
+                  'cursor-pointer rounded-xl border-2 p-3 transition',
+                  theme === id ? 'border-[var(--pick)] bg-ink-50' : 'border-ink-200 hover:border-ink-400',
+                )}
+                style={{ ['--pick' as string]: safeBrand }}
+              >
+                <input
+                  type="radio"
+                  name="themePick"
+                  className="sr-only"
+                  checked={theme === id}
+                  onChange={() => setTheme(id)}
+                />
+                <LayoutPreview
+                  id={layout}
+                  theme={id}
+                  brand={safeBrand}
+                  accent={safeAccent}
+                  logoUrl={removeLogo ? null : logoPreview}
+                  dealerName={dealerName}
+                />
+                <p className="mt-2 text-sm font-semibold text-ink-900">{STORE_THEME_META[id].name}</p>
+                <p className="mt-0.5 text-xs text-ink-600">{STORE_THEME_META[id].blurb}</p>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* the real header, in their colors and their theme, at real size */}
         <div className="overflow-hidden rounded-lg border border-ink-200">
-          <div className="flex items-center justify-between px-4 py-3" style={{ background: brandOk ? brand : ROOFTOP_BRAND }}>
+          {tokens.headerRule ? (
+            <div className="h-1 w-full" style={{ background: tokens.headerRule }} />
+          ) : null}
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ background: tokens.headerBg, borderBottom: `1px solid ${tokens.headerBorder}` }}
+          >
             <span className="flex items-center gap-2">
               {logoPreview && !removeLogo ? (
                 <img src={logoPreview} alt="" className="h-6 w-auto max-w-[120px] object-contain" />
               ) : (
-                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: readableOn(brandOk ? brand : ROOFTOP_BRAND) }}>
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: tokens.headerFg }}>
                   {dealerName}
                 </span>
               )}
             </span>
-            <span className="rounded-full px-3 py-1 text-xs font-bold"
-                  style={{ background: accentOk ? accent : ROOFTOP_ACCENT, color: readableOn(accentOk ? accent : ROOFTOP_ACCENT) }}>
-              Check availability
+            <span className="flex items-center gap-3">
+              <span className="tnum text-sm font-semibold" style={{ color: tokens.headerLink }}>
+                (360) 555-0142
+              </span>
+              <span
+                className="rounded-full px-3 py-1 text-xs font-bold"
+                style={{ background: tokens.accent, color: tokens.onAccent }}
+              >
+                Check availability
+              </span>
+            </span>
+          </div>
+          <div className="px-4 py-3" style={{ background: tokens.page }}>
+            <span
+              className="inline-block rounded-md border px-3 py-2 text-xs"
+              style={{ background: tokens.paper, borderColor: tokens.line, color: tokens.text2 }}
+            >
+              2021 Ram 1500 Big Horn ·{' '}
+              <span className="tnum font-bold" style={{ color: tokens.accentOnPage }}>$34,995</span>
             </span>
           </div>
         </div>
@@ -454,7 +544,7 @@ export function DesignCard(props: Props) {
                 'cursor-pointer rounded-xl border-2 p-3 transition',
                 layout === l.id ? 'border-[var(--pick)] bg-ink-50' : 'border-ink-200 hover:border-ink-400',
               )}
-              style={{ ['--pick' as string]: brandOk ? brand : ROOFTOP_BRAND }}
+              style={{ ['--pick' as string]: safeBrand }}
             >
               {/* named so the three read as one group to a screen reader; the value
                   that actually submits is the hidden `layout` input above */}
@@ -467,8 +557,9 @@ export function DesignCard(props: Props) {
               />
               <LayoutPreview
                 id={l.id}
-                brand={brandOk ? brand : ROOFTOP_BRAND}
-                accent={accentOk ? accent : ROOFTOP_ACCENT}
+                theme={theme}
+                brand={safeBrand}
+                accent={safeAccent}
                 logoUrl={removeLogo ? null : logoPreview}
                 previewImage={l.previewImage}
                 dealerName={dealerName}

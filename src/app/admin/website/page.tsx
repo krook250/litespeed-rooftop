@@ -242,6 +242,7 @@ export default async function WebsitePage() {
             storefrontId={sf.id}
             dealerName={sf.name}
             layout={sf.layout}
+            theme={sf.theme}
             brandColor={sf.brandColor}
             accentColor={sf.accentColor}
             logoUrl={sf.logoKey ? `/api/logo/${sf.logoKey}` : null}
