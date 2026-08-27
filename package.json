@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@vercel/blob": "^2.7.0",
+    "basic-ftp": "^6.2.0",
     "better-auth": "^1.6.25",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
