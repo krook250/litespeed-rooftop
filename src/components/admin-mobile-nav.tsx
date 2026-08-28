@@ -32,7 +32,7 @@ export function AdminMobileNav({
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-ink-800 bg-ink-950 px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-ink-800 bg-ink-950 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:hidden">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -64,7 +64,7 @@ export function AdminMobileNav({
               if ((e.target as HTMLElement).closest('a,button[type="submit"]')) setOpen(false);
             }}
           >
-            <div className="flex items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
               <div className="min-w-0 [&_svg]:max-h-9 [&_svg]:w-auto">{brand}</div>
               <button
                 type="button"

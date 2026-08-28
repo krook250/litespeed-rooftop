@@ -2,6 +2,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
+import { pwaMetadata, pwaViewport } from '@/lib/pwa';
+
+// Installable from the sign-in screen too — otherwise a dealer who adds the
+// app before signing in bookmarks /login instead of the app.
+export const metadata = pwaMetadata;
+export const viewport = pwaViewport;
 
 const ERRORS: Record<string, string> = {
   taken: 'An account already exists for that email address.',

@@ -5,6 +5,15 @@ import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/admin-nav';
 import { AdminMobileNav } from '@/components/admin-mobile-nav';
 import { RooftopLockup } from '@/components/brand';
+import { PwaRegister } from '@/components/pwa-register';
+import { pwaMetadata, pwaViewport } from '@/lib/pwa';
+
+/**
+ * The installable-app head lives here and on the auth screens, never in the
+ * root layout — a dealer storefront shares that root. See src/lib/pwa.ts.
+ */
+export const metadata = pwaMetadata;
+export const viewport = pwaViewport;
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: 'Owner',
@@ -69,14 +78,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen bg-ink-50">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 lg:flex">
+      <PwaRegister />
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 pt-[env(safe-area-inset-top)] lg:flex">
         <div className="px-5 py-5">
           <RooftopLockup compact />
         </div>
         {sidebar}
       </aside>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)] lg:pt-[env(safe-area-inset-top)]">
         {/* The horizontal lockup, not the compact one — `compact` stacks the mark
             above the wordmark, which is right for a 240px sidebar and eats a
             third of a phone screen above every single page. */}

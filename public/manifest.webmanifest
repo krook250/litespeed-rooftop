@@ -1,0 +1,20 @@
+{
+  "name": "Rooftop Auto",
+  "short_name": "Rooftop",
+  "description": "Inventory, merchandising and syndication for independent dealers.",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e141d",
+  "theme_color": "#0e141d",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Add a vehicle", "short_name": "Add", "url": "/admin/inventory/new" },
+    { "name": "Inventory", "short_name": "Inventory", "url": "/admin/inventory" }
+  ]
+}
