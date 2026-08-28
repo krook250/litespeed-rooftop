@@ -61,7 +61,16 @@ export function VehicleCard({ v, basePath }: { v: LiveVehicle; basePath: string 
               Sale pending
             </span>
           ) : null}
-          {v.status === 'PHOTOS_PENDING' ? (
+          {/*
+            Gated on the photo count, not on the status alone.
+
+            PHOTOS_PENDING is a workflow state; "Photos being shot" is a factual
+            claim about this car, and an imported unit can sit in the first while
+            the second is plainly untrue — a migrated lot arrives already
+            photographed. Where they disagree, the photographs win: the buyer can
+            see them.
+          */}
+          {v.status === 'PHOTOS_PENDING' && v.photos.length === 0 ? (
             <span className="rounded-md bg-[var(--scrim)]/85 px-2 py-1 text-[11px] font-semibold text-white">
               Photos being shot
             </span>

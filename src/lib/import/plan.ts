@@ -267,3 +267,34 @@ export function planImport(
     },
   };
 }
+
+/**
+ * What status an imported row lands in. Pure, so it can be tested and so the
+ * rule is stated once rather than inlined in the writer.
+ *
+ * ARRIVED is never right: an imported lot is already for sale somewhere else —
+ * that is the entire reason we have the file — and ARRIVED syndicates nothing,
+ * so the dealer would have to touch every row to fix it.
+ *
+ * Between the other two, the photos decide, and only the photos. The first
+ * version landed everything in PHOTOS_PENDING on the reasoning that
+ * FRONT_LINE_READY is a claim about recon nobody made. The first real migration
+ * showed that backwards twice:
+ *
+ *   - The storefront badges PHOTOS_PENDING as "Photos being shot". Units came in
+ *     with 16, 23, 26 and 27 photos each, and every card claimed a photographer
+ *     was on the way.
+ *   - Both `src/lib/cargurus/feed-spec.ts` and `src/lib/meta/feed-spec.ts`
+ *     exclude PHOTOS_PENDING, on the reasoning that such a unit has no photo set
+ *     and the marketplace requires one. An imported unit with 27 photos breaks
+ *     that assumption, so the units the dealer most wanted syndicated were
+ *     exactly the ones that never went out.
+ *
+ * A row that arrived with photos is, on the evidence in the file, already
+ * merchandised and already retailing — the dealer's other site is showing these
+ * exact pictures. That is not a claim we invent; it is the one the file makes.
+ * A row that arrived with none genuinely is waiting on photos.
+ */
+export function importStatus(photoCount: number): 'FRONT_LINE_READY' | 'PHOTOS_PENDING' {
+  return photoCount > 0 ? 'FRONT_LINE_READY' : 'PHOTOS_PENDING';
+}

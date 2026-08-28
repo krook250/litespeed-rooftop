@@ -5,6 +5,7 @@ import * as t from '@/db/schema';
 import { hexForColor } from '@/lib/intake/parse';
 import { assertRooftopInScope, type Scope } from '@/lib/scoped-db';
 import { reconcileRooftopSync } from '@/lib/sync-states';
+import { importStatus } from './plan';
 import type { ImportPlan, PlannedRow, VehicleDraft } from './plan';
 
 /**
@@ -87,17 +88,9 @@ function insertValues(draft: VehicleDraft, rooftopId: string, now: Date) {
     msrp: draft.msrp ?? null,
     description: draft.description,
     options: draft.options,
-    /**
-     * PHOTOS_PENDING, not ARRIVED.
-     *
-     * `isSyndicatable()` lets PHOTOS_PENDING, FRONT_LINE_READY and PENDING_SALE
-     * out to marketplaces. An imported lot is already for sale somewhere else —
-     * that is the entire reason we have the file — so landing it in ARRIVED
-     * would import a live lot into a state that syndicates nothing, and the
-     * dealer would have to touch all twenty-one to fix it. FRONT_LINE_READY
-     * would be a claim about recon and merchandising that nobody made.
-     */
-    status: 'PHOTOS_PENDING' as const,
+    /* The rule, and why it is what it is, live in `importStatus` next door —
+       it is a decision, and decisions in this subsystem are pure and testable. */
+    status: importStatus(draft.photoUrls.length),
     // Nothing in a syndication export says when the dealer bought the car, and
     // inventing a date would put fake numbers on the aging report.
     acquiredDate: now,

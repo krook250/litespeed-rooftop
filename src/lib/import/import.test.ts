@@ -7,7 +7,7 @@ import {
   toCylinders, toDoors, toDrivetrain, toFuelType, toMileage, toMoney,
   toTransmission, toYear, unmappedRequired,
 } from './mapping';
-import { planImport } from './plan';
+import { importStatus, planImport } from './plan';
 
 /**
  * Tested where an import can silently lie.
@@ -343,5 +343,29 @@ describe('planning an import', () => {
     const p = planImport([], MAP);
     assert.deepEqual(p.rows, []);
     assert.equal(p.summary.total, 0);
+  });
+});
+
+describe('importStatus', () => {
+  it('lands a row that arrived with photos front-line ready', () => {
+    assert.equal(importStatus(1), 'FRONT_LINE_READY');
+    assert.equal(importStatus(27), 'FRONT_LINE_READY');
+  });
+
+  it('lands a row with no photos in PHOTOS_PENDING', () => {
+    assert.equal(importStatus(0), 'PHOTOS_PENDING');
+  });
+
+  /*
+   * The regression this exists for: a migrated lot arrives fully photographed,
+   * and PHOTOS_PENDING both badges every card "Photos being shot" and is
+   * excluded by the CarGurus and Meta feed specs. Never let a photographed unit
+   * land in it.
+   */
+  it('never puts a photographed unit into a status the feeds exclude', () => {
+    const FEED_EXCLUDED = new Set(['PHOTOS_PENDING']);
+    for (const n of [1, 3, 16, 23, 26, 27]) {
+      assert.equal(FEED_EXCLUDED.has(importStatus(n)), false, `${n} photos`);
+    }
   });
 });

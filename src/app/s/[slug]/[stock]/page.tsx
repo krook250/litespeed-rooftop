@@ -191,7 +191,9 @@ export default async function VehicleDetailPage({ params }: Params) {
               {VEHICLE_STATUS_LABEL.PENDING_SALE} — deposit taken
             </span>
           ) : null}
-          {vehicle.status === 'PHOTOS_PENDING' ? (
+          {/* See the note in `vehicle-card.tsx`: the photographs outrank the
+              workflow state, because the buyer is looking at them. */}
+          {vehicle.status === 'PHOTOS_PENDING' && vehicle.photos.length === 0 ? (
             <span className="rounded-md bg-[var(--paper-2)] px-2.5 py-1 text-xs font-semibold text-[var(--text-2)] ring-1 ring-inset ring-[var(--line)]">
               Full photo set goes up today
             </span>
