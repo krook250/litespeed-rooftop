@@ -1,5 +1,6 @@
 import type { Vehicle, Rooftop } from '@/db/schema';
-import { Button } from './ui';
+import { relativeTime } from '@/lib/domain';
+import { SubmitButton } from './submit-button';
 
 const FIELD =
   'mt-1 w-full rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-ink-900';
@@ -248,11 +249,18 @@ export function VehicleForm({
         </div>
       </section>
 
-      <div className="flex items-center justify-end gap-3 border-t border-ink-200 pt-4">
-        <p className="mr-auto text-[11px] text-ink-500">
-          Saving queues the change out to every channel carrying this unit.
-        </p>
-        <Button type="submit">{v ? 'Save and syndicate' : 'Add vehicle'}</Button>
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-ink-200 pt-4">
+        <div className="mr-auto text-[11px] text-ink-500">
+          <p>Saving queues the change out to every channel carrying this unit.</p>
+          {/* The confirmation. `saveVehicle` revalidates this route, so after a
+              save the server re-renders with a new `updatedAt` and this line
+              reads "just now" — which is the only thing on the page that visibly
+              changes, since every field keeps the value you just typed. */}
+          {v ? <p className="mt-0.5 text-ink-400">Last saved {relativeTime(v.updatedAt)}</p> : null}
+        </div>
+        <SubmitButton pendingLabel={v ? 'Saving…' : 'Adding…'}>
+          {v ? 'Save and syndicate' : 'Add vehicle'}
+        </SubmitButton>
       </div>
     </form>
   );

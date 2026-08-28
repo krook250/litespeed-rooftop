@@ -1,5 +1,6 @@
 /**
- * Shared chrome for /login and /signup. Server components — no client JS.
+ * Shared chrome for /login and /signup. Server components, apart from the
+ * submit button, which needs `useFormStatus` to show a pending state.
  *
  * WHY THERE IS AN IDENTITY BLOCK UNDER THE FORM
  *
@@ -18,6 +19,7 @@
  * remove it to tidy the layout.
  */
 
+import { AuthSubmitButton } from './submit-button';
 import { RooftopLockup } from './brand';
 
 const LEGAL = [
@@ -123,10 +125,21 @@ export function Field({
   );
 }
 
-export function SubmitButton({ children }: { children: React.ReactNode }) {
-  return (
-    <button className="mt-6 w-full rounded-lg bg-emerald-500 px-3 py-2.5 text-sm font-semibold text-ink-950 hover:bg-emerald-400">
-      {children}
-    </button>
-  );
+/**
+ * Kept as the export the four credential pages already import, so none of them
+ * change. The pending state lives in the client component it delegates to —
+ * `useFormStatus` can only be read from inside the form, by client code.
+ *
+ * The reason it is worth any client JS at all: on a lot with two bars of signal,
+ * a sign-in button that does nothing visible for three seconds gets tapped
+ * again, and the second submit races the first.
+ */
+export function SubmitButton({
+  children,
+  pendingLabel,
+}: {
+  children: React.ReactNode;
+  pendingLabel?: string;
+}) {
+  return <AuthSubmitButton pendingLabel={pendingLabel}>{children}</AuthSubmitButton>;
 }

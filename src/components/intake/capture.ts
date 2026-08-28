@@ -60,7 +60,7 @@ export async function readVinBarcode(file: File): Promise<string | null> {
 
   let bitmap: ImageBitmap | null = null;
   try {
-    bitmap = await createImageBitmap(file);
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     const detector = new Ctor({ formats: ['code_39', 'data_matrix', 'qr_code', 'code_128', 'pdf417'] });
     const codes = await detector.detect(bitmap);
     for (const code of codes) {
@@ -107,7 +107,19 @@ export async function prepareForUpload(file: File): Promise<File> {
   if (alreadyFine) return file;
 
   try {
-    const bitmap = await createImageBitmap(file);
+    /**
+     * `imageOrientation: 'from-image'` is not optional here, and the default is
+     * not reliably it across browsers.
+     *
+     * A phone stores the sensor image unrotated and records "turn this 90°" in
+     * an EXIF tag. The canvas round trip below drops EXIF — which is wanted, it
+     * is how the GPS coordinates of the lot stop travelling to a third party —
+     * but if the bitmap was decoded without applying that tag first, the
+     * rotation instruction is discarded along with it and the reader is handed a
+     * document lying on its side. Applying it here bakes the right orientation
+     * into the pixels before the tag is thrown away.
+     */
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
     const h = Math.max(1, Math.round(bitmap.height * scale));
