@@ -40,11 +40,13 @@ import {
   retryListing,
   saveOverride,
   saveVehicle,
+  setPhotoTag,
   setPrimaryPhoto,
   startTransfer,
   toggleChannel,
 } from '@/lib/actions';
 import { VehicleForm } from '@/components/vehicle-form';
+import { PhotoTag } from '@/components/inventory/photo-tag';
 import { PhotoAdd } from '@/components/inventory/photo-add';
 import { TRANSFER_REFUSAL_MESSAGE, type TransferRefusal } from '@/lib/transfers';
 
@@ -253,36 +255,71 @@ export default async function VehiclePage({
               subtitle="Lead photo drives click-through more than anything else on the listing."
               action={<PhotoAdd vehicleId={vehicle.id} action={addPhoto} />}
             />
-            <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3">
+            {/*
+              CONTROLS ARE ALWAYS VISIBLE. They used to be `opacity-0
+              group-hover:opacity-100`, which on a phone means permanently
+              invisible — there is no hover on a touch screen, so there was
+              literally no way to delete a photo or set the lead one from the
+              device the photos were taken on. Reordering, retagging and
+              deleting are the whole job here; hiding them behind a pointer
+              gesture hid the feature.
+            */}
+            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
               {vehicle.photos.map((p, i) => (
-                <div key={p.id} className="group relative overflow-hidden rounded-lg border border-ink-200">
-                  <img src={p.url} alt={p.alt} width={400} height={267} className="aspect-3/2 w-full object-cover" />
-                  {p.isPrimary ? (
-                    <span className="absolute left-2 top-2 rounded bg-ink-900/85 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      Lead photo
-                    </span>
-                  ) : null}
-                  <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-ink-950/85 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <form action={reorderPhoto}>
-                      <input type="hidden" name="photoId" value={p.id} />
-                      <input type="hidden" name="dir" value="up" />
-                      <button disabled={i === 0} className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium disabled:opacity-40">←</button>
-                    </form>
-                    <form action={reorderPhoto}>
-                      <input type="hidden" name="photoId" value={p.id} />
-                      <input type="hidden" name="dir" value="down" />
-                      <button disabled={i === vehicle.photos.length - 1} className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium disabled:opacity-40">→</button>
-                    </form>
-                    {!p.isPrimary ? (
-                      <form action={setPrimaryPhoto}>
-                        <input type="hidden" name="photoId" value={p.id} />
-                        <button className="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium">Make lead</button>
-                      </form>
+                <div key={p.id} className="overflow-hidden rounded-lg border border-ink-200">
+                  <div className="relative">
+                    <img src={p.url} alt={p.alt} width={400} height={267} className="aspect-3/2 w-full object-cover" />
+                    {p.isPrimary ? (
+                      <span className="absolute left-2 top-2 rounded bg-ink-900/85 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        Lead photo
+                      </span>
                     ) : null}
-                    <form action={deletePhoto} className="ml-auto">
-                      <input type="hidden" name="photoId" value={p.id} />
-                      <button className="rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-medium text-white">Delete</button>
-                    </form>
+                  </div>
+
+                  <div className="space-y-2 p-2">
+                    <PhotoTag photoId={p.id} tag={p.tag} action={setPhotoTag} />
+
+                    <div className="flex items-center gap-1.5">
+                      <form action={reorderPhoto}>
+                        <input type="hidden" name="photoId" value={p.id} />
+                        <input type="hidden" name="dir" value="up" />
+                        <button
+                          disabled={i === 0}
+                          aria-label="Move earlier"
+                          className="rounded-md border border-ink-300 px-2 py-1.5 text-xs font-medium text-ink-700 disabled:opacity-30"
+                        >
+                          ←
+                        </button>
+                      </form>
+                      <form action={reorderPhoto}>
+                        <input type="hidden" name="photoId" value={p.id} />
+                        <input type="hidden" name="dir" value="down" />
+                        <button
+                          disabled={i === vehicle.photos.length - 1}
+                          aria-label="Move later"
+                          className="rounded-md border border-ink-300 px-2 py-1.5 text-xs font-medium text-ink-700 disabled:opacity-30"
+                        >
+                          →
+                        </button>
+                      </form>
+                      {!p.isPrimary ? (
+                        <form action={setPrimaryPhoto}>
+                          <input type="hidden" name="photoId" value={p.id} />
+                          <button className="rounded-md border border-ink-300 px-2 py-1.5 text-xs font-medium text-ink-700">
+                            Make lead
+                          </button>
+                        </form>
+                      ) : null}
+                      <form action={deletePhoto} className="ml-auto">
+                        <input type="hidden" name="photoId" value={p.id} />
+                        <button
+                          aria-label="Delete photo"
+                          className="rounded-md border border-red-300 px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               ))}

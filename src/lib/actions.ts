@@ -219,25 +219,33 @@ export async function saveVehicle(formData: FormData) {
 
     const v = inserted[0]!;
 
-    // give it a photo set so it is presentable the moment it is created
+    /**
+     * ONE placeholder tile, not a set of six.
+     *
+     * A generated tile is an SVG, and `feedablePhotos()` holds any unit whose
+     * only images are SVG out of the CarGurus file entirely — so six of them
+     * buy nothing on a marketplace. What they do buy is a vehicle page that
+     * looks photographed when nobody has photographed it, and six placeholders
+     * a porter has to delete one at a time before the real pictures read as the
+     * gallery. One tile keeps the card from being empty and is honest about
+     * what it is.
+     */
     const photoLabel = await dealerLabelForRooftop(v.rooftopId);
-    await db.insert(t.vehiclePhotos).values(
-      PHOTO_SET.map((scene, n) => ({
-        vehicleId: v.id,
-        url: generatedPhotoUrl({
-          scene,
-          body: v.bodyStyle,
-          hex: v.exteriorColorHex,
-          label: photoLabel,
-          sublabel: `STK ${v.stockNumber}`,
-          mileage: v.mileage,
-        }),
-        sortOrder: n,
-        isPrimary: n === 0,
-        tag: scene,
-        alt: `${v.year} ${v.make} ${v.model}`,
-      })),
-    );
+    await db.insert(t.vehiclePhotos).values({
+      vehicleId: v.id,
+      url: generatedPhotoUrl({
+        scene: PHOTO_SET[0]!,
+        body: v.bodyStyle,
+        hex: v.exteriorColorHex,
+        label: photoLabel,
+        sublabel: `STK ${v.stockNumber}`,
+        mileage: v.mileage,
+      }),
+      sortOrder: 0,
+      isPrimary: true,
+      tag: PHOTO_SET[0]!,
+      alt: `${v.year} ${v.make} ${v.model}`,
+    });
 
     // open a sync row on every connection for this rooftop
     const conns = await db
@@ -508,6 +516,43 @@ export async function setPrimaryPhoto(formData: FormData) {
     .where(eq(t.vehiclePhotos.vehicleId, photo.vehicleId));
   await db.update(t.vehiclePhotos).set({ isPrimary: true }).where(eq(t.vehiclePhotos.id, photoId));
   await enqueueChange(photo.vehicleId, 'UPDATE_PHOTOS', {}, 'Lead photo changed');
+  refreshAll(photo.vehicleId);
+}
+
+/**
+ * Change what a photo is *of*, after it has been uploaded.
+ *
+ * Shooting a car is a continuous act — walk round it, open a door, pop the
+ * hood — and stopping to classify each frame before it uploads is the thing
+ * that makes a porter give up and use their camera roll instead. So the bulk
+ * uploader tags everything EXTERIOR_SIDE and this is how it gets corrected,
+ * from the grid, in the order the photos already sit in.
+ *
+ * The tag matters downstream: `photoTagEnum` drives which image a channel is
+ * offered first, and INTERIOR shots leading a listing measurably cost
+ * click-through.
+ */
+export async function setPhotoTag(formData: FormData) {
+  const photoId = String(formData.get('photoId'));
+  const tag = String(formData.get('tag') || '');
+  await requireSession();
+  if (!t.photoTagEnum.enumValues.includes(tag as typeof t.photoTagEnum.enumValues[number])) return;
+
+  // Same scope check the other photo actions use: load the row, then prove the
+  // vehicle it hangs off is one this tenant may write.
+  const photo = (
+    await db.select().from(t.vehiclePhotos).where(eq(t.vehiclePhotos.id, photoId)).limit(1)
+  )[0];
+  if (!photo) return;
+  if (!(await loadWritableVehicle(photo.vehicleId))) return;
+
+  await db
+    .update(t.vehiclePhotos)
+    .set({ tag: tag as typeof t.photoTagEnum.enumValues[number] })
+    .where(eq(t.vehiclePhotos.id, photoId));
+
+  // Not an `enqueueChange`: which shot is the engine bay does not change any
+  // listing until the ORDER changes, and a channel push per dropdown is noise.
   refreshAll(photo.vehicleId);
 }
 
