@@ -188,32 +188,83 @@ export function ImportPanel({ rooftops }: { rooftops: { id: string; name: string
 
   return (
     <div className="space-y-5">
-      {done ? (
-        <Card className="border-emerald-300 bg-emerald-50/50 px-5 py-4">
-          <p className="text-sm font-semibold text-emerald-900">
-            {done.created} added, {done.updated} updated, {done.photosAdded.toLocaleString()} photos attached.
-          </p>
-          {done.skipped > 0 ? (
-            <p className="mt-1 text-xs text-emerald-800">{done.skipped} rows were skipped.</p>
-          ) : null}
-          {done.failed.length > 0 ? (
-            <ul className="mt-2 space-y-0.5">
-              {done.failed.map((f) => (
-                <li key={f.vin} className="text-xs text-red-700">
-                  {f.vin} — {f.error}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <p className="mt-2 text-xs text-emerald-800">
-            Imported vehicles are set to <strong>photos pending</strong>, which is a state that
-            syndicates. Check the prices before connecting a channel.
-            {done.syncStatesOpened > 0
-              ? ` They are now tracked against every connected channel on the syndication screen (${done.syncStatesOpened.toLocaleString()} rows).`
-              : ''}
-          </p>
-        </Card>
-      ) : null}
+      {done ? (() => {
+        /**
+         * The panel reports what happened, and it has three outcomes rather than
+         * one.
+         *
+         * It used to have a single green treatment: a run where every row failed
+         * still announced itself in success colours, with "0 added, 0 updated"
+         * as the headline and twenty-one red errors nested underneath. That is a
+         * failure wearing a success costume, and a screen that congratulates you
+         * for writing nothing is worse than one that says nothing at all.
+         */
+        const wrote = done.created + done.updated;
+        const tone =
+          wrote === 0 ? 'bad' : done.failed.length > 0 ? 'mixed' : 'good';
+
+        const box = {
+          good: 'border-emerald-300 bg-emerald-50/50',
+          mixed: 'border-amber-300 bg-amber-50/60',
+          bad: 'border-red-300 bg-red-50/60',
+        }[tone];
+        const head = {
+          good: 'text-emerald-900',
+          mixed: 'text-amber-900',
+          bad: 'text-red-900',
+        }[tone];
+        const body = {
+          good: 'text-emerald-800',
+          mixed: 'text-amber-900',
+          bad: 'text-red-800',
+        }[tone];
+
+        return (
+          <Card className={cn('px-5 py-4', box)}>
+            <p className={cn('text-sm font-semibold', head)}>
+              {wrote === 0
+                ? done.failed.length > 0
+                  ? `Nothing was imported — all ${done.failed.length} rows failed.`
+                  : 'Nothing was imported.'
+                : `${done.created} added, ${done.updated} updated, ${done.photosAdded.toLocaleString()} photos attached.`}
+            </p>
+
+            {wrote > 0 && done.failed.length > 0 ? (
+              <p className={cn('mt-1 text-xs font-medium', body)}>
+                {done.failed.length} row{done.failed.length === 1 ? '' : 's'} failed and{' '}
+                {done.failed.length === 1 ? 'was' : 'were'} not written.
+              </p>
+            ) : null}
+
+            {done.skipped > 0 ? (
+              <p className={cn('mt-1 text-xs', body)}>{done.skipped} rows were skipped.</p>
+            ) : null}
+
+            {done.failed.length > 0 ? (
+              <ul className="mt-2 space-y-0.5">
+                {done.failed.map((f) => (
+                  <li key={f.vin} className="text-xs text-red-700">
+                    {f.vin} — {f.error}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {/* Only worth saying when something actually landed. */}
+            {wrote > 0 ? (
+              <p className={cn('mt-2 text-xs', body)}>
+                A unit that arrived with photographs is set to{' '}
+                <strong>front-line ready</strong>; one that arrived without any is{' '}
+                <strong>photos pending</strong>, which the marketplaces hold back until it has
+                pictures. Check the prices before connecting a channel.
+                {done.syncStatesOpened > 0
+                  ? ` They are now tracked against every connected channel on the syndication screen (${done.syncStatesOpened.toLocaleString()} rows).`
+                  : ''}
+              </p>
+            ) : null}
+          </Card>
+        );
+      })() : null}
 
       <Card>
         <CardHeader
