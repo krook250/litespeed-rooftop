@@ -64,6 +64,7 @@ function fillable(draft: VehicleDraft) {
 }
 
 function insertValues(draft: VehicleDraft, rooftopId: string, now: Date) {
+  const status = importStatus(draft.photoUrls.length);
   return {
     rooftopId,
     vin: draft.vin,
@@ -90,7 +91,22 @@ function insertValues(draft: VehicleDraft, rooftopId: string, now: Date) {
     options: draft.options,
     /* The rule, and why it is what it is, live in `importStatus` next door —
        it is a decision, and decisions in this subsystem are pure and testable. */
-    status: importStatus(draft.photoUrls.length),
+    status,
+    /**
+     * Front-line ready needs a front-line date, or the clock never starts.
+     *
+     * `daysInStock(v, 'frontLine')` returns 0 when this is null, so without it
+     * every imported unit reads as zero days on the front line — on a migrated
+     * lot that has been retailing for months, which is the exact opposite of
+     * true and hides the aged units the at-risk list exists to surface.
+     *
+     * Today is a guess, and it is the same guess `acquiredDate` above already
+     * makes for the same reason: nothing in a syndication export says when the
+     * dealer front-lined the car. It is the conservative direction — a unit
+     * looks newer than it is rather than older — and it beats a null that
+     * silently reads as zero.
+     */
+    frontLineDate: status === 'FRONT_LINE_READY' ? now : null,
     // Nothing in a syndication export says when the dealer bought the car, and
     // inventing a date would put fake numbers on the aging report.
     acquiredDate: now,
@@ -141,6 +157,8 @@ export async function commitImport(
           id: t.vehicles.id,
           vin: t.vehicles.vin,
           rooftopId: t.vehicles.rooftopId,
+          status: t.vehicles.status,
+          frontLineDate: t.vehicles.frontLineDate,
           trim: t.vehicles.trim,
           engine: t.vehicles.engine,
           exteriorColor: t.vehicles.exteriorColor,
@@ -202,6 +220,26 @@ export async function commitImport(
       for (const [key, value] of Object.entries(fillable(draft))) {
         const held = prior[key as keyof typeof prior];
         if (value && (held === null || held === undefined || held === '')) patch[key] = value;
+      }
+
+      /**
+       * A unit that has photographs is not waiting for photographs.
+       *
+       * `importStatus` applies this on create; without it here the rule holds
+       * for a lot imported today and not for one imported last week, and there
+       * is no way to correct the older lot short of touching every row by hand.
+       * Both feed specs exclude PHOTOS_PENDING, so those units stay invisible on
+       * every marketplace until something moves them.
+       *
+       * Deliberately narrow. It only ever promotes OUT of PHOTOS_PENDING, so a
+       * unit a dealer has put back into recon, or marked pending sale, or sold,
+       * is never overruled by a file — the update path's whole contract is that
+       * it does not overwrite a human's decision.
+       */
+      const willHavePhotos = withPhotos.has(prior.id) || draft.photoUrls.length > 0;
+      if (prior.status === 'PHOTOS_PENDING' && willHavePhotos) {
+        patch.status = 'FRONT_LINE_READY';
+        patch.frontLineDate = prior.frontLineDate ?? now;
       }
 
       await db.update(t.vehicles).set(patch).where(eq(t.vehicles.id, prior.id));
