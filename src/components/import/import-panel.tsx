@@ -34,6 +34,7 @@ type PreviewRow = {
 };
 
 type PlanResponse = {
+  vin?: { decoded: number; cached: number; undecoded: number; filled: Record<string, number> };
   headers: string[];
   mapping: Mapping;
   missing: ImportField[];
@@ -53,6 +54,16 @@ type CommitResponse = {
 };
 
 const NOT_MAPPED = '';
+
+const FIELD_LABEL: Record<string, string> = {
+  drivetrain: 'drivetrain',
+  doors: 'doors',
+  cylinders: 'cylinders',
+  fuelType: 'fuel type',
+  bodyStyle: 'body style',
+  engine: 'engine',
+};
+const label = (f: string) => FIELD_LABEL[f] ?? f;
 
 /**
  * What a warning means when it is true of the whole file rather than one car.
@@ -302,6 +313,23 @@ export function ImportPanel({ rooftops }: { rooftops: { id: string; name: string
               An update changes <strong>price and mileage</strong> and fills in blanks. It will not
               overwrite a description, a trim or photos somebody has already edited here.
             </p>
+
+            {plan.vin && plan.vin.decoded > 0 && Object.keys(plan.vin.filled).length > 0 ? (
+              <p className="border-b border-emerald-200 bg-emerald-50 px-5 py-2.5 text-xs text-emerald-900">
+                <span className="font-semibold">
+                  {plan.vin.decoded} VIN{plan.vin.decoded === 1 ? '' : 's'} decoded
+                </span>{' '}
+                — the manufacturer&rsquo;s own encoding filled{' '}
+                {Object.entries(plan.vin.filled)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([field, n]) => `${label(field)} on ${n}`)
+                  .join(', ')}
+                .
+                {plan.vin.undecoded > 0
+                  ? ` ${plan.vin.undecoded} VIN${plan.vin.undecoded === 1 ? '' : 's'} could not be decoded; those rows keep the file's values.`
+                  : ''}
+              </p>
+            ) : null}
 
             {hoisted.size > 0 ? (
               <ul className="space-y-1 border-b border-amber-200 bg-amber-50 px-5 py-3">

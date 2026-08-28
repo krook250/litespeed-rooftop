@@ -21,6 +21,7 @@ import { vinsInScope } from '@/lib/scoped-db';
 import { parseCsv } from '@/lib/import/csv';
 import { inferMapping, unmappedRequired, type Mapping } from '@/lib/import/mapping';
 import { planImport } from '@/lib/import/plan';
+import { enrichPlan } from '@/lib/import/enrich';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,9 +56,17 @@ export async function POST(req: Request) {
     ? body.mapping
     : inferMapping(table.headers);
 
-  const plan = planImport(table.rows, mapping, { existingVins: await vinsInScope(scope) });
+  const raw = planImport(table.rows, mapping, { existingVins: await vinsInScope(scope) });
+
+  /*
+   * Enriched before the preview, not after it. The screen has to show what will
+   * actually be written — a preview that warns "no drivetrain found" for a row
+   * the VIN is about to answer is training the operator to ignore the warnings.
+   */
+  const { plan, report } = await enrichPlan(raw);
 
   return NextResponse.json({
+    vin: report,
     headers: table.headers,
     mapping,
     missing: unmappedRequired(mapping),

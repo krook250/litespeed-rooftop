@@ -23,6 +23,7 @@ import { vinsInScope } from '@/lib/scoped-db';
 import { parseCsv } from '@/lib/import/csv';
 import { unmappedRequired, type Mapping } from '@/lib/import/mapping';
 import { planImport } from '@/lib/import/plan';
+import { enrichPlan } from '@/lib/import/enrich';
 import { commitImport } from '@/lib/import/commit';
 
 export const runtime = 'nodejs';
@@ -71,7 +72,10 @@ export async function POST(req: Request) {
     );
   }
 
-  const plan = planImport(table.rows, mapping, { existingVins: await vinsInScope(scope) });
+  const raw = planImport(table.rows, mapping, { existingVins: await vinsInScope(scope) });
+  // Same enrichment the preview ran. Every decode is cached in `vin_decodes` by
+  // then, so this is a database read rather than twenty-one network calls.
+  const { plan } = await enrichPlan(raw);
 
   try {
     const result = await commitImport(scope, rooftopId, plan);
