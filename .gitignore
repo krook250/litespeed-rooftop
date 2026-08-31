@@ -53,3 +53,12 @@ _to_delete/
 *.key
 *.secret
 META_TOKEN_KEY*
+
+# Local scratch - one-off scripts, patches, and real dealer data used while
+# debugging. malabarinventory.csv is a customer's actual inventory export:
+# 21 real VINs with prices and descriptions carrying their phone and address.
+# Once it is in history it is permanent, so it never goes in.
+clear-malabar.js
+diagnose-*.js
+malabarinventory.csv
+*.patch

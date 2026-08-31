@@ -22,6 +22,9 @@ import {
   InstructionsView,
   InterimAddress,
 } from '@/components/website-panels';
+import { AboutCard } from '@/components/website/about-card';
+import { HoursCard } from '@/components/website/hours-card';
+import { parseFacts } from '@/lib/store/about';
 import { DesignCard } from '@/components/website/design-card';
 import { isDefaultPalette } from '@/lib/branding/palette';
 import { buildReadiness } from '@/lib/domains/readiness';
@@ -233,6 +236,44 @@ export default async function WebsitePage() {
           </div>
         )}
       </section>
+
+      {/* -------------------------------------------------- about */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">About</h2>
+        <div className="rounded-xl border border-ink-200 bg-white p-5">
+          <AboutCard
+            storefrontId={sf.id}
+            dealerName={sf.name}
+            city={rooftop?.city ?? ''}
+            about={sf.about}
+            facts={parseFacts(sf.aboutFacts)}
+          />
+        </div>
+      </section>
+
+      {/* -------------------------------------------------- hours */}
+      {rooftops.length ? (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">Hours</h2>
+          <p className="mb-3 text-sm text-ink-600">
+            Shown on your website, used for the &ldquo;open now&rdquo; line, and sent to Google as
+            structured data so your hours can appear beside your listing in search.
+            {rooftops.length > 1 ? ' Each lot keeps its own.' : ''}
+          </p>
+          <div className="space-y-4">
+            {rooftops.map((lot) => (
+              <div key={lot.id} className="rounded-xl border border-ink-200 bg-white p-5">
+                <HoursCard
+                  rooftopId={lot.id}
+                  rooftopName={lot.name}
+                  timezone={lot.timezone}
+                  hours={lot.hours}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* ------------------------------------------------ design */}
       <section>

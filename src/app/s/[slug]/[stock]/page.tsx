@@ -1,13 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import {
   createLead,
   getLiveInventory,
   getStorefrontBySlug,
   getVehicleByStock,
+  storefrontBasePath,
   type LiveVehicle,
 } from '@/lib/queries';
+import {
+  autoDealerLd,
+  breadcrumbLd,
+  canonicalOrigin,
+  vehicleLd,
+  type SeoRooftop,
+} from '@/lib/store/seo';
 import {
   BODY_LABEL,
   DRIVETRAIN_LABEL,
@@ -118,7 +127,16 @@ export default async function VehicleDetailPage({ params }: Params) {
   if (!data) notFound();
   const { storefront, vehicle } = data;
 
-  const basePath = `/s/${storefront.slug}`;
+  /*
+   * Was hardcoded to `/s/<slug>`, which still resolves on a dealer's own domain
+   * (`proxy.ts` leaves an explicit `/s/` path alone) — and that is exactly the
+   * problem: it served every vehicle at two URLs on the domain the dealer is
+   * trying to rank, with our routing visible in one of them. `storefrontBasePath`
+   * is what the SRP already used; the two now agree.
+   */
+  const host = (await headers()).get('host');
+  const basePath = storefrontBasePath(storefront, host);
+  const origin = canonicalOrigin(storefront, host);
   const title = vehicleTitle(vehicle);
   const price = activePrice(vehicle);
   const onSale = vehicle.salePrice != null && vehicle.salePrice < vehicle.price;
@@ -159,8 +177,44 @@ export default async function VehicleDetailPage({ params }: Params) {
   const optionSet = new Set(vehicle.options.map((o) => o.toLowerCase()));
   const extraFeatures = vehicle.features.filter((f) => !optionSet.has(f.toLowerCase()));
 
+  /*
+   * `Vehicle` + `Offer`, with `seller` pointing by `@id` at the same
+   * `AutoDealer` node the lot's own page publishes. This is the highest-value
+   * structured data on the site: it is what puts price, mileage and availability
+   * into a result, and a used-car listing without it competes on the title tag
+   * alone.
+   *
+   * The dealer node is emitted here too rather than only referenced. A crawler
+   * that reaches a VDP from a search result may never fetch the home page, and a
+   * `seller` that resolves to nothing is a dangling reference.
+   */
+  const seoRooftop = rooftop as unknown as SeoRooftop;
+  const url = `${origin}${basePath}/${vehicle.stockNumber.toLowerCase()}`;
+  const dealerNode = autoDealerLd(seoRooftop, {
+    origin,
+    basePath,
+    brandName: storefront.name,
+    logoUrl: storefront.logoKey ? `/api/logo/${storefront.logoKey}` : null,
+  });
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      vehicleLd(
+        { ...vehicle, photos: vehicle.photos, rooftopId: vehicle.rooftopId },
+        { origin, url, sellerId: String(dealerNode['@id']), brandName: storefront.name },
+      ),
+      dealerNode,
+      breadcrumbLd([
+        { name: storefront.name, url: `${origin}${basePath || '/'}` },
+        { name: vehicle.make, url: `${origin}${basePath}?make=${encodeURIComponent(vehicle.make)}` },
+        { name: title, url },
+      ]),
+    ],
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
       <nav className="text-xs text-[var(--text-3)]">
         <Link href={basePath} className="hover:text-[var(--brand-text)] hover:underline">
           Inventory

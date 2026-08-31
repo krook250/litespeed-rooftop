@@ -4,6 +4,10 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
 import { storeTheme, storeThemeVars } from '@/lib/branding/palette';
+import { MobileCallBar } from '@/components/store/call-bar';
+import { OpenNow } from '@/components/store/location';
+import { visitPath, type SeoRooftop } from '@/lib/store/seo';
+import { isWeekHours } from '@/lib/store/hours';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -84,6 +88,20 @@ export default async function StorefrontLayout({
 
   const logoUrl = sf.logoKey ? `/api/logo/${sf.logoKey}` : null;
 
+  /*
+   * The lot the header and the mobile bar speak for.
+   *
+   * A single-lot storefront is the overwhelming majority and gets a Directions
+   * button that goes straight there. A multi-lot storefront has no honest answer
+   * to "directions to where", so the bar keeps Call — which is always right,
+   * the number is the storefront's — and the header link goes to the first
+   * lot's page, which lists the others.
+   */
+  const rooftops = sf.rooftops as unknown as SeoRooftop[];
+  const primary = rooftops[0] ?? null;
+  const single = rooftops.length === 1 ? primary : null;
+  const liveHours = primary ? isWeekHours(primary.hours) : false;
+
   return (
     <div
       data-store-theme={sf.theme}
@@ -146,6 +164,24 @@ export default async function StorefrontLayout({
             >
               Inventory
             </Link>
+            {/* Only when there is something behind it. A nav link to an empty
+                About section is worse than no link. */}
+            {sf.about?.trim() ? (
+              <Link
+                href={`${homeHref}#about`}
+                className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
+              >
+                About
+              </Link>
+            ) : null}
+            {primary ? (
+              <Link
+                href={visitPath(base, primary)}
+                className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
+              >
+                {sf.rooftops.length > 1 ? 'Locations' : 'Visit'}
+              </Link>
+            ) : null}
             <div className="text-right">
               <a
                 href={telHref(sf.phone)}
@@ -153,7 +189,15 @@ export default async function StorefrontLayout({
               >
                 {sf.phone}
               </a>
-              {sf.hoursNote ? (
+              {/*
+                Structured hours win over the free-text line when both are set.
+                `hoursNote` is a glance the dealer typed once; `OpenNow` is
+                computed against the lot's own clock every request, so it is the
+                one that can say "closes at 6" and be right about it.
+              */}
+              {liveHours ? (
+                <OpenNow rooftop={primary!} className="block text-[11px] leading-tight text-[var(--header-muted)]" />
+              ) : sf.hoursNote ? (
                 <span className="block text-[11px] leading-tight text-[var(--header-muted)]">
                   {sf.hoursNote}
                 </span>
@@ -165,6 +209,8 @@ export default async function StorefrontLayout({
 
       <main className="flex-1">{children}</main>
 
+      <MobileCallBar phone={sf.phone} rooftop={single} />
+
       <footer
         className="mt-12 border-t bg-[var(--footer-bg)]"
         style={{ borderColor: 'var(--line)' }}
@@ -172,14 +218,33 @@ export default async function StorefrontLayout({
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="text-sm font-semibold text-[var(--footer-text)]">{sf.name}</div>
-            {sf.addressLine ? (
+            {/*
+              The footer NAP. Prefers the lot's own address over the storefront's
+              free-text line for the same reason the hours below prefer the
+              structured week: two places to type the same fact is two places for
+              it to be typed differently, and a footer that disagrees with the
+              location card six inches above it is worse than either alone —
+              inconsistent NAP is the thing local ranking punishes.
+            */}
+            {primary ? (
+              <address className="mt-1 not-italic text-sm text-[var(--footer-muted)]">
+                {primary.addressLine1}, {primary.city}, {primary.state} {primary.postalCode}
+              </address>
+            ) : sf.addressLine ? (
               <div className="mt-1 text-sm text-[var(--footer-muted)]">{sf.addressLine}</div>
             ) : null}
             <div className="mt-1 text-sm text-[var(--footer-muted)]">
               <a href={telHref(sf.phone)} className="hover:underline">
                 {sf.phone}
               </a>
-              {sf.hoursNote ? <span> · {sf.hoursNote}</span> : null}
+              {liveHours ? (
+                <>
+                  {' · '}
+                  <OpenNow rooftop={primary!} className="whitespace-nowrap" />
+                </>
+              ) : sf.hoursNote ? (
+                <span> · {sf.hoursNote}</span>
+              ) : null}
             </div>
           </div>
           <div className="text-xs text-[var(--footer-muted)] md:text-right">

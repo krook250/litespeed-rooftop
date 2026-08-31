@@ -16,6 +16,8 @@ import { headers } from 'next/headers';
 import { getLiveInventory, getStorefrontByKey, storefrontBasePath, type LiveVehicle } from '@/lib/queries';
 import { BODY_LABEL, DRIVETRAIN_LABEL } from '@/lib/domain';
 import { layoutFor } from '@/components/store/layouts';
+import { StoreSections } from '@/components/store/location';
+import { canonicalOrigin, storefrontLd, type SeoRooftop } from '@/lib/store/seo';
 import type { StorefrontView } from '@/components/store/layouts/types';
 import {
   activeFilterCount,
@@ -99,5 +101,31 @@ export default async function StorefrontSrp({
   };
 
   const Layout = layoutFor(storefront.layout);
-  return <Layout view={view} />;
+
+  /*
+   * The `@graph` for the whole storefront: the brand as an `Organization`, then
+   * one `AutoDealer` per physical lot beneath it. Built from the same rows the
+   * visible location cards below render, so the structured data and the NAP text
+   * cannot drift apart — which is the failure mode that quietly costs local
+   * ranking, because nothing on the page looks wrong when they do.
+   */
+  const rooftops = storefront.rooftops as unknown as SeoRooftop[];
+  const ld = storefrontLd(storefront, rooftops, {
+    origin: canonicalOrigin(storefront, host),
+    basePath,
+    logoUrl: view.logoUrl,
+  });
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+      <Layout view={view} />
+      <StoreSections
+        name={storefront.name}
+        about={storefront.about}
+        rooftops={rooftops}
+        basePath={basePath}
+      />
+    </>
+  );
 }

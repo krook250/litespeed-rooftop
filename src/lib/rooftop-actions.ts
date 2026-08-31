@@ -25,21 +25,35 @@ import * as t from '@/db/schema';
 import { requireSession } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
+import { parseLatLng } from '@/lib/geo';
 
 /**
- * Read a coordinate, or null.
+ * Read the map pin out of the single box the form now posts.
  *
  * Null and zero are different answers and the difference matters: `0` is a real
  * point in the Gulf of Guinea, and a lot silently syndicating itself to the
  * middle of the Atlantic is worse than one that stays excluded with a reason.
- * So an unparseable or out-of-range value clears the field rather than guessing.
+ * So an unparseable pair clears the field rather than guessing — `parseLatLng`
+ * refuses out-of-range and transposed input for the same reason.
+ *
+ * `latitude` / `longitude` are still read as a fallback. Nothing in the app
+ * posts them today, but the column pair is what every feed reads and a stray
+ * caller silently writing nulls over a working pin is not a failure anyone
+ * would notice until Marketplace stopped running the lot's cars.
  */
-function coord(raw: FormDataEntryValue | null, max: number): number | null {
-  const s = String(raw ?? '').trim();
-  if (!s) return null;
-  const n = Number(s);
-  if (!Number.isFinite(n) || Math.abs(n) > max) return null;
-  return n;
+function readPin(formData: FormData): { latitude: number | null; longitude: number | null } {
+  const pin = String(formData.get('mapPin') ?? '').trim();
+  if (pin) {
+    const parsed = parseLatLng(pin);
+    return { latitude: parsed?.lat ?? null, longitude: parsed?.lng ?? null };
+  }
+  if (formData.has('latitude') || formData.has('longitude')) {
+    const pair = parseLatLng(
+      `${String(formData.get('latitude') ?? '').trim()},${String(formData.get('longitude') ?? '').trim()}`,
+    );
+    return { latitude: pair?.lat ?? null, longitude: pair?.lng ?? null };
+  }
+  return { latitude: null, longitude: null };
 }
 
 export async function saveRooftopDetails(formData: FormData) {
@@ -60,8 +74,7 @@ export async function saveRooftopDetails(formData: FormData) {
       postalCode: str('postalCode', 20),
       phone: str('phone', 40),
       email: str('email', 200),
-      latitude: coord(formData.get('latitude'), 90),
-      longitude: coord(formData.get('longitude'), 180),
+      ...readPin(formData),
     })
     .where(eq(t.rooftops.id, rooftopId));
 

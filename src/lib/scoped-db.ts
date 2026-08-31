@@ -217,12 +217,24 @@ export async function assertStorefrontInScope(scope: Scope, storefrontId: string
   return rows[0] ?? null;
 }
 
-/** Every storefront this scope owns. Same group check as above. */
+/**
+ * Every storefront this scope owns. Same group check as above.
+ *
+ * ORDERED, and that is not cosmetic. `/admin/website` edits `storefronts[0]`,
+ * and without an ORDER BY Postgres is free to return the rows in a different
+ * order on any two requests. A dealer with two storefronts could answer the
+ * About interview against one and publish the result to the other — which is
+ * exactly what happened in testing: the facts landed on Battle Ground and the
+ * copy on Vancouver, from one screen, in one sitting. Same order as
+ * `getStorefronts()` in `queries.ts`, so the two never disagree about which
+ * storefront is "the first one".
+ */
 export async function storefrontsInScope(scope: Scope) {
   if (!scope.rooftopIds.length) return [];
   return db
     .select()
     .from(t.storefronts)
+    .orderBy(asc(t.storefronts.name))
     .where(
       inArray(
         t.storefronts.groupId,

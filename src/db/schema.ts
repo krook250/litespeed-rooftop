@@ -25,6 +25,9 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+
+import type { AboutFacts } from '@/lib/store/about';
+import type { WeekHours } from '@/lib/store/hours';
 import { relations, sql } from 'drizzle-orm';
 
 const cuid = () => text().$defaultFn(() => crypto.randomUUID());
@@ -289,6 +292,25 @@ export const rooftops = pgTable('rooftops', {
   latitude: numeric({ precision: 10, scale: 7, mode: 'number' }),
   longitude: numeric({ precision: 10, scale: 7, mode: 'number' }),
 
+  /**
+   * When this lot is open, as seven wall-clock entries — see `WeekHours` in
+   * `src/lib/store/hours.ts`, which owns the shape, the validator and the
+   * reasoning.
+   *
+   * On the rooftop rather than the storefront because a storefront can
+   * consolidate several lots and two lots do not share a Saturday, and because
+   * it is the shape schema.org wants: one `AutoDealer` per physical location,
+   * each carrying its own `openingHoursSpecification`. It sits next to the
+   * address, the phone and the coordinates for the same reason — they are all
+   * facts about a place.
+   *
+   * Nullable, and every reader runs `isWeekHours()` over it. `jsonb` guarantees
+   * JSON and nothing further, so a row written by an older build or a hand-run
+   * UPDATE can hold anything; a lot with unreadable hours must render as a lot
+   * with no hours, never as an exception on a page a buyer is looking at.
+   */
+  hours: jsonb().$type<WeekHours | null>(),
+
   isActive: boolean().notNull().default(true),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
@@ -407,7 +429,44 @@ export const storefronts = pgTable('storefronts', {
   tagline: text(),
   phone: text().notNull(),
   addressLine: text(),
+  /**
+   * A free-text line beside the phone number in the header — "Mon–Sat 9–7".
+   *
+   * Kept after structured `rooftops.hours` arrived rather than replaced by it.
+   * The two do different jobs: this is a glance in the header, the structured
+   * one is the table, the "open now" line and the JSON-LD. A dealer who has
+   * filled in neither still gets a working header, and one who has filled in
+   * both is not made to keep them in step by hand — the storefront prefers the
+   * structured hours wherever both could serve.
+   */
   hoursNote: text(),
+
+  /**
+   * The "about" copy. On the storefront rather than the rooftop because it is
+   * about the business a buyer is choosing, not about which of two lots the car
+   * is parked on.
+   *
+   * Plain text, rendered as paragraphs on split blank lines — deliberately not
+   * markdown and not HTML. This string is written by a dealer into a textarea
+   * and rendered on their own origin; accepting markup here is an XSS surface
+   * on a page we host, in exchange for bold text nobody asked for.
+   */
+  about: text(),
+
+  /**
+   * The five answers the About writer was built from — see `AboutFacts` in
+   * `src/lib/store/about.ts`.
+   *
+   * Stored separately from `about` and deliberately independent of it. A dealer
+   * comes back months later to add "we finance in house", and re-answering five
+   * questions to change one is the reason they would instead leave the page
+   * stale. Keeping the answers means the wizard reopens filled in.
+   *
+   * The published text is never regenerated from these without the dealer
+   * asking. Someone who hand-edited three paragraphs must not lose them because
+   * a later save touched a checkbox.
+   */
+  aboutFacts: jsonb().$type<AboutFacts | null>(),
 
   layout: storefrontLayoutEnum().notNull().default('CLASSIC'),
   theme: storefrontThemeEnum().notNull().default('LIGHT'),

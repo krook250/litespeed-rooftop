@@ -17,6 +17,8 @@
 import { Card, CardHeader, Badge, Button } from '@/components/ui';
 import { getRooftops } from '@/lib/queries';
 import { saveRooftopDetails } from '@/lib/rooftop-actions';
+import { HoursCard } from '@/components/website/hours-card';
+import { MapPinField } from '@/components/website/map-pin-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,10 @@ export default async function LotsPage() {
           lot.latitude == null && 'map pin',
         ].filter(Boolean) as string[];
 
+        /* Hours are not a syndication requirement, so they are not in `missing`
+           above — a lot without them still feeds every channel. They are a
+           website and local-search requirement, which is a different badge. */
+
         return (
           <Card key={lot.id} className="mb-5">
             <CardHeader
@@ -101,30 +107,30 @@ export default async function LotsPage() {
                   street address on its own is not enough, and without these your cars will
                   not run on Marketplace. Open Google Maps, right-click your lot, and the
                   first item in the menu is the pair of numbers. Click it to copy, then paste
-                  the first here and the second next to it.
+                  it straight into the box below.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field
-                    label="Latitude"
-                    name="latitude"
-                    defaultValue={lot.latitude != null ? String(lot.latitude) : ''}
-                    placeholder="45.6872"
-                    inputMode="decimal"
-                  />
-                  <Field
-                    label="Longitude"
-                    name="longitude"
-                    defaultValue={lot.longitude != null ? String(lot.longitude) : ''}
-                    placeholder="-122.6603"
-                    inputMode="decimal"
-                  />
-                </div>
+                <MapPinField latitude={lot.latitude} longitude={lot.longitude} />
               </div>
 
               <div className="mt-4 flex justify-end">
                 <Button type="submit">Save lot</Button>
               </div>
             </form>
+
+            {/*
+              Its own form, not part of the one above. Hours are seven rows of
+              state that a dealer edits in one sitting; folding them into the
+              address form would mean a typo in a ZIP loses the week's work, and
+              a saved week is useful on its own.
+            */}
+            <div className="border-t border-ink-100 px-5 py-4">
+              <HoursCard
+                rooftopId={lot.id}
+                rooftopName="Opening hours"
+                timezone={lot.timezone}
+                hours={lot.hours}
+              />
+            </div>
           </Card>
         );
       })}

@@ -8,12 +8,12 @@
  * change, nothing to keep in sync.
  */
 
-import type { Storefront } from '@/db/schema';
+import type { Rooftop, Storefront } from '@/db/schema';
 import type { LiveVehicle } from '@/lib/queries';
 import type { FacetOption, Filters, RawSearchParams } from '@/components/store/srp-filters';
 
 export type StorefrontView = {
-  storefront: Storefront & { rooftopIds: string[] };
+  storefront: Storefront & { rooftopIds: string[]; rooftops: Rooftop[] };
   /** Everything retail-ready on the lot, before filters. */
   inventory: LiveVehicle[];
   /** What the current filters actually return, already sorted. */
