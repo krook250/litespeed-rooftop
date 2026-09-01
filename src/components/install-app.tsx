@@ -25,6 +25,23 @@ type InstallPromptEvent = Event & {
 };
 
 let deferred: InstallPromptEvent | null = null;
+
+/**
+ * Whether this browser already has the app installed. null until we know.
+ *
+ * THIS IS THE STATE THAT MATTERS AND IT IS EASY TO MISS. Chrome stops firing
+ * `beforeinstallprompt` once the app is installed, and a phone browsing the
+ * site in a Chrome tab is not in standalone display mode — so 'installed' and
+ * 'this browser cannot install' look identical from JavaScript unless you ask.
+ * Without this the page told an Android user who already had the app to scan a
+ * QR code pointing at the page they were reading.
+ *
+ * `getInstalledRelatedApps` answers it on Chrome, and needs the manifest to
+ * list itself under `related_applications`. Everywhere else it is absent and
+ * we fall back to saying so rather than guessing.
+ */
+let installed: boolean | null = null;
+
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -41,8 +58,25 @@ if (typeof window !== 'undefined') {
   });
   window.addEventListener('appinstalled', () => {
     deferred = null;
+    installed = true;
     emit();
   });
+
+  const nav = navigator as Navigator & {
+    getInstalledRelatedApps?: () => Promise<unknown[]>;
+  };
+  if (nav.getInstalledRelatedApps) {
+    nav
+      .getInstalledRelatedApps()
+      .then((apps) => {
+        installed = apps.length > 0;
+        emit();
+      })
+      .catch(() => {
+        installed = null;
+        emit();
+      });
+  }
 }
 
 function subscribe(cb: () => void) {
@@ -75,6 +109,19 @@ function usePrompt() {
   );
 }
 
+function useInstalled() {
+  return useSyncExternalStore(
+    subscribe,
+    () => installed,
+    () => null,
+  );
+}
+
+/** Android, or anything else handheld that is not iOS. */
+function isMobile() {
+  return /android/i.test(navigator.userAgent) || /Mobi/i.test(navigator.userAgent);
+}
+
 function isIOS() {
   const ua = navigator.userAgent;
   // iPadOS 13+ reports itself as a Mac; the touch points give it away.
@@ -95,6 +142,7 @@ function isStandalone() {
 export function InstallPanel() {
   const client = useIsClient();
   const prompt = usePrompt();
+  const alreadyInstalled = useInstalled();
 
   if (!client) {
     return <div className="h-12" aria-hidden="true" />;
@@ -104,6 +152,15 @@ export function InstallPanel() {
     return (
       <p className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
         You are already in the installed app.
+      </p>
+    );
+  }
+
+  if (alreadyInstalled) {
+    return (
+      <p className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
+        <span className="font-semibold">Already installed on this device.</span> Look for the blue
+        chevron — you are reading this in the browser rather than in the app.
       </p>
     );
   }
@@ -145,6 +202,33 @@ export function InstallPanel() {
     );
   }
 
+  if (isMobile()) {
+    return (
+      <div className="rounded-xl bg-white p-4 ring-1 ring-inset ring-ink-200">
+        <p className="mb-1 text-sm font-semibold text-ink-900">Check your home screen first</p>
+        <p className="mb-3 text-xs leading-relaxed text-ink-500">
+          Chrome stops offering to install an app once it is installed, so if the blue chevron is
+          already on your home screen, you are done. If it is not:
+        </p>
+        <ol className="space-y-2 text-sm text-ink-700">
+          <li>
+            <span className="mr-1.5 font-semibold text-ink-900">1.</span>
+            Tap the ⋮ menu, top right
+          </li>
+          <li>
+            <span className="mr-1.5 font-semibold text-ink-900">2.</span>
+            Tap <span className="font-semibold">Install and create shortcut</span>
+          </li>
+          <li>
+            <span className="mr-1.5 font-semibold text-ink-900">3.</span>
+            Choose <span className="font-semibold">Install</span> — not Create shortcut, which
+            just reopens in Chrome
+          </li>
+        </ol>
+      </div>
+    );
+  }
+
   // Desktop, or a browser that will not install. Say so rather than showing a
   // dead button.
   return (
@@ -175,8 +259,9 @@ export function InstallPanel() {
 export function InstallButton() {
   const client = useIsClient();
   const prompt = usePrompt();
+  const alreadyInstalled = useInstalled();
 
-  if (!client || isStandalone()) return null;
+  if (!client || isStandalone() || alreadyInstalled) return null;
 
   if (prompt) {
     return (
