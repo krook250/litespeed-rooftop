@@ -32,6 +32,12 @@ export type StorefrontView = {
   activeFilterCount: number;
   /** Resolved logo URL, or null when the dealer hasn't uploaded one. */
   logoUrl: string | null;
+  /**
+   * Whether "Just arrived" is worth showing at all — false when it would land
+   * on most of the lot, which is what a fresh import looks like. See
+   * `shouldBadgeFreshAir` in `src/lib/domain.ts`.
+   */
+  badgeFreshAir: boolean;
 };
 
 export type LayoutComponent = (props: { view: StorefrontView }) => React.ReactNode;

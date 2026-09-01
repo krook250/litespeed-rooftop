@@ -107,7 +107,7 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
         {results.length ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {rest.map((v) => (
-              <VehicleCard key={v.id} v={v} basePath={basePath} />
+              <VehicleCard key={v.id} v={v} basePath={basePath} badgeFreshAir={view.badgeFreshAir} />
             ))}
           </div>
         ) : (

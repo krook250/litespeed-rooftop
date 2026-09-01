@@ -63,7 +63,7 @@ export function ClassicLayout({ view }: { view: StorefrontView }) {
           {results.length ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {results.map((v) => (
-                <VehicleCard key={v.id} v={v} basePath={basePath} />
+                <VehicleCard key={v.id} v={v} basePath={basePath} badgeFreshAir={view.badgeFreshAir} />
               ))}
             </div>
           ) : (

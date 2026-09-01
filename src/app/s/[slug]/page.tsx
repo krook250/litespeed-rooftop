@@ -14,7 +14,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getLiveInventory, getStorefrontByKey, storefrontBasePath, type LiveVehicle } from '@/lib/queries';
-import { BODY_LABEL, DRIVETRAIN_LABEL } from '@/lib/domain';
+import { BODY_LABEL, DRIVETRAIN_LABEL, daysInStock, isFreshAir, shouldBadgeFreshAir } from '@/lib/domain';
 import { layoutFor } from '@/components/store/layouts';
 import { StoreSections } from '@/components/store/location';
 import { canonicalOrigin, storefrontLd, type SeoRooftop } from '@/lib/store/seo';
@@ -97,6 +97,12 @@ export default async function StorefrontSrp({
     basePath,
     searchParams: sp,
     activeFilterCount: activeFilterCount(filters),
+    /* Measured against the whole lot, not the filtered results: switching to
+       Trucks must not change whether a badge is honest. */
+    badgeFreshAir: shouldBadgeFreshAir(
+      inventory.filter((v) => isFreshAir(daysInStock(v))).length,
+      inventory.length,
+    ),
     logoUrl: storefront.logoKey ? `/api/logo/${storefront.logoKey}` : null,
   };
 

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
+import { LotStatusControl } from '@/components/inventory/lot-status';
+import { dealerSiteBase } from '@/lib/storefront-url';
 import {
   getChannels,
   getGroup,
@@ -100,6 +102,7 @@ export default async function VehiclePage({
     rooftops.length > 1 && vehicle.status !== 'SOLD' && vehicle.status !== 'WHOLESALED';
   const otherLots = rooftops.filter((r) => r.id !== vehicle.rooftopId);
 
+  const vdpBase = await dealerSiteBase(vehicle.rooftopId);
   const dis = daysInStock(vehicle, 'dateIn');
   const flDays = vehicle.frontLineDate ? daysInStock(vehicle, 'frontLine') : null;
   const reconDays = vehicle.frontLineDate
@@ -150,6 +153,11 @@ export default async function VehiclePage({
               ) : null}
               {water ? <Badge tone="red">Water unit</Badge> : null}
             </div>
+
+            {/* The most repeated action on this screen, at the top of it. */}
+            <div className="mt-3">
+              <LotStatusControl vehicleId={vehicle.id} status={vehicle.status} />
+            </div>
           </div>
         </div>
 
@@ -162,13 +170,21 @@ export default async function VehiclePage({
                 <Button size="sm">Mark front-line ready</Button>
               </form>
             ) : null}
-            <Link
-              href={`/s/${vehicle.rooftop.slug.includes('battle') ? 'battle-ground' : 'vancouver'}/${vehicle.stockNumber}`}
+            {/*
+              Was `slug.includes('battle') ? 'battle-ground' : 'vancouver'` —
+              the two demo storefronts, hardcoded. Every real dealer's View VDP
+              link pointed into another tenant's storefront and 404'd.
+              `dealerSiteBase` is the one true answer to "where is this dealer's
+              website", already used by every outbound feed.
+            */}
+            <a
+              href={`${vdpBase}/${vehicle.stockNumber.toLowerCase()}`}
               target="_blank"
+              rel="noopener"
               className="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
             >
               View VDP ↗
-            </Link>
+            </a>
           </div>
         </div>
       </header>

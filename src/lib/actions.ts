@@ -19,7 +19,7 @@ import { del, put } from '@vercel/blob';
 import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
 import { requireSession } from '@/lib/auth';
 import { assertVehicleInScope, sessionScope } from '@/lib/queries';
-import { daysInStock, totalCost } from '@/lib/domain';
+import { VEHICLE_STATUS_LABEL, daysInStock, totalCost } from '@/lib/domain';
 import {
   feedAcquired,
   feedFrontLine,
@@ -403,6 +403,57 @@ export async function markFrontLineReady(formData: FormData) {
   );
 
   await enqueueChange(id, 'CREATE', { status: { from: 'recon', to: 'front line' } }, 'Marked front-line ready — listing everywhere');
+  refreshAll(id);
+}
+
+/**
+ * Flip a unit's lot status from the header, without opening the form.
+ *
+ * WHY THIS EXISTS SEPARATELY from the Status field in the vehicle form: moving a
+ * car through recon is the single most repeated action on this screen, and it
+ * was buried in a section a dealer had to scroll past the whole vehicle record
+ * to reach — then save the entire form to commit. On a phone, standing next to
+ * the car, that is the difference between updating the lot and not bothering.
+ *
+ * SOLD AND WHOLESALED ARE DELIBERATELY NOT HERE. A sale writes a `sales` row,
+ * computes days-to-sell and front gross, and posts a feed card; `saveVehicle`
+ * owns all of that. A quick dropdown that could skip it would produce sold cars
+ * with no sale behind them, which is unrecoverable without hand-editing
+ * Postgres. Selling a car is not a dropdown — it stays in the form.
+ */
+const QUICK_STATUSES = ['ARRIVED', 'IN_RECON', 'PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'] as const;
+
+export async function setLotStatus(formData: FormData) {
+  const id = String(formData.get('vehicleId'));
+  const next = String(formData.get('status'));
+  if (!(QUICK_STATUSES as readonly string[]).includes(next)) return;
+
+  await requireSession();
+  const before = await loadWritableVehicle(id);
+  if (!before || before.status === next) return;
+
+  /* Going front-line has a whole tail — recon-out card, front-line card with
+     photo and channel counts, the frontLineDate stamp. Delegating rather than
+     re-implementing is what stops this path and `markFrontLineReady` drifting. */
+  if (next === 'FRONT_LINE_READY') {
+    const fd = new FormData();
+    fd.set('vehicleId', id);
+    await markFrontLineReady(fd);
+    return;
+  }
+
+  const now = new Date();
+  await db
+    .update(t.vehicles)
+    .set({ status: next as typeof before.status, updatedAt: now })
+    .where(eq(t.vehicles.id, id));
+
+  await enqueueChange(
+    id,
+    'UPDATE_DETAILS',
+    { status: { from: before.status, to: next } },
+    `Lot status — ${VEHICLE_STATUS_LABEL[next as keyof typeof VEHICLE_STATUS_LABEL] ?? next}`,
+  );
   refreshAll(id);
 }
 

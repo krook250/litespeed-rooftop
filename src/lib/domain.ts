@@ -56,6 +56,36 @@ export function isFreshAir(days: number) {
   return days <= 15;
 }
 
+/**
+ * Should the storefront badge anything "Just arrived" at all?
+ *
+ * The badge is driven by `acquiredDate`, and for an imported lot every row got
+ * `acquiredDate = the moment of the import` — deliberately, because nothing in a
+ * syndication export says when the dealer bought the car and inventing a date
+ * would put fake numbers on the aging report (see `claude/inventory-import.md`).
+ *
+ * The side effect only shows up on the public site: for the first two weeks
+ * after a migration, **every unit on the lot wears "Just arrived"**, including a
+ * truck that has been sitting for eight months. That is both a false claim to a
+ * buyer and a badge that means nothing, since it is on everything.
+ *
+ * So the badge is suppressed when it would apply to most of the inventory. A
+ * label on nine cars out of ten is not news, it is wallpaper — and the shape of
+ * "almost all of it arrived at once" is exactly the import signature. This
+ * heals itself: as real units arrive over the following weeks the proportion
+ * falls, and the badge starts working without anybody doing anything.
+ *
+ * Chosen over adding an `acquiredDateIsEstimate` column because the column
+ * would need a migration and a backfill, and would still be wrong for a dealer
+ * who imported once and then genuinely bought ten cars in a week.
+ */
+export const FRESH_AIR_BADGE_CEILING = 0.4;
+
+export function shouldBadgeFreshAir(freshCount: number, totalCount: number): boolean {
+  if (totalCount === 0) return false;
+  return freshCount / totalCount <= FRESH_AIR_BADGE_CEILING;
+}
+
 /* ------------------------------------------------------------------ money */
 
 /** Total money in the unit. Internal only — never syndicate this. */

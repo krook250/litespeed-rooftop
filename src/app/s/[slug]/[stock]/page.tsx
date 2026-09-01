@@ -28,6 +28,9 @@ import {
   priceToMarket,
   usd,
   vehicleTitle,
+  daysInStock,
+  isFreshAir,
+  shouldBadgeFreshAir,
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
@@ -147,6 +150,12 @@ export default async function VehicleDetailPage({ params }: Params) {
 
   const inventory = await getLiveInventory({ rooftopIds: storefront.rooftopIds });
   const related = relatedUnits(inventory, vehicle);
+  /* Same measure as the SRP, so a badge does not appear on the related strip
+     while being suppressed on the page the buyer just came from. */
+  const badgeFreshAir = shouldBadgeFreshAir(
+    inventory.filter((u) => isFreshAir(daysInStock(u))).length,
+    inventory.length,
+  );
 
   const storefrontId = storefront.id;
   const vehicleId = vehicle.id;
@@ -476,7 +485,7 @@ export default async function VehicleDetailPage({ params }: Params) {
           </div>
           <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((u) => (
-              <VehicleCard key={u.id} v={u} basePath={basePath} />
+              <VehicleCard key={u.id} v={u} basePath={basePath} badgeFreshAir={badgeFreshAir} />
             ))}
           </div>
         </section>

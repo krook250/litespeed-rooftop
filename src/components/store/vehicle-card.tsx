@@ -29,13 +29,27 @@ function Chip({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
-export function VehicleCard({ v, basePath }: { v: LiveVehicle; basePath: string }) {
+export function VehicleCard({
+  v,
+  basePath,
+  badgeFreshAir = true,
+}: {
+  v: LiveVehicle;
+  basePath: string;
+  /**
+   * False when "Just arrived" is on so much of the lot that it means nothing —
+   * see `shouldBadgeFreshAir` in `src/lib/domain.ts`. Passed down rather than
+   * computed here because the answer is a property of the whole inventory, and
+   * the card only ever sees one car.
+   */
+  badgeFreshAir?: boolean;
+}) {
   const photo = primaryPhoto(v);
   const href = `${basePath}/${v.stockNumber}`;
   const price = activePrice(v);
   const onSale = v.salePrice != null && v.salePrice < v.price;
   const underMarket = v.marketValue > 0 ? v.marketValue - price : 0;
-  const justArrived = isFreshAir(daysInStock(v));
+  const justArrived = badgeFreshAir && isFreshAir(daysInStock(v));
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-sm transition hover:shadow-md">
