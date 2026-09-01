@@ -100,6 +100,22 @@ export function isWaterUnit(
   return v.marketValue > 0 && totalCost(v) > v.marketValue;
 }
 
+/**
+ * Do we actually know what this unit cost us?
+ *
+ * A CSV import carries price and mileage but almost never cost, so an imported
+ * lot lands with `cost`, `pack` and `reconCost` all zero — and then
+ * `grossPotential` returns the full asking price and every screen paints it
+ * green. Zero cost is not a cheap car, it is a missing number, and the two must
+ * never render the same way.
+ *
+ * `isWaterUnit` has the quieter version of this: with no cost it can never be
+ * true, so an unknown unit is silently "fine".
+ */
+export function hasCost(v: Pick<Vehicle, 'cost' | 'pack' | 'reconCost'>) {
+  return totalCost(v) > 0;
+}
+
 export function grossPotential(
   v: Pick<Vehicle, 'cost' | 'pack' | 'reconCost' | 'price' | 'salePrice'>,
 ) {

@@ -16,6 +16,7 @@ import {
   bucketFor,
   daysInStock,
   grossPotential,
+  hasCost,
   isAtRisk,
   isWaterUnit,
   num,
@@ -241,7 +242,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               : 'Clock starts when the unit went front-line ready.'
           }
           action={
-            <div className="flex items-center gap-1 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1 text-[11px]">
               <span className="text-ink-500">Sort</span>
               {[
                 ['age', 'Age'],
@@ -304,6 +305,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <tbody>
                 {rows.map((v) => {
                   const gross = grossPotential(v);
+                  const costKnown = hasCost(v);
                   const water = isWaterUnit(v);
                   const pct = v.marketValue
                     ? Math.round((activePrice(v) / v.marketValue) * 100)
@@ -371,10 +373,17 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <td
                         className={cn(
                           'tnum px-3 py-2.5 text-right font-semibold',
-                          gross < 0 ? 'text-red-600' : gross < 1200 ? 'text-amber-700' : 'text-emerald-700',
+                          !costKnown
+                            ? 'font-normal text-ink-400'
+                            : gross < 0
+                              ? 'text-red-600'
+                              : gross < 1200
+                                ? 'text-amber-700'
+                                : 'text-emerald-700',
                         )}
+                        title={costKnown ? undefined : 'No cost, pack or recon recorded on this unit.'}
                       >
-                        {usd(gross)}
+                        {costKnown ? usd(gross) : '—'}
                       </td>
                       <td className="tnum px-3 py-2.5 text-right">
                         {pct == null ? '—' : (

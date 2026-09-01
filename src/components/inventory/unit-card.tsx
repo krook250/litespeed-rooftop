@@ -4,6 +4,7 @@ import {
   VEHICLE_STATUS_LABEL,
   activePrice,
   grossPotential,
+  hasCost,
   isWaterUnit,
   num,
   shortTitle,
@@ -41,6 +42,7 @@ export function UnitCard({
   showCity: boolean;
 }) {
   const gross = grossPotential(v);
+  const costKnown = hasCost(v);
   const photo = v.photos[0]?.url;
 
   return (
@@ -107,14 +109,21 @@ export function UnitCard({
                 usd(v.price)
               )}
             </span>
-            <span
-              className={cn(
-                'text-xs font-semibold',
-                gross < 0 ? 'text-red-600' : gross < 1200 ? 'text-amber-700' : 'text-emerald-700',
-              )}
-            >
-              {usd(gross)} gross
-            </span>
+            {costKnown ? (
+              <span
+                className={cn(
+                  'text-xs font-semibold',
+                  gross < 0 ? 'text-red-600' : gross < 1200 ? 'text-amber-700' : 'text-emerald-700',
+                )}
+              >
+                {usd(gross)} gross
+              </span>
+            ) : (
+              // Not "$0 gross" and definitely not the asking price painted
+              // green — we do not know, and saying so is the only honest option
+              // that also tells the dealer what to go fix.
+              <span className="text-xs font-medium text-ink-400">no cost yet</span>
+            )}
           </div>
 
           <div className="mt-1.5 text-[11px] text-ink-500">
