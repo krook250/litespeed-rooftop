@@ -181,10 +181,11 @@ export function planImport(
 
     const transmission = toTransmission(cell(row, 'transmission'));
     if (!transmission) {
-      // The column default is AUTOMATIC, so silence here would list a manual
-      // truck as an automatic on every channel.
+      // The column is nullable, so the unit goes out with no transmission at all
+      // rather than asserting one. Still a warning: a blank spec is a blank a
+      // human can fill, and it is the only place they will be told.
       issues.push(warn('TRANSMISSION_UNKNOWN',
-        `Transmission "${cell(row, 'transmission') ?? ''}" not recognised — will default to automatic.`));
+        `Transmission "${cell(row, 'transmission') ?? ''}" not recognised — left blank rather than guessed.`));
     }
 
     const drivetrain = toDrivetrain(cell(row, 'drivetrain'), trim, cell(row, 'engine'));

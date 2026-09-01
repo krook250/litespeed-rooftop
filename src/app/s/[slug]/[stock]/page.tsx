@@ -414,7 +414,9 @@ export default async function VehicleDetailPage({ params }: Params) {
                 <span className="tnum">{miles(vehicle.mileage)}</span>
               </SpecRow>
               <SpecRow label="Drivetrain">{DRIVETRAIN_LABEL[vehicle.drivetrain]}</SpecRow>
-              <SpecRow label="Transmission">{TRANSMISSION_LABEL[vehicle.transmission]}</SpecRow>
+              {vehicle.transmission && (
+                <SpecRow label="Transmission">{TRANSMISSION_LABEL[vehicle.transmission]}</SpecRow>
+              )}
               <SpecRow label="Engine">
                 {vehicle.engine || '—'}
                 {vehicle.cylinders ? ` · ${vehicle.cylinders} cyl` : ''}

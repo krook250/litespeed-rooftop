@@ -169,7 +169,9 @@ export async function saveVehicle(formData: FormData) {
     doors: int('doors') ?? 4,
     engine: str('engine'),
     cylinders: int('cylinders'),
-    transmission: str('transmission') as typeof t.transmissionEnum.enumValues[number],
+    // Empty means the human left it unknown. Writing null is the whole point of
+    // the nullable column — do not fall back to a value nobody chose.
+    transmission: (str('transmission') || null) as typeof t.transmissionEnum.enumValues[number] | null,
     drivetrain: str('drivetrain') as typeof t.drivetrainEnum.enumValues[number],
     fuelType: str('fuelType') as typeof t.fuelTypeEnum.enumValues[number],
     mpgCity: int('mpgCity'),

@@ -51,7 +51,7 @@ const BODY_OPTS: Array<[string, string]> = [
   ['HATCHBACK', 'Hatchback'], ['WAGON', 'Wagon'], ['VAN', 'Minivan'], ['CONVERTIBLE', 'Convertible'],
 ];
 const DRIVE_OPTS: Array<[string, string]> = [['FWD', 'FWD'], ['RWD', 'RWD'], ['AWD', 'AWD'], ['FOUR_WD', '4WD']];
-const TRANS_OPTS: Array<[string, string]> = [['AUTOMATIC', 'Automatic'], ['MANUAL', 'Manual'], ['CVT', 'CVT']];
+const TRANS_OPTS: Array<[string, string]> = [['', 'Unknown'], ['AUTOMATIC', 'Automatic'], ['MANUAL', 'Manual'], ['CVT', 'CVT']];
 const FUEL_OPTS: Array<[string, string]> = [
   ['GAS', 'Gasoline'], ['DIESEL', 'Diesel'], ['HYBRID', 'Hybrid'],
   ['PLUGIN_HYBRID', 'Plug-in Hybrid'], ['ELECTRIC', 'Electric'], ['FLEX', 'Flex Fuel'],
@@ -144,7 +144,7 @@ export function VehicleForm({
           <Text name="mileage" label="Mileage" defaultValue={v?.mileage ?? numOrStr(p, 'mileage')} scanned={has('mileage')} />
           <Select name="bodyStyle" label="Body" defaultValue={v?.bodyStyle ?? str(p, 'bodyStyle') ?? 'SUV'} options={BODY_OPTS} scanned={has('bodyStyle')} />
           <Select name="drivetrain" label="Drivetrain" defaultValue={v?.drivetrain ?? str(p, 'drivetrain') ?? 'AWD'} options={DRIVE_OPTS} scanned={has('drivetrain')} />
-          <Select name="transmission" label="Transmission" defaultValue={v?.transmission ?? str(p, 'transmission') ?? 'AUTOMATIC'} options={TRANS_OPTS} scanned={has('transmission')} />
+          <Select name="transmission" label="Transmission" defaultValue={v?.transmission ?? str(p, 'transmission') ?? ''} options={TRANS_OPTS} scanned={has('transmission')} />
           <Select name="fuelType" label="Fuel" defaultValue={v?.fuelType ?? str(p, 'fuelType') ?? 'GAS'} options={FUEL_OPTS} scanned={has('fuelType')} />
           <Text name="engine" label="Engine" defaultValue={v?.engine ?? str(p, 'engine')} scanned={has('engine')} />
           <Text name="cylinders" label="Cylinders" defaultValue={v?.cylinders ?? numOrStr(p, 'cylinders')} scanned={has('cylinders')} />

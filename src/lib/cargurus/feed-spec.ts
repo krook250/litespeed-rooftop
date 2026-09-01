@@ -44,7 +44,7 @@ export type CgVehicle = {
   make: string;
   model: string;
   trim: string;
-  transmission: string;
+  transmission: string | null;
   engine: string;
   exteriorColor: string;
   interiorColor: string;
@@ -398,7 +398,7 @@ export function buildCarGurusFeed(
         // Unmapped on purpose. CarGurus accepts "5-speed manual" and "Manual"
         // equally, so our enum goes out as written rather than through a table
         // that could only introduce a translation bug.
-        'Transmission Type': flat(v.transmission),
+        'Transmission Type': flat(v.transmission ?? ''),
         Engine: flat(v.engine),
         Certified: yn(v.isCertified),
         // Every unit on an independent used lot is used. Sent explicitly rather

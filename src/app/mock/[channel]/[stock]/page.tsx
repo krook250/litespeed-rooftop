@@ -134,7 +134,7 @@ export default async function MockListingPage({ params }: Params) {
               {[
                 ['Stock', vehicle.stockNumber],
                 ['VIN', vehicle.vin],
-                ['Transmission', TRANSMISSION_LABEL[vehicle.transmission] ?? ''],
+                ['Transmission', vehicle.transmission ? TRANSMISSION_LABEL[vehicle.transmission] ?? '' : '—'],
                 ['Fuel', FUEL_LABEL[vehicle.fuelType] ?? ''],
                 ['Exterior', vehicle.exteriorColor],
                 ['Photos', `${shownPhotos} of ${vehicle.photos.length}`],

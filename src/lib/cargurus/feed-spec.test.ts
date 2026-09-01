@@ -208,6 +208,13 @@ describe('row shape', () => {
     assert.equal(row['Transmission Type'], 'CVT');
   });
 
+  it('sends an unknown transmission as blank, never as automatic', () => {
+    const row = buildCarGurusFeed([vehicle({ transmission: null })], LOT, {
+      photoBase: PHOTO_BASE,
+    }).rows[0]!;
+    assert.equal(row['Transmission Type'], '');
+  });
+
   it('combines options and features into Installed Options', () => {
     const row = buildCarGurusFeed([vehicle()], LOT, { photoBase: PHOTO_BASE }).rows[0]!;
     assert.equal(row['Installed Options'], 'Sunroof, Heated Seats, Apple CarPlay');

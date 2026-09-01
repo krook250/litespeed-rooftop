@@ -646,7 +646,12 @@ export const vehicles = pgTable(
     doors: integer().notNull().default(4),
     engine: text().notNull().default(''),
     cylinders: integer(),
-    transmission: transmissionEnum().notNull().default('AUTOMATIC'),
+    /* Nullable on purpose. A file that does not say, or says something we cannot
+     * read, leaves this blank — it does not assert automatic. vPIC has no
+     * transmission field, so unlike drivetrain there is nothing to fall back on,
+     * and a wrong spec on a VDP is worse than a missing one. Null means unknown;
+     * every read site must handle it. */
+    transmission: transmissionEnum(),
     drivetrain: drivetrainEnum().notNull().default('FWD'),
     fuelType: fuelTypeEnum().notNull().default('GAS'),
     mpgCity: integer(),

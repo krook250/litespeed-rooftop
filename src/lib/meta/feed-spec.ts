@@ -54,7 +54,7 @@ export type FeedVehicle = {
   model: string;
   trim: string;
   bodyStyle: string;
-  transmission: string;
+  transmission: string | null;
   drivetrain: string;
   fuelType: string;
   exteriorColor: string;
@@ -538,7 +538,9 @@ export function buildFeed(
       year: String(v.year),
       trim: clip(v.trim, 50),
       body_style: BODY_STYLE[v.bodyStyle] ?? 'OTHER',
-      transmission: TRANSMISSION[v.transmission] ?? 'Automatic',
+      // Unknown goes out empty. Meta treats the column as optional, and an
+      // invented 'Automatic' is a spec claim on someone else's listing.
+      transmission: v.transmission ? TRANSMISSION[v.transmission] ?? '' : '',
       drivetrain: DRIVETRAIN[v.drivetrain] ?? 'Other',
       fuel_type: FUEL_TYPE[v.fuelType] ?? 'OTHER',
       exterior_color: v.exteriorColor,

@@ -104,6 +104,10 @@ describe('feed enums match the AIA feed spec, not the Graph node', () => {
     assert.equal(build([vehicle({ transmission: 'CVT' })]).rows[0]!.transmission, 'Automatic');
   });
 
+  it('leaves an unknown transmission empty rather than claiming Automatic', () => {
+    assert.equal(build([vehicle({ transmission: null })]).rows[0]!.transmission, '');
+  });
+
   it('maps a plug-in hybrid to HYBRID, since the feed enum has no PLUG_IN_HYBRID', () => {
     assert.equal(build([vehicle({ fuelType: 'PLUGIN_HYBRID' })]).rows[0]!.fuel_type, 'HYBRID');
     assert.equal(build([vehicle({ fuelType: 'GAS' })]).rows[0]!.fuel_type, 'GASOLINE');
