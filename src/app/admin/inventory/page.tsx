@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AgeBadge, AgingBar, Badge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
+import { UnitCard } from '@/components/inventory/unit-card';
 import {
   agingCounts,
   getLiveInventory,
@@ -104,7 +105,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   ];
 
   return (
-    <div className="px-6 py-6 lg:px-8">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink-900">Inventory</h1>
@@ -113,7 +114,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             {usd(totalRetail)} at retail
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex overflow-hidden rounded-lg border border-ink-300 bg-white text-xs">
             <Link
               href={qs(sp, { clock: undefined })}
@@ -165,6 +166,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </Link>
         ))}
 
+        {rooftops.length > 1 ? (
+          <>
         <span className="mx-1 h-5 w-px bg-ink-200" />
 
         <Link
@@ -174,7 +177,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             !activeRooftop ? 'bg-ink-900 text-white ring-ink-900' : 'bg-white text-ink-700 ring-ink-300 hover:bg-ink-50',
           )}
         >
-          Both rooftops
+          All rooftops
         </Link>
         {rooftops.map((r) => (
           <Link
@@ -190,8 +193,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             {r.city}
           </Link>
         ))}
+          </>
+        ) : null}
 
-        <form className="ml-auto flex items-center gap-2" action="/admin/inventory">
+        <form className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto" action="/admin/inventory">
           {sp.clock ? <input type="hidden" name="clock" value={sp.clock} /> : null}
           {sp.view ? <input type="hidden" name="view" value={sp.view} /> : null}
           {sp.rooftop ? <input type="hidden" name="rooftop" value={sp.rooftop} /> : null}
@@ -199,9 +204,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             name="q"
             defaultValue={sp.q ?? ''}
             placeholder="Search year, make, stock #, VIN…"
-            className="w-64 rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-ink-900"
+            className="w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-sm outline-none focus:border-ink-900 sm:w-64 sm:py-1.5 sm:text-xs"
           />
-          <button className="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50">
+          <button className="shrink-0 rounded-lg border border-ink-300 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50 sm:py-1.5 sm:text-xs">
             Search
           </button>
         </form>
@@ -249,7 +254,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   key={k}
                   href={qs(sp, { sort: k })}
                   className={cn(
-                    'rounded px-1.5 py-0.5 font-medium',
+                    'rounded px-2 py-1.5 font-medium sm:py-0.5',
                     sort === k ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100',
                   )}
                 >
@@ -263,7 +268,23 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         {rows.length === 0 ? (
           <EmptyState title="No units match" body="Clear a filter to see the rest of the lot." />
         ) : (
-          <div className="scroll-thin overflow-x-auto">
+          <>
+            {/* The phone gets cards. The table is eleven columns at 1100px —
+                on a 390px screen that is a third of a row dragged sideways,
+                and the phone is the device the lot is walked with. */}
+            <div className="md:hidden">
+              {rows.map((v) => (
+                <UnitCard
+                  key={v.id}
+                  unit={v}
+                  live={liveCount.get(v.id) ?? 0}
+                  errs={errCount.get(v.id) ?? 0}
+                  showCity={rooftops.length > 1}
+                />
+              ))}
+            </div>
+
+            <div className="scroll-thin hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1100px] text-sm">
               <thead>
                 <tr className="border-b border-ink-200 bg-ink-50/60 text-xs text-ink-600">
@@ -381,7 +402,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </Card>
 
