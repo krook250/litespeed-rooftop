@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card, CardHeader, Badge, cn, EmptyState } from '@/components/ui';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
-import { UnitSyncRow, type SyncCell } from '@/components/syndication/unit-sync-row';
+import { UnitSyncList, type SyncUnit } from '@/components/syndication/unit-sync-row';
 import {
   getChannels,
   getConnections,
@@ -94,6 +94,39 @@ export default async function SyndicationPage({
    */
   const connectedChannelIds = new Set(shownConnections.map((c) => c.channels.id));
   const visibleChannels = channels.filter((ch) => connectedChannelIds.has(ch.id));
+
+  /**
+   * The same grid, flattened for the phone. Built here rather than in the JSX
+   * so the mobile list and the desktop matrix are visibly reading one source —
+   * two shapes of the same data drifting apart is exactly how a screen starts
+   * telling two different stories about the same lot.
+   */
+  const syncUnits: SyncUnit[] = inventory.map((v) => {
+    const row = grid.get(v.id);
+    return {
+      vehicleId: v.id,
+      title: shortTitle(v),
+      stockNumber: v.stockNumber,
+      city: v.rooftop.city,
+      price: activePrice(v),
+      cells: visibleChannels.map((ch) => {
+        const cell = row?.get(ch.id);
+        const st = cell?.vehicle_sync_states;
+        const status = st?.status ?? 'NOT_LISTED';
+        return {
+          channelId: ch.id,
+          name: ch.name,
+          initials: ch.initials,
+          brandHex: ch.brandHex,
+          status,
+          stale: status === 'LIVE' && cell?.channel_connections.status === 'ERROR',
+          remoteUrl: st?.remoteUrl ?? null,
+          errorMessage: st?.errorMessage ?? null,
+          lastSyncedAt: st?.lastSyncedAt ?? null,
+        };
+      }),
+    };
+  });
 
   const tally = (channelId: string) => {
     const counts: Record<string, number> = {};
@@ -364,39 +397,9 @@ export default async function SyndicationPage({
         />
         {/* The matrix is a hover surface: every cell's meaning is in a title
             attribute, and a touch screen has no hover. The phone gets labelled
-            chips and the error text spelled out instead. */}
+            chips, collapsed per unit, with the error text spelled out. */}
         <div className="md:hidden">
-          {inventory.map((v) => {
-            const row = grid.get(v.id);
-            const cells: SyncCell[] = visibleChannels.map((ch) => {
-              const cell = row?.get(ch.id);
-              const st = cell?.vehicle_sync_states;
-              const status = st?.status ?? 'NOT_LISTED';
-              return {
-                channelId: ch.id,
-                name: ch.name,
-                initials: ch.initials,
-                brandHex: ch.brandHex,
-                status,
-                stale: status === 'LIVE' && cell?.channel_connections.status === 'ERROR',
-                remoteUrl: st?.remoteUrl ?? null,
-                errorMessage: st?.errorMessage ?? null,
-                lastSyncedAt: st?.lastSyncedAt ?? null,
-              };
-            });
-            return (
-              <UnitSyncRow
-                key={v.id}
-                vehicleId={v.id}
-                title={shortTitle(v)}
-                stockNumber={v.stockNumber}
-                city={v.rooftop.city}
-                price={activePrice(v)}
-                cells={cells}
-                showCity={rooftops.length > 1}
-              />
-            );
-          })}
+          <UnitSyncList units={syncUnits} showCity={rooftops.length > 1} />
         </div>
 
         <div className="scroll-thin hidden overflow-x-auto md:block">
