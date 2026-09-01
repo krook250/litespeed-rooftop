@@ -23,6 +23,7 @@ import {
   InterimAddress,
 } from '@/components/website-panels';
 import { AboutCard } from '@/components/website/about-card';
+import { FinancingCard } from '@/components/website/financing-card';
 import { HoursCard } from '@/components/website/hours-card';
 import { parseFacts } from '@/lib/store/about';
 import { DesignCard } from '@/components/website/design-card';
@@ -247,6 +248,18 @@ export default async function WebsitePage() {
             city={rooftop?.city ?? ''}
             about={sf.about}
             facts={parseFacts(sf.aboutFacts)}
+          />
+        </div>
+      </section>
+
+      {/* ---------------------------------------------- financing */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">Financing</h2>
+        <div className="rounded-xl border border-ink-200 bg-white p-5">
+          <FinancingCard
+            storefrontId={sf.id}
+            storefrontPath={`/s/${sf.slug}`}
+            creditAppUrl={sf.creditAppUrl}
           />
         </div>
       </section>

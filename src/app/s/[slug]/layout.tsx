@@ -7,6 +7,7 @@ import { storeTheme, storeThemeVars } from '@/lib/branding/palette';
 import { MobileCallBar } from '@/components/store/call-bar';
 import { OpenNow } from '@/components/store/location';
 import { visitPath, type SeoRooftop } from '@/lib/store/seo';
+import { creditAppFor } from '@/lib/store/credit-app';
 import { isWeekHours } from '@/lib/store/hours';
 
 type Params = { params: Promise<{ slug: string }> };
@@ -101,6 +102,7 @@ export default async function StorefrontLayout({
   const primary = rooftops[0] ?? null;
   const single = rooftops.length === 1 ? primary : null;
   const liveHours = primary ? isWeekHours(primary.hours) : false;
+  const hasCreditApp = Boolean(creditAppFor(sf.creditAppUrl));
 
   return (
     <div
@@ -172,6 +174,15 @@ export default async function StorefrontLayout({
                 className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
               >
                 About
+              </Link>
+            ) : null}
+            {/* Only when there is a provider behind it — the route 404s otherwise. */}
+            {hasCreditApp ? (
+              <Link
+                href={`${base}/loan-application`}
+                className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
+              >
+                Financing
               </Link>
             ) : null}
             {primary ? (

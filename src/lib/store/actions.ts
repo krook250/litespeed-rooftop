@@ -19,6 +19,7 @@ import { assertRooftopInScope, assertStorefrontInScope } from '@/lib/scoped-db';
 import { isTime, isWeekHours, type DayHours, type WeekHours } from './hours';
 import { parseFacts, type AboutContext, type AboutFacts } from './about';
 import { writeAbout } from './about-writer';
+import { CREDIT_APP_MESSAGES, parseCreditAppUrl } from './credit-app';
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -164,4 +165,46 @@ export async function saveAbout(_prev: unknown, formData: FormData): Promise<Act
   revalidatePath('/admin/website');
   revalidatePath(`/s/${sf.slug}`);
   return { ok: true, message: about ? 'About published.' : 'About removed.' };
+}
+
+/* ----------------------------------------------------------- credit app */
+
+/**
+ * Save the dealer's credit-application link.
+ *
+ * Validated with the same `parseCreditAppUrl` the storefront renders through, so
+ * a URL that saves is a URL that will show — the alternative is a dealer who
+ * pressed Save, saw "Saved", and got a 404 on their own financing page.
+ *
+ * Stored **normalised**, never as typed: `new URL().toString()` settles the
+ * casing of the host, the presence of a trailing slash and any stray fragment,
+ * which is what keeps two dealers with the same provider from storing two
+ * strings that only differ in ways nothing can see.
+ */
+export async function saveCreditApp(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const storefrontId = String(formData.get('storefrontId') ?? '');
+  const scope = await sessionScope();
+  const sf = await assertStorefrontInScope(scope, storefrontId);
+  if (!sf) return { ok: false, error: 'Storefront not found.' };
+
+  const raw = String(formData.get('creditAppUrl') ?? '').trim();
+
+  /* Clearing it is a real answer: a dealer who drops their F&I provider needs the
+     page to disappear, not to sit there framing a dead form. */
+  if (!raw) {
+    await db.update(t.storefronts).set({ creditAppUrl: null }).where(eq(t.storefronts.id, storefrontId));
+    revalidatePath('/admin/website');
+    return { ok: true, message: 'Loan application page removed.' };
+  }
+
+  const parsed = parseCreditAppUrl(raw);
+  if (!parsed.ok) return { ok: false, error: CREDIT_APP_MESSAGES[parsed.error] };
+
+  await db
+    .update(t.storefronts)
+    .set({ creditAppUrl: parsed.app.url })
+    .where(eq(t.storefronts.id, storefrontId));
+
+  revalidatePath('/admin/website');
+  return { ok: true, message: `Loan application page is live, powered by ${parsed.app.provider}.` };
 }

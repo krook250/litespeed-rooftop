@@ -468,6 +468,22 @@ export const storefronts = pgTable('storefronts', {
    */
   aboutFacts: jsonb().$type<AboutFacts | null>(),
 
+  /**
+   * The dealer's own online credit application, as a URL we will frame.
+   *
+   * A URL and never a snippet. Every F&I provider hands dealers a block of
+   * `<script>` to paste; accepting that would be arbitrary JavaScript on a page
+   * we host, and until a dealer's domain goes live that page is on
+   * `app.rooftopauto.com` alongside every other tenant's admin session.
+   * `parseCreditAppUrl` in `src/lib/store/credit-app.ts` holds the rules, and
+   * the render path re-validates rather than trusting the column.
+   *
+   * Null means the dealer has no financing provider, and then the Loan
+   * Application page does not exist at all — no route, no nav link. A dead
+   * "Financing" link is worse for a dealer than no link.
+   */
+  creditAppUrl: text(),
+
   layout: storefrontLayoutEnum().notNull().default('CLASSIC'),
   theme: storefrontThemeEnum().notNull().default('LIGHT'),
   /**
