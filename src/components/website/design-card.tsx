@@ -27,6 +27,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Button, cn } from '@/components/ui';
 import { LayoutPreview } from '@/components/website/layout-preview';
+import { prepareLogo } from '@/components/website/prepare-logo';
 import { saveStorefrontDesign, scanSiteForBranding, type ScannedLogo } from '@/lib/branding/actions';
 import {
   ROOFTOP_ACCENT,
@@ -84,6 +85,19 @@ export function DesignCard(props: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /*
+   * The file that actually gets sent, downscaled in the browser first.
+   *
+   * The <input> deliberately has no `name`: if it did, React would serialise the
+   * dealer's original 4MB camera roll PNG into the FormData and Next would throw
+   * `Body exceeded ... limit` before `saveStorefrontDesign` ran — a full-page
+   * crash instead of a message. The form action below puts *this* file in under
+   * the key `logo` instead. See `prepare-logo.ts`.
+   */
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+
   const [siteUrl, setSiteUrl] = useState('');
   const [scan, setScan] = useState<{ host: string; logos: ScannedLogo[]; attempted: number; suggestion: Suggestion } | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -110,18 +124,40 @@ export function DesignCard(props: Props) {
   function pickCandidate(l: ScannedLogo) {
     setRemoveLogo(false);
     setFileName(null);
+    setLogoFile(null);
+    setLogoError(null);
     if (fileRef.current) fileRef.current.value = '';
     setLogoKey(l.key);
     setLogoPreview(l.url);
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     setRemoveLogo(false);
     setLogoKey(null);
+    setLogoError(null);
     setFileName(f.name);
-    setLogoPreview(URL.createObjectURL(f));
+    setPreparing(true);
+
+    const prepared = await prepareLogo(f);
+    setPreparing(false);
+
+    if (!prepared.ok) {
+      // Nothing is half-applied: the previously saved logo stays on screen and
+      // stays saved, so a bad pick costs the dealer a message and nothing else.
+      setLogoFile(null);
+      setFileName(null);
+      setLogoPreview(props.logoUrl);
+      setLogoError(prepared.error);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
+    setLogoFile(prepared.file);
+    // Preview the file we will actually send, not the one they picked — if it
+    // was flattened or shrunk, this is where they get to see that.
+    setLogoPreview(URL.createObjectURL(prepared.file));
   }
 
   /*
@@ -206,7 +242,16 @@ export function DesignCard(props: Props) {
   const show = (s: Step) => !wizard || step === s;
 
   return (
-    <form action={save} className="space-y-6">
+    <form
+      action={(fd: FormData) => {
+        // The file input carries no name (see `logoFile` above), so this is the
+        // only way a logo reaches the action — and it is always the prepared one.
+        fd.delete('logo');
+        if (logoFile) fd.set('logo', logoFile);
+        save(fd);
+      }}
+      className="space-y-6"
+    >
       <input type="hidden" name="storefrontId" value={storefrontId} />
       <input type="hidden" name="layout" value={layout} />
       <input type="hidden" name="theme" value={theme} />
@@ -256,7 +301,8 @@ export function DesignCard(props: Props) {
               <p className="text-xs text-ink-500">Change it any time — it updates everywhere at once.</p>
             </div>
             <Button type="button" variant="ghost" onClick={() => {
-              setLogoKey(null); setLogoPreview(null); setFileName(null); setRemoveLogo(Boolean(props.logoUrl));
+              setLogoKey(null); setLogoPreview(null); setFileName(null); setLogoFile(null); setLogoError(null);
+              setRemoveLogo(Boolean(props.logoUrl));
               if (fileRef.current) fileRef.current.value = '';
             }}>
               Remove
@@ -329,16 +375,19 @@ export function DesignCard(props: Props) {
           <div className="rounded-xl border border-ink-200 p-4">
             <p className="text-sm font-semibold text-ink-900">Upload the file</p>
             <p className="mt-0.5 text-xs text-ink-500">
-              PNG, JPEG or WebP, under 512KB. A PNG with a transparent background looks best.
+              PNG, JPEG or WebP. A PNG with a transparent background looks best — if it&apos;s a big
+              file we&apos;ll shrink it for you.
             </p>
             <input
               ref={fileRef}
               type="file"
-              name="logo"
               accept="image/png,image/jpeg,image/webp"
               onChange={onFile}
-              className="mt-3 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-ink-800"
+              disabled={preparing}
+              className="mt-3 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ink-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-ink-800 disabled:opacity-50"
             />
+            {preparing ? <p className="mt-2 text-xs text-ink-500">Getting it ready…</p> : null}
+            {logoError ? <p className="mt-2 text-xs text-red-700">{logoError}</p> : null}
             <p className="mt-2 text-xs text-ink-500">
               We can&apos;t accept SVG — an SVG can carry scripts, and it would be running on your own website.
             </p>
@@ -580,7 +629,7 @@ export function DesignCard(props: Props) {
 
       {/* ----------------------------------------------------------- save */}
       <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 pt-4">
-        <Button type="submit" disabled={saving || !brandOk || !accentOk}>
+        <Button type="submit" disabled={saving || preparing || !brandOk || !accentOk}>
           {saving ? 'Saving…' : wizard ? 'Save and publish' : 'Save design'}
         </Button>
         {wizard ? (
