@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, CardHeader, Badge, cn, EmptyState } from '@/components/ui';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
+import { UnitSyncRow, type SyncCell } from '@/components/syndication/unit-sync-row';
 import {
   getChannels,
   getConnections,
@@ -112,7 +113,7 @@ export default async function SyndicationPage({
   );
 
   return (
-    <div className="px-6 py-6 lg:px-8">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink-900">Syndication</h1>
@@ -340,7 +341,7 @@ export default async function SyndicationPage({
           title="Per-VIN sync status"
           subtitle="Every unit against every channel. Edit a price on the left and watch the row move."
           action={
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-ink-500">
+            <div className="hidden flex-wrap items-center gap-3 text-[11px] text-ink-500 md:flex">
               {[
                 ['LIVE', 'Live'],
                 ['SYNCING', 'In flight'],
@@ -361,7 +362,44 @@ export default async function SyndicationPage({
             </div>
           }
         />
-        <div className="scroll-thin overflow-x-auto">
+        {/* The matrix is a hover surface: every cell's meaning is in a title
+            attribute, and a touch screen has no hover. The phone gets labelled
+            chips and the error text spelled out instead. */}
+        <div className="md:hidden">
+          {inventory.map((v) => {
+            const row = grid.get(v.id);
+            const cells: SyncCell[] = visibleChannels.map((ch) => {
+              const cell = row?.get(ch.id);
+              const st = cell?.vehicle_sync_states;
+              const status = st?.status ?? 'NOT_LISTED';
+              return {
+                channelId: ch.id,
+                name: ch.name,
+                initials: ch.initials,
+                brandHex: ch.brandHex,
+                status,
+                stale: status === 'LIVE' && cell?.channel_connections.status === 'ERROR',
+                remoteUrl: st?.remoteUrl ?? null,
+                errorMessage: st?.errorMessage ?? null,
+                lastSyncedAt: st?.lastSyncedAt ?? null,
+              };
+            });
+            return (
+              <UnitSyncRow
+                key={v.id}
+                vehicleId={v.id}
+                title={shortTitle(v)}
+                stockNumber={v.stockNumber}
+                city={v.rooftop.city}
+                price={activePrice(v)}
+                cells={cells}
+                showCity={rooftops.length > 1}
+              />
+            );
+          })}
+        </div>
+
+        <div className="scroll-thin hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1000px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-ink-200 bg-ink-50/60">
