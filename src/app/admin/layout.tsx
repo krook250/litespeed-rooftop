@@ -6,6 +6,7 @@ import { AdminNav } from '@/components/admin-nav';
 import { AdminMobileNav } from '@/components/admin-mobile-nav';
 import { RooftopLockup } from '@/components/brand';
 import { PwaRegister } from '@/components/pwa-register';
+import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
 
 /**
@@ -63,6 +64,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </Link>
             ))
           )}
+          {/* Renders nothing inside the installed app, and nothing on a
+              browser that cannot install. Only a dealer who could act on it
+              ever sees it. */}
+          <InstallButton />
+
           <form action={doSignOut} className="mt-3 border-t border-ink-800 pt-3">
             <div className="px-2 text-xs font-medium text-white">{user.name}</div>
             <div className="px-2 text-[11px] text-ink-400">
