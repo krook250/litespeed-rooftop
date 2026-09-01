@@ -15,6 +15,17 @@ describe('isForeignPhotoUrl', () => {
     );
   });
 
+  it('leaves our own domains alone — the demo lot is served from app.rooftopauto.com', () => {
+    assert.equal(isForeignPhotoUrl('https://app.rooftopauto.com/demo/veh/g1/3.jpg'), false);
+    assert.equal(isForeignPhotoUrl('https://rooftopauto.com/x.jpg'), false);
+  });
+
+  it("still claims a dealer's own old website — that site dies too", () => {
+    assert.equal(isForeignPhotoUrl('https://malabartruckandtrade.com/photos/1.jpg'), true);
+    // Not a subdomain of ours, despite the suffix.
+    assert.equal(isForeignPhotoUrl('https://notrooftopauto.com/x.jpg'), true);
+  });
+
   it('leaves generated placeholder tiles alone', () => {
     assert.equal(isForeignPhotoUrl('/api/photo?s=lot&b=truck&c=9ca3af&l=F-150&k=2018'), false);
   });
