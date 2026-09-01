@@ -39,6 +39,14 @@ import {
 /* Monday first on screen; the array itself stays Sunday-first to match Date.getDay(). */
 const ROW_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+/* Tuesday to Friday. Same Sunday-first indexing as the array itself. */
+const WEEKDAY_ROWS = [2, 3, 4, 5];
+
+function sameDay(a: DayHours, b: DayHours) {
+  if (a === null || b === null) return a === b;
+  return a.open === b.open && a.close === b.close;
+}
+
 export function HoursCard({
   rooftopId,
   rooftopName,
@@ -58,6 +66,25 @@ export function HoursCard({
   function setDay(i: number, next: DayHours) {
     setWeek((prev) => prev.map((d, j) => (j === i ? next : d)));
   }
+
+  /**
+   * Most lots run the same hours Monday to Friday, so setting Monday and
+   * copying is five interactions instead of twenty — and on a phone, five
+   * native time pickers instead of twenty.
+   *
+   * Copies the closed state too: a lot shut on Monday is usually shut all week.
+   */
+  function copyMondayAcross() {
+    setWeek((prev) =>
+      // A fresh object per day. Sharing one reference would make editing
+      // Tuesday silently rewrite Wednesday.
+      prev.map((d, j) => (WEEKDAY_ROWS.includes(j) ? (prev[1] ? { ...prev[1] } : null) : d)),
+    );
+  }
+
+  // Hidden when it would do nothing. A button that visibly changes nothing
+  // reads as broken.
+  const weekdaysMatchMonday = WEEKDAY_ROWS.every((j) => sameDay(week[j]!, week[1]!));
 
   const local = localNow(timezone);
   const preview = openLabel(openState(week as unknown as WeekHours, timezone), local?.day);
@@ -138,6 +165,16 @@ export function HoursCard({
               ) : (
                 <span className="col-span-2 text-sm text-ink-400 sm:col-auto">Closed</span>
               )}
+
+              {i === 1 && !weekdaysMatchMonday ? (
+                <button
+                  type="button"
+                  onClick={copyMondayAcross}
+                  className="col-span-2 justify-self-start py-1 text-xs font-medium text-ink-500 underline underline-offset-2 hover:text-ink-800 sm:col-auto"
+                >
+                  Copy to Tue–Fri
+                </button>
+              ) : null}
 
               {/* Warned inline rather than blocked on save — a dealer mid-edit
                   has a half-typed time for a moment and should not be shouted at. */}
