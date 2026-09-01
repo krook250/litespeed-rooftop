@@ -54,6 +54,7 @@ export const acquisitionSourceEnum = pgEnum('acquisition_source', [
 export const photoTagEnum = pgEnum('photo_tag', [
   'EXTERIOR_FRONT', 'EXTERIOR_SIDE', 'EXTERIOR_REAR', 'INTERIOR', 'ODOMETER', 'ENGINE', 'DAMAGE', 'OTHER',
 ]);
+export const photoIngestStatusEnum = pgEnum('photo_ingest_status', ['PENDING', 'DONE', 'FAILED']);
 export const channelKindEnum = pgEnum('channel_kind', [
   'WEBSITE', 'SOCIAL', 'SEARCH', 'MARKETPLACE', 'CLASSIFIED',
 ]);
@@ -716,6 +717,52 @@ export const vehiclePhotos = pgTable(
   (t) => [index('vehicle_photos_vehicle_sort_idx').on(t.vehicleId, t.sortOrder)],
 );
 
+/**
+ * Photos we did not take, on their way to being photos we own.
+ *
+ * WHY THIS TABLE EXISTS. An imported lot arrives with its photo URLs pointing at
+ * the site the dealer is leaving — cdn05.carsforsale.com, typically. The day he
+ * cancels that account every one of those URLs dies, and with it his storefront,
+ * his CarGurus feed and his Meta catalog. Cancelling is the whole reason he
+ * moved. So the URLs have to become ours before that day, not after.
+ *
+ * WHY A QUEUE AND NOT A LOOP IN THE IMPORT. Twenty-one trucks is roughly two
+ * hundred fetches against someone else's CDN. That does not belong inside a
+ * request a human is waiting on, and a failure halfway through must not cost the
+ * import.
+ *
+ * `vehiclePhotos.url` is only ever swapped to `blobUrl` once the bytes are
+ * safely in Blob, so there is no window in which a photo is missing — the feeds
+ * keep serving the old URL until the new one exists, then serve the new one.
+ */
+export const photoIngests = pgTable(
+  'photo_ingests',
+  {
+    id: cuid().primaryKey(),
+    photoId: text().notNull().references(() => vehiclePhotos.id, { onDelete: 'cascade' }),
+    vehicleId: text().notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    /* The remote URL as imported. Kept after success: it is the only record of
+     * where a photo came from, and it is what dedupe matches on. */
+    sourceUrl: text().notNull(),
+    status: photoIngestStatusEnum().notNull().default('PENDING'),
+    attempts: integer().notNull().default(0),
+    lastError: text().notNull().default(''),
+    /* Null until the bytes are in Blob. Non-null is the only proof of success. */
+    blobUrl: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    attemptedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    /* One ingest per photo. Re-importing a lot must not enqueue the same photo
+     * twice, and the unique index is what makes the insert safely idempotent. */
+    uniqueIndex('photo_ingests_photo_uq').on(t.photoId),
+    /* The worker's query: oldest pending first. */
+    index('photo_ingests_status_idx').on(t.status, t.createdAt),
+    /* Dedupe: a source URL already fetched is reused, not fetched again. */
+    index('photo_ingests_source_idx').on(t.sourceUrl),
+  ],
+);
+
 export const priceChanges = pgTable(
   'price_changes',
   {
@@ -1325,6 +1372,11 @@ export const vehicleTransfersRelations = relations(vehicleTransfers, ({ one }) =
 
 export const vehiclePhotosRelations = relations(vehiclePhotos, ({ one }) => ({
   vehicle: one(vehicles, { fields: [vehiclePhotos.vehicleId], references: [vehicles.id] }),
+}));
+
+export const photoIngestsRelations = relations(photoIngests, ({ one }) => ({
+  photo: one(vehiclePhotos, { fields: [photoIngests.photoId], references: [vehiclePhotos.id] }),
+  vehicle: one(vehicles, { fields: [photoIngests.vehicleId], references: [vehicles.id] }),
 }));
 
 export const channelsRelations = relations(channels, ({ many }) => ({

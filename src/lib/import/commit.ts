@@ -3,6 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { hexForColor } from '@/lib/intake/parse';
+import { enqueuePhotoIngests } from '@/lib/photos/ingest';
 import { assertRooftopInScope, type Scope } from '@/lib/scoped-db';
 import { reconcileRooftopSync } from '@/lib/sync-states';
 import { importStatus } from './plan';
@@ -114,17 +115,28 @@ function insertValues(draft: VehicleDraft, rooftopId: string, now: Date) {
   };
 }
 
+/**
+ * Imported photos arrive as URLs on the site the dealer is leaving. Inserting
+ * them is half the job — `enqueuePhotoIngests` is what stops them dying the day
+ * he cancels that account. It filters to the ones actually on loan, so calling
+ * it unconditionally is correct and cheap.
+ */
 async function addPhotos(vehicleId: string, urls: string[]): Promise<number> {
   if (!urls.length) return 0;
-  await db.insert(t.vehiclePhotos).values(
-    urls.map((url, i) => ({
-      vehicleId,
-      url,
-      sortOrder: i,
-      isPrimary: i === 0,
-      alt: '',
-    })),
-  );
+  const inserted = await db
+    .insert(t.vehiclePhotos)
+    .values(
+      urls.map((url, i) => ({
+        vehicleId,
+        url,
+        sortOrder: i,
+        isPrimary: i === 0,
+        alt: '',
+      })),
+    )
+    .returning({ id: t.vehiclePhotos.id, url: t.vehiclePhotos.url });
+
+  await enqueuePhotoIngests(inserted.map((p) => ({ ...p, vehicleId })));
   return urls.length;
 }
 
