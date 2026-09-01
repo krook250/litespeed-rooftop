@@ -91,44 +91,61 @@ export function HoursCard({
         {ROW_ORDER.map((i) => {
           const d = week[i]!;
           return (
-            <div key={i} className="flex flex-wrap items-center gap-3 px-3 py-2">
-              <span className="w-24 text-sm font-medium text-ink-800">{DAY_NAMES[i]}</span>
-              {d ? (
-                <>
-                  <input
-                    type="time"
-                    value={d.open}
-                    step={900}
-                    onChange={(e) => setDay(i, { ...d, open: e.target.value })}
-                    className="rounded-md border border-ink-300 px-2 py-1 text-sm"
-                    aria-label={`${DAY_NAMES[i]} opening time`}
-                  />
-                  <span className="text-ink-400">to</span>
-                  <input
-                    type="time"
-                    value={d.close}
-                    step={900}
-                    onChange={(e) => setDay(i, { ...d, close: e.target.value })}
-                    className="rounded-md border border-ink-300 px-2 py-1 text-sm"
-                    aria-label={`${DAY_NAMES[i]} closing time`}
-                  />
-                  {/* Warned inline rather than blocked on save — a dealer mid-edit
-                      has a half-typed time for a moment and should not be shouted at. */}
-                  {d.close <= d.open ? (
-                    <span className="text-xs text-red-700">Closing time must be later</span>
-                  ) : null}
-                </>
-              ) : (
-                <span className="text-sm text-ink-400">Closed</span>
-              )}
-              <label className="ml-auto flex items-center gap-1.5 text-xs text-ink-600">
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:flex sm:flex-wrap"
+            >
+              <span className="text-sm font-medium text-ink-800 sm:w-24">{DAY_NAMES[i]}</span>
+
+              {/* On a phone the toggle rides with the day name and the times get
+                  their own line. Below `sm` this was a wrapped row with the
+                  checkbox thrown to the far right of the second line by
+                  `ml-auto` — seven days of that is a screen and a half to set
+                  store hours. `order-last` puts it back on the right at `sm`. */}
+              <label className="flex items-center justify-end gap-1.5 py-1 text-xs text-ink-600 sm:order-last sm:ml-auto">
                 <input
                   type="checkbox"
+                  className="h-4 w-4"
                   checked={d === null}
                   onChange={(e) => setDay(i, e.target.checked ? null : { open: '09:00', close: '18:00' })}
                 />
                 Closed
               </label>
+
+              {d ? (
+                <div className="col-span-2 flex items-center gap-2 sm:contents">
+                  {/* `min-w-0 flex-1` is the fix: a native time input on Android
+                      reports a wide intrinsic size and shoves everything else
+                      onto the next line unless it is allowed to shrink. */}
+                  <input
+                    type="time"
+                    value={d.open}
+                    step={900}
+                    onChange={(e) => setDay(i, { ...d, open: e.target.value })}
+                    className="min-w-0 flex-1 rounded-md border border-ink-300 px-2 py-1.5 text-sm sm:flex-none"
+                    aria-label={`${DAY_NAMES[i]} opening time`}
+                  />
+                  <span className="shrink-0 text-ink-400">to</span>
+                  <input
+                    type="time"
+                    value={d.close}
+                    step={900}
+                    onChange={(e) => setDay(i, { ...d, close: e.target.value })}
+                    className="min-w-0 flex-1 rounded-md border border-ink-300 px-2 py-1.5 text-sm sm:flex-none"
+                    aria-label={`${DAY_NAMES[i]} closing time`}
+                  />
+                </div>
+              ) : (
+                <span className="col-span-2 text-sm text-ink-400 sm:col-auto">Closed</span>
+              )}
+
+              {/* Warned inline rather than blocked on save — a dealer mid-edit
+                  has a half-typed time for a moment and should not be shouted at. */}
+              {d && d.close <= d.open ? (
+                <span className="col-span-2 text-xs text-red-700 sm:col-auto">
+                  Closing time must be later
+                </span>
+              ) : null}
             </div>
           );
         })}
