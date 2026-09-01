@@ -20,6 +20,7 @@ import { isTime, isWeekHours, type DayHours, type WeekHours } from './hours';
 import { parseFacts, type AboutContext, type AboutFacts } from './about';
 import { writeAbout } from './about-writer';
 import { CREDIT_APP_MESSAGES, parseCreditAppUrl } from './credit-app';
+import { explainEmbed, probeEmbed } from './credit-app-probe';
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -206,5 +207,29 @@ export async function saveCreditApp(_prev: unknown, formData: FormData): Promise
     .where(eq(t.storefronts.id, storefrontId));
 
   revalidatePath('/admin/website');
-  return { ok: true, message: `Loan application page is live, powered by ${parsed.app.provider}.` };
+
+  /*
+   * Ask the provider whether they will actually frame it, from the address this
+   * dealer's storefront is served on right now.
+   *
+   * The save has already happened, so a probe that fails or times out costs the
+   * dealer nothing. This is purely so the message says something true: without
+   * it a dealer whose provider has not authorised our domain sees a red box
+   * inside their own website, with no way to tell whether the fault is Rooftop,
+   * the provider, or the link they pasted. A cross-origin frame cannot be
+   * inspected from the browser, so the server is the only thing that can find
+   * out — and only worth doing once, here.
+   *
+   * The live domain is preferred over the shared host because that is where the
+   * page will live; a dealer still on `app.rooftopauto.com` gets the answer for
+   * where they are today, which is also the domain they will need authorised in
+   * the meantime.
+   */
+  const host = sf.domain && sf.domainStatus === 'LIVE' ? sf.domain : appHost();
+  const verdict = await probeEmbed(parsed.app.url, `https://${host}`);
+  return { ok: true, message: explainEmbed(verdict, host, parsed.app.provider) };
+}
+
+function appHost(): string {
+  return (process.env.NEXT_PUBLIC_APP_HOST || 'app.rooftopauto.com').replace(/^https?:\/\//, '');
 }

@@ -117,19 +117,36 @@ export default async function LoanApplicationPage({ params }: Params) {
         actually receives it is the honest thing to do, and it is also the thing
         that makes the page look legitimate rather than like a harvesting form.
       */}
-      <p className="mt-6 text-xs text-[var(--text-3)]">
-        This application is provided and secured by <b>{app.provider}</b> ({app.host}). It is
-        submitted directly to {sf.name} and their lenders — {sf.name}&apos;s website does not store
-        what you type here.{' '}
+      {/*
+        The button is primary and above the frame, not a footnote below it.
+
+        Providers gate embedding on the domain: DealerCenter reads the Referer
+        and refuses any address not registered to the dealer's account, so a
+        storefront still on the shared host — or on a domain nobody has told the
+        provider about — renders a red "cannot be embedded" box where the form
+        should be. There is no way to detect that from the page, because the
+        frame is cross-origin. So the path that always works is the one offered
+        first, and the frame below it is the bonus when it happens to load.
+      */}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
           href={standaloneUrl(app)}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-[var(--brand-text)] underline underline-offset-2"
+          className="rounded-md px-4 py-2.5 text-sm font-bold"
+          style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
         >
-          Open it in its own window instead
+          Start your application ↗
         </a>
-        .
+        <span className="text-xs text-[var(--text-3)]">
+          Opens {app.provider}&apos;s secure form in a new window.
+        </span>
+      </div>
+
+      <p className="mt-4 text-xs text-[var(--text-3)]">
+        This application is provided and secured by <b>{app.provider}</b> ({app.host}). It is
+        submitted directly to {sf.name} and their lenders — {sf.name}&apos;s website does not store
+        what you type here. If the form below does not load, use the button above.
       </p>
 
       <div className="mt-3">
