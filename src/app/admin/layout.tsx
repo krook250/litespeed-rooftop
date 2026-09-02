@@ -4,7 +4,7 @@ import { getGroup, getStorefronts, resolveFeedStyle } from '@/lib/queries';
 import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/admin-nav';
 import { AdminMobileNav } from '@/components/admin-mobile-nav';
-import { RooftopLockup } from '@/components/brand';
+import { RooftopWordmark } from '@/components/brand';
 import { PwaRegister } from '@/components/pwa-register';
 import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
@@ -87,16 +87,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <PwaRegister />
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 pt-[env(safe-area-inset-top)] lg:flex">
         <div className="px-5 py-5">
-          <RooftopLockup compact />
+          <RooftopWordmark height={17} />
         </div>
         {sidebar}
       </aside>
 
       <div className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)] lg:pt-[env(safe-area-inset-top)]">
-        {/* The horizontal lockup, not the compact one — `compact` stacks the mark
-            above the wordmark, which is right for a 240px sidebar and eats a
-            third of a phone screen above every single page. */}
-        <AdminMobileNav brand={<RooftopLockup />}>{sidebar}</AdminMobileNav>
+        {/* Wordmark only inside the console — the house/car mark and the
+            "A Litespeed company" line are for signed-out chrome and the
+            marketing site, not for every page a dealer works on. */}
+        <AdminMobileNav brand={<RooftopWordmark height={17} />}>{sidebar}</AdminMobileNav>
         {children}
       </div>
     </div>
