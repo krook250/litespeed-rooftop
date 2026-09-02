@@ -8,6 +8,9 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rooftop — dealer demo · Cascade Motors</title>
 <meta name="description" content="Rooftop Auto — inventory, merchandising, syndication, website and reporting for independent used car lots.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,900&display=swap" rel="stylesheet">
 <style>${p('src/styles.css')}</style>
 </head><body>
 <script>

@@ -21,7 +21,7 @@ function topbar() {
   const r = state.route;
   const on = (p) => r.startsWith(p) ? 'on' : '';
   return `<div class="topbar">
-    <div class="brand"><span class="brandmark">${MARK}</span>Rooftop<small>AUTO</small></div>
+    <div class="brand">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</div>
     <nav class="nav">
       <a href="#/lotwalk" class="${on('#/lotwalk')}">Lot Walk</a>
       <a href="#/inventory" class="${on('#/inventory')}">Inventory</a>
@@ -584,7 +584,7 @@ function viewReporting() {
   const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
   const maxN = Math.max(...dist.map(d => d.n), 1);
   const mix = ['Pickup', 'SUV', 'Sedan', 'Wagon'].map((k, i) => ({
-    k, n: inv.filter(v => v.body === k).length, c: ['#4f46e5', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
+    k, n: inv.filter(v => v.body === k).length, c: ['#2C6FD8', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
   const total = mix.reduce((a, x) => a + x.n, 0) || 1;
   const top = [...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7).slice(0, 6);
   const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
@@ -709,7 +709,7 @@ function storeHeader() {
     <span>📍 Two locations in Vancouver, WA</span>
     <span>·</span><span>Fourth Plain</span><span>·</span><span>Orchards</span>
     <div style="flex:1"></div>
-    <a href="#/lotwalk" style="color:#8ea0ff;font-weight:700">← back to Rooftop admin</a>
+    <a href="#/lotwalk" style="color:#8fbcff;font-weight:700">← back to Rooftop admin</a>
   </div></div></header>`;
 }
 

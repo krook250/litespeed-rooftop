@@ -6,7 +6,7 @@
   --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
   --line:#e3e7ec; --line2:#eef1f4;
   --bg:#f1f3f6; --card:#fff; --card2:#f8fAfc;
-  --brand:#4f46e5; --brand2:#6d64f0; --brand-dk:#3b32c9; --brand-wash:#eef0fe;
+  --brand:#2C6FD8; --brand2:#3D8BFF; --brand-dk:#1F55A8; --brand-wash:#E9F2FF;
 
   --b0:#15a34a; --b0w:#e6f6ec;   /* 0-15  fresh air   */
   --b1:#0e8fa8; --b1w:#e3f4f8;   /* 16-30             */
@@ -19,6 +19,7 @@
   --sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);
   --sh2:0 4px 16px rgba(16,24,40,.09),0 1px 3px rgba(16,24,40,.06);
   --ff:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --fh:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
   --fm:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
@@ -34,7 +35,9 @@ input,select,textarea{font:inherit;color:inherit}
 /* ===== chrome ===== */
 .topbar{position:sticky;top:0;z-index:60;height:58px;background:var(--ink);
   display:flex;align-items:center;gap:8px;padding:0 18px;color:#fff}
-.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.3px;font-size:16.5px;margin-right:14px}
+.brand{display:flex;align-items:center;font-family:var(--fh);font-style:italic;font-weight:900;letter-spacing:-.5px;font-size:18px;line-height:1;white-space:nowrap;margin-right:16px}
+.brand i{position:relative;display:inline-block;width:.363em;height:0;vertical-align:baseline;font-style:normal}
+.brand i svg{position:absolute;left:0;bottom:-.218em;width:.476em;height:1.089em;fill:#3D8BFF;overflow:visible}
 .brandmark{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk));
   display:grid;place-items:center;flex:0 0 auto}
 .brandmark svg{width:15px;height:15px}
@@ -317,12 +320,12 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
 .spark{width:100%;height:78px;display:block}
 
 /* ===== demo ribbon (only present in the hosted demo build) ===== */
-.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#4f46e5;color:#fff;
+.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#1F55A8;color:#fff;
   padding:7px 18px;font-size:12px;font-weight:600;letter-spacing:.1px}
 .rb-back{font-weight:800;padding:3px 10px;border-radius:7px;background:rgba(255,255,255,.16);white-space:nowrap}
 .rb-back:hover{background:rgba(255,255,255,.28)}
-.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#3b32c9}
-.rb-txt{color:#dcdafc}
+.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#1F55A8}
+.rb-txt{color:#cfe0f7}
 @media(max-width:640px){.rb-txt{display:none}}
 
 /* ===== narrow screens =====
@@ -331,8 +334,7 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
    sliding sideways, which is what the top bar was causing. */
 @media(max-width:760px){
   .topbar{height:auto;flex-wrap:wrap;padding:8px 12px;gap:7px;row-gap:4px}
-  .brand{margin-right:4px;font-size:15px}
-  .brand small{display:none}
+  .brand{margin-right:6px;font-size:15.5px}
   .nav{order:5;width:100%;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
   .nav::-webkit-scrollbar{display:none}
   .nav a{white-space:nowrap;font-size:13px;padding:6px 10px}

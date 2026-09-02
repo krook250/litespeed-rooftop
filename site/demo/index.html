@@ -4,6 +4,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rooftop — dealer demo · Cascade Motors</title>
 <meta name="description" content="Rooftop Auto — inventory, merchandising, syndication, website and reporting for independent used car lots.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,900&display=swap" rel="stylesheet">
 <style>/* ===== Rooftop design tokens =====
    Charcoal + indigo. Deliberately outside the aging color ramp
    (green -> cyan -> amber -> orange -> red) so brand never
@@ -12,7 +15,7 @@
   --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
   --line:#e3e7ec; --line2:#eef1f4;
   --bg:#f1f3f6; --card:#fff; --card2:#f8fAfc;
-  --brand:#4f46e5; --brand2:#6d64f0; --brand-dk:#3b32c9; --brand-wash:#eef0fe;
+  --brand:#2C6FD8; --brand2:#3D8BFF; --brand-dk:#1F55A8; --brand-wash:#E9F2FF;
 
   --b0:#15a34a; --b0w:#e6f6ec;   /* 0-15  fresh air   */
   --b1:#0e8fa8; --b1w:#e3f4f8;   /* 16-30             */
@@ -25,6 +28,7 @@
   --sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);
   --sh2:0 4px 16px rgba(16,24,40,.09),0 1px 3px rgba(16,24,40,.06);
   --ff:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --fh:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
   --fm:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
@@ -40,7 +44,9 @@ input,select,textarea{font:inherit;color:inherit}
 /* ===== chrome ===== */
 .topbar{position:sticky;top:0;z-index:60;height:58px;background:var(--ink);
   display:flex;align-items:center;gap:8px;padding:0 18px;color:#fff}
-.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.3px;font-size:16.5px;margin-right:14px}
+.brand{display:flex;align-items:center;font-family:var(--fh);font-style:italic;font-weight:900;letter-spacing:-.5px;font-size:18px;line-height:1;white-space:nowrap;margin-right:16px}
+.brand i{position:relative;display:inline-block;width:.363em;height:0;vertical-align:baseline;font-style:normal}
+.brand i svg{position:absolute;left:0;bottom:-.218em;width:.476em;height:1.089em;fill:#3D8BFF;overflow:visible}
 .brandmark{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk));
   display:grid;place-items:center;flex:0 0 auto}
 .brandmark svg{width:15px;height:15px}
@@ -323,12 +329,12 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
 .spark{width:100%;height:78px;display:block}
 
 /* ===== demo ribbon (only present in the hosted demo build) ===== */
-.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#4f46e5;color:#fff;
+.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#1F55A8;color:#fff;
   padding:7px 18px;font-size:12px;font-weight:600;letter-spacing:.1px}
 .rb-back{font-weight:800;padding:3px 10px;border-radius:7px;background:rgba(255,255,255,.16);white-space:nowrap}
 .rb-back:hover{background:rgba(255,255,255,.28)}
-.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#3b32c9}
-.rb-txt{color:#dcdafc}
+.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#1F55A8}
+.rb-txt{color:#cfe0f7}
 @media(max-width:640px){.rb-txt{display:none}}
 
 /* ===== narrow screens =====
@@ -337,8 +343,7 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
    sliding sideways, which is what the top bar was causing. */
 @media(max-width:760px){
   .topbar{height:auto;flex-wrap:wrap;padding:8px 12px;gap:7px;row-gap:4px}
-  .brand{margin-right:4px;font-size:15px}
-  .brand small{display:none}
+  .brand{margin-right:6px;font-size:15.5px}
   .nav{order:5;width:100%;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
   .nav::-webkit-scrollbar{display:none}
   .nav a{white-space:nowrap;font-size:13px;padding:6px 10px}
@@ -814,7 +819,7 @@ function topbar() {
   const r = state.route;
   const on = (p) => r.startsWith(p) ? 'on' : '';
   return `<div class="topbar">
-    <div class="brand"><span class="brandmark">${MARK}</span>Rooftop<small>AUTO</small></div>
+    <div class="brand">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</div>
     <nav class="nav">
       <a href="#/lotwalk" class="${on('#/lotwalk')}">Lot Walk</a>
       <a href="#/inventory" class="${on('#/inventory')}">Inventory</a>
@@ -1377,7 +1382,7 @@ function viewReporting() {
   const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
   const maxN = Math.max(...dist.map(d => d.n), 1);
   const mix = ['Pickup', 'SUV', 'Sedan', 'Wagon'].map((k, i) => ({
-    k, n: inv.filter(v => v.body === k).length, c: ['#4f46e5', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
+    k, n: inv.filter(v => v.body === k).length, c: ['#2C6FD8', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
   const total = mix.reduce((a, x) => a + x.n, 0) || 1;
   const top = [...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7).slice(0, 6);
   const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
@@ -1502,7 +1507,7 @@ function storeHeader() {
     <span>📍 Two locations in Vancouver, WA</span>
     <span>·</span><span>Fourth Plain</span><span>·</span><span>Orchards</span>
     <div style="flex:1"></div>
-    <a href="#/lotwalk" style="color:#8ea0ff;font-weight:700">← back to Rooftop admin</a>
+    <a href="#/lotwalk" style="color:#8fbcff;font-weight:700">← back to Rooftop admin</a>
   </div></div></header>`;
 }
 
