@@ -587,6 +587,44 @@ export const users = pgTable('users', {
 });
 
 /**
+ * Pending staff invitations.
+ *
+ * The token **is** the authorization — anyone holding it can create an account
+ * inside this dealership — so three things are true by construction:
+ *
+ *  - it is 32 random bytes, not a cuid, and it is unique;
+ *  - it expires, because a link in an inbox outlives the reason it was sent;
+ *  - the accepting signup must use the **same email address it was sent to**.
+ *    Without that, a forwarded link lets a stranger join under any address
+ *    they like, and the owner sees a name they do not recognise on the People
+ *    list with no way to tell how it got there.
+ *
+ * `acceptedAt` rather than deleting the row: an owner asking "did Tina ever
+ * actually sign up" is a real question, and a deleted row cannot answer it.
+ * Revoking sets `revokedAt`, which is a different fact from expiring.
+ */
+export const invites = pgTable(
+  'invites',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    email: text().notNull(),
+    role: userRoleEnum().notNull(),
+    /** 64 hex characters. Unique so a collision is a constraint error, not a cross-tenant join. */
+    token: text().notNull().unique(),
+    invitedByUserId: text().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    acceptedAt: timestamp({ withTimezone: true }),
+    revokedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index('invites_group_idx').on(t.groupId),
+    index('invites_email_idx').on(t.email),
+  ],
+);
+
+/**
  * Rooftop staff. Not dealers.
  *
  * WHY A TABLE AND NOT A ROLE. Every value in `userRoleEnum` is a job inside a

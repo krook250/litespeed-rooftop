@@ -103,9 +103,6 @@ export function AboutCard({
 
         <label className="block">
           <span className="text-sm font-medium text-ink-800">How long have you been selling here?</span>
-          <span className="mt-0.5 block text-xs text-ink-500">
-            The year you started. Leave it blank if you would rather not say.
-          </span>
           <input
             value={since}
             onChange={(e) => setSince(e.target.value.replace(/\D/g, '').slice(0, 4))}
@@ -117,7 +114,7 @@ export function AboutCard({
 
         <Chips
           label="What do you mostly stock?"
-          hint="Pick as many as fit. This is what a buyer is trying to work out in their first five seconds."
+          hint="Pick as many as fit."
           options={STOCK_KINDS}
           selected={stock}
           onToggle={(v) => toggle(stock, setStock, v)}

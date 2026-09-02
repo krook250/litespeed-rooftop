@@ -12,11 +12,11 @@
  */
 
 import Link from 'next/link';
-import { SrpFilters, FILTER_KEYS, type FilterKey } from '@/components/store/srp-filters';
+import { SrpFilterBar, FILTER_KEYS, type FilterKey } from '@/components/store/srp-filters';
 import { VehicleCard, primaryPhoto } from '@/components/store/vehicle-card';
 import { activePrice, miles, usd, vehicleTitle, BODY_LABEL, DRIVETRAIN_LABEL } from '@/lib/domain';
 import type { StorefrontView } from './types';
-import { ActivePills, EmptyState, ResultCount, SortBar } from './shared';
+import { ActivePills, EmptyState, ResultCount } from './shared';
 
 export function ShowcaseLayout({ view }: { view: StorefrontView }) {
   const { storefront, inventory, results, filters, facets, basePath, searchParams: sp, activeFilterCount } = view;
@@ -73,35 +73,34 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
         </section>
       ) : null}
 
-      <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">
-            {hero ? 'More on the lot' : 'Current inventory'}
-          </h2>
-          <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
-        </div>
-        <SortBar basePath={basePath} sp={sp} filters={filters} />
-      </div>
+      {/*
+        The search sits directly under the hero, open, with sort inside it.
+        It used to be a collapsed `<details>` next to a separate sort control —
+        which asked a shopper who wanted a $20k AWD truck to go and find the
+        disclosure first, and made sorting and filtering two page loads that
+        looked unrelated. On a photo-led layout the hero earns the interest and
+        the bar is what a buyer reaches for next.
+      */}
+      <SrpFilterBar
+        idPrefix="sc"
+        basePath={basePath}
+        filters={filters}
+        makes={facets.makes}
+        models={facets.models}
+        bodies={facets.bodies}
+        drivetrains={facets.drivetrains}
+        years={facets.years}
+        className="mt-8"
+      />
 
       <ActivePills activeKeys={activeKeys} basePath={basePath} sp={sp} filters={filters} />
 
-      <details className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
-        <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--text)]">
-          Narrow it down {activeFilterCount ? `(${activeFilterCount})` : ''}
-        </summary>
-        <div className="mt-4">
-          <SrpFilters
-            idPrefix="sc"
-            basePath={basePath}
-            filters={filters}
-            makes={facets.makes}
-            models={facets.models}
-            bodies={facets.bodies}
-            drivetrains={facets.drivetrains}
-            years={facets.years}
-          />
-        </div>
-      </details>
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold tracking-tight text-[var(--text)]">
+          {hero ? 'More on the lot' : 'Current inventory'}
+        </h2>
+        <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
+      </div>
 
       <div className="mt-6">
         {results.length ? (

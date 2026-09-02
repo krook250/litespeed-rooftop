@@ -474,7 +474,7 @@ export function BringYourOwnPanel({
             name="domain"
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            placeholder="cascademotorswa.com"
+            placeholder="yourdealership.com"
             className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm"
           />
         </label>
@@ -534,7 +534,7 @@ export function BuyDomainPanel({
         <input type="hidden" name="storefrontId" value={storefrontId} />
         <label className="min-w-0 flex-1">
           <span className="mb-1 block text-sm font-medium text-ink-800">Find a domain</span>
-          <input name="term" placeholder="cascademotors"
+          <input name="term" placeholder="yourdealership"
                  className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm" />
         </label>
         <Button type="submit" disabled={searching}>{searching ? 'Checking…' : 'Search'}</Button>

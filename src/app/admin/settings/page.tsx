@@ -6,6 +6,9 @@ import { getGroup } from '@/lib/queries';
 import { ROLE_LABEL, ROLE_BLURB, SECTIONS, can } from '@/lib/permissions';
 import { Card, CardHeader } from '@/components/ui';
 import { RolePicker } from '@/components/settings/role-picker';
+import { InviteForm, RevokeButton } from '@/components/settings/invite-form';
+import { pendingInvites } from '@/lib/invites';
+import { emailConfigured } from '@/lib/email';
 import type { UserRole } from '@/db/schema';
 
 export const dynamic = 'force-dynamic';
@@ -23,13 +26,14 @@ export const dynamic = 'force-dynamic';
  */
 export default async function SettingsPage() {
   const me = await requireSection('settings');
-  const [group, people] = await Promise.all([
+  const [group, people, invites] = await Promise.all([
     getGroup(),
     db
       .select({ id: t.users.id, name: t.users.name, email: t.users.email, role: t.users.role })
       .from(t.users)
       .where(eq(t.users.groupId, me.groupId))
       .orderBy(asc(t.users.name)),
+    pendingInvites(me.groupId),
   ]);
 
   const owners = people.filter((p) => p.role === 'OWNER').length;
@@ -45,7 +49,7 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader
           title="People"
-          subtitle={`${people.length} ${people.length === 1 ? 'person' : 'people'} on this dealership.`}
+          subtitle={`${people.length} ${people.length === 1 ? 'person' : 'people'} at this dealership.`}
         />
         <div className="divide-y divide-ink-100">
           {people.map((p) => {
@@ -75,11 +79,51 @@ export default async function SettingsPage() {
             );
           })}
         </div>
-        <p className="border-t border-ink-100 bg-ink-50 px-4 py-2.5 text-xs text-ink-500">
-          Adding someone is not built yet — invites by email are the next piece. Until then a
-          new account signs up and you set the role here.
-        </p>
+        <div className="border-t border-ink-100 bg-ink-50">
+          <div className="px-4 pt-3 text-xs font-semibold uppercase tracking-wider text-ink-500">
+            Add someone
+          </div>
+          <InviteForm />
+          {/*
+            Said out loud rather than left to be discovered. With no RESEND_API_KEY
+            the mailer logs the message and reports success — which is the right
+            behaviour for local dev and the wrong thing to leave an owner guessing
+            about in production.
+          */}
+          {emailConfigured() ? null : (
+            <p className="px-4 pb-3 text-xs text-amber-700">
+              Email is not configured on this deployment, so the invitation will not actually
+              be sent. The link is written to the server log.
+            </p>
+          )}
+        </div>
       </Card>
+
+      {invites.length ? (
+        <Card>
+          <CardHeader
+            title="Waiting to accept"
+            subtitle="Nobody has an account until they use their link. Cancelling stops it working."
+          />
+          <div className="divide-y divide-ink-100">
+            {invites.map((i) => (
+              <div key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-ink-900">{i.email}</div>
+                  <div className="text-xs text-ink-500">
+                    {ROLE_LABEL[i.role]} · expires{' '}
+                    {new Date(i.expiresAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </div>
+                </div>
+                <RevokeButton inviteId={i.id} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden">
         <CardHeader

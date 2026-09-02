@@ -323,7 +323,7 @@ export function DesignCard(props: Props) {
                 value={siteUrl}
                 onChange={(e) => setSiteUrl(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runScan(); } }}
-                placeholder="cascademotors.com"
+                placeholder="yourdealership.com"
                 className="min-w-0 flex-1 rounded-md border border-ink-300 px-3 py-2 text-sm"
               />
               <Button type="button" onClick={runScan} disabled={scanning || siteUrl.trim().length < 4}>

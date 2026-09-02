@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import * as t from '@/db/schema';
 import { sendEmail, resetPasswordEmail } from '@/lib/email';
+import { findLiveInvite } from '@/lib/invites';
 
 /**
  * The Better Auth instance.
@@ -125,6 +126,39 @@ export const auth = betterAuth({
         /** Provision the tenant before the user row lands, so groupId is valid. */
         async before(user, ctx) {
           const raw = (ctx?.body as Record<string, unknown> | undefined) ?? {};
+          const email = String((user as { email?: string }).email ?? '').toLowerCase();
+
+          /*
+           * TWO WAYS TO EXIST, AND THIS IS THE FORK.
+           *
+           * A normal signup founds a dealership and its author is the OWNER.
+           * An invited signup joins one that already exists, and must not
+           * create a group — a bug here does not throw, it quietly gives the
+           * new hire their own empty dealership and nobody notices until they
+           * ask why the inventory is missing.
+           *
+           * `inviteToken` rides in the request body, the same way
+           * `dealershipName` already does. That is safe *because* `groupId` and
+           * `role` are `input: false` above: the body cannot set them
+           * directly, so the only way into an existing group is a token this
+           * hook looked up and validated.
+           *
+           * The email must match the address the invite was sent to. Without
+           * that check a forwarded link lets anyone join under any address.
+           */
+          const token = typeof raw.inviteToken === 'string' ? raw.inviteToken : '';
+          if (token) {
+            const invite = await findLiveInvite(token);
+            if (!invite || invite.email.toLowerCase() !== email) {
+              throw new Error('This invitation is no longer valid.');
+            }
+            await db
+              .update(t.invites)
+              .set({ acceptedAt: new Date() })
+              .where(eq(t.invites.id, invite.id));
+            return { data: { ...user, groupId: invite.groupId, role: invite.role } };
+          }
+
           const dealershipName =
             typeof raw.dealershipName === 'string' && raw.dealershipName.trim()
               ? raw.dealershipName.trim().slice(0, 120)
@@ -148,6 +182,24 @@ export const auth = betterAuth({
             .where(eq(t.dealerGroups.id, u.groupId))
             .limit(1);
           if (!group) return;
+
+          /*
+           * Only the founder provisions. An invited hire lands in a group that
+           * already has a rooftop and a storefront, and running this for them
+           * would give the dealership a second empty lot named after itself
+           * every time somebody joined.
+           *
+           * Checked by asking the database rather than by passing a flag down
+           * from `before`: the question "does this group already have a
+           * rooftop" is the actual condition, and it stays right if a third
+           * way of creating a user ever appears.
+           */
+          const [existingRooftop] = await db
+            .select({ id: t.rooftops.id })
+            .from(t.rooftops)
+            .where(eq(t.rooftops.groupId, group.id))
+            .limit(1);
+          if (existingRooftop) return;
 
           const rooftopSlug = await uniqueSlug(`${group.name} main`);
           const [rooftop] = await db

@@ -342,3 +342,192 @@ export function SrpFilters({
     </form>
   );
 }
+
+/**
+ * The same filters, laid out as a bar.
+ *
+ * Showcase has no rail to put them in, and what it had instead was a collapsed
+ * `<details>` plus a separate sort control — which meant a shopper who wanted a
+ * $20k AWD truck had to open a disclosure, and sorting and filtering were two
+ * different interactions that each reloaded the page.
+ *
+ * This is one GET form, so filters and sort submit together. Two rows on
+ * purpose: the top row is what people actually use (words, make, model), the
+ * second is the narrowing nobody does first. On a phone it all stacks, which is
+ * fine — a stacked filter form is what every listings site does at that width.
+ *
+ * `SrpFilters` (the rail) stays as it is. Classic and lot-list want a column.
+ */
+export function SrpFilterBar({
+  idPrefix,
+  basePath,
+  filters,
+  makes,
+  models,
+  bodies,
+  drivetrains,
+  years,
+  className,
+}: {
+  idPrefix: string;
+  basePath: string;
+  filters: Filters;
+  makes: FacetOption[];
+  models: FacetOption[];
+  bodies: FacetOption[];
+  drivetrains: FacetOption[];
+  years: number[];
+  className?: string;
+}) {
+  return (
+    <form
+      method="get"
+      action={basePath}
+      className={cn(
+        'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-sm',
+        className,
+      )}
+    >
+      {/* words, make, model, go — the row that does most of the work */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-q`}>
+            Search
+          </label>
+          <input
+            id={`${idPrefix}-q`}
+            type="search"
+            name="q"
+            defaultValue={filters.q}
+            placeholder="Year, make, model, stock or VIN"
+            className={fieldClass}
+          />
+        </div>
+
+        <Facet idPrefix={idPrefix} name="make" label="Make" value={filters.make} options={makes} anyLabel="All makes" />
+        <Facet
+          idPrefix={idPrefix}
+          name="model"
+          label="Model"
+          value={filters.model}
+          options={models}
+          anyLabel={filters.make ? `All ${filters.make} models` : 'All models'}
+        />
+
+        <div className="flex items-end">
+          <button
+            type="submit"
+            className="w-full rounded-md bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-[var(--on-brand)] hover:opacity-90 lg:w-auto"
+          >
+            Search
+          </button>
+        </div>
+      </div>
+
+      {/* the narrowing */}
+      <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Facet idPrefix={idPrefix} name="body" label="Body" value={filters.body} options={bodies} anyLabel="Any" />
+        <Facet
+          idPrefix={idPrefix}
+          name="drivetrain"
+          label="Drivetrain"
+          value={filters.drivetrain}
+          options={drivetrains}
+          anyLabel="Any"
+        />
+
+        <div className="col-span-2 sm:col-span-1">
+          <span className={labelClass}>Price</span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              inputMode="numeric"
+              name="minPrice"
+              min={0}
+              step={500}
+              defaultValue={filters.minPrice ?? ''}
+              placeholder="Min"
+              aria-label="Minimum price"
+              className={cn(fieldClass, 'tnum')}
+            />
+            <span className="text-[var(--text-3)]">–</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              name="maxPrice"
+              min={0}
+              step={500}
+              defaultValue={filters.maxPrice ?? ''}
+              placeholder="Max"
+              aria-label="Maximum price"
+              className={cn(fieldClass, 'tnum')}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-maxMiles`}>
+            Max miles
+          </label>
+          <select
+            id={`${idPrefix}-maxMiles`}
+            name="maxMiles"
+            defaultValue={filters.maxMiles ? String(filters.maxMiles) : ''}
+            className={cn(fieldClass, 'tnum')}
+          >
+            <option value="">Any</option>
+            {MILEAGE_STEPS.map((m) => (
+              <option key={m} value={m}>
+                {m.toLocaleString('en-US')}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-minYear`}>
+            Year and newer
+          </label>
+          <select
+            id={`${idPrefix}-minYear`}
+            name="minYear"
+            defaultValue={filters.minYear ? String(filters.minYear) : ''}
+            className={cn(fieldClass, 'tnum')}
+          >
+            <option value="">Any</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/*
+          Sort lives inside the form here rather than beside it. On the rail
+          layouts it is a separate row of links because the rail already owns
+          the filtering; in a bar, two controls that both reload the results and
+          sit six inches apart is one control too many.
+        */}
+        <div>
+          <label className={labelClass} htmlFor={`${idPrefix}-sort`}>
+            Sort
+          </label>
+          <select id={`${idPrefix}-sort`} name="sort" defaultValue={filters.sort} className={fieldClass}>
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-2 text-right">
+        <Link href={basePath} className="text-xs font-medium text-[var(--text-3)] hover:underline">
+          Reset all
+        </Link>
+      </div>
+    </form>
+  );
+}

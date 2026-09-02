@@ -123,7 +123,15 @@ export async function loadWebsite({ withDomain = false }: { withDomain?: boolean
   return { ...base, phase, lookup, instructions, readiness, daysSaved };
 }
 
-/** The same title bar on all three screens, so the section reads as one place. */
+/**
+ * The same title bar on all three screens, so the section reads as one place.
+ *
+ * The section name is an eyebrow above the page name rather than being dropped.
+ * Landing on `/admin/website/analytics` from a bookmark used to show a page
+ * headed "Analytics" with nothing on it saying which analytics — the sidebar
+ * knows, but the sidebar is not what someone reads first, and it is not there
+ * at all on a narrow screen.
+ */
 export function WebsiteHeader({
   name,
   subtitle,
@@ -136,7 +144,10 @@ export function WebsiteHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-ink-900">{name}</h1>
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-ink-400">
+          Website
+        </div>
+        <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-ink-900">{name}</h1>
         <p className="mt-0.5 text-sm text-ink-600">{subtitle}</p>
       </div>
       <a
