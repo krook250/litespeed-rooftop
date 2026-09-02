@@ -15,57 +15,109 @@ state.ui = { tab: 'wall', shot: 0, synVeh: null, synPrice: null, busy: false,
 
 const MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>';
 
-/* ============================ chrome ============================ */
-function topbar() {
+/* ============================ chrome ============================
+   The console chrome is a copy of the real one in
+   `src/app/admin/layout.tsx` + `src/components/admin-nav.tsx`, on purpose.
+   A sales page that shows a layout the product does not have is a demo that
+   sets a dealer up to be disappointed in week one — and this demo already got
+   that wrong once, with a light icon rail and a top bar the app never had.
+
+   Four screens are real in here. The rest are in the nav because leaving them
+   out would misrepresent the product in the other direction, and they say so
+   when you click them rather than pretending to be broken.
+============================================================== */
+const NAV = [
+  { href: '#/lotwalk', label: 'Lot Walk', live: true },
+  { href: '#/dashboard', label: 'Dashboard' },
+  { href: '#/inventory', label: 'Inventory', live: true },
+  { href: '#/inventory?f=b2', label: 'At-risk list', live: true, match: 'f=b2' },
+  { href: '#/syndication', label: 'Syndication', live: true },
+  { href: '#/ad-desk', label: 'Ad Desk' },
+  { href: '#/website', label: 'Website' },
+  { href: '#/lots', label: 'Lots' },
+  { href: '#/reporting', label: 'Reporting', live: true },
+];
+
+function sidebar() {
   const me = person(state.me);
   const r = state.route;
-  const on = (p) => r.startsWith(p) ? 'on' : '';
-  return `<div class="topbar">
-    <div class="brand">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</div>
-    <nav class="nav">
-      <a href="#/lotwalk" class="${on('#/lotwalk')}">Lot Walk</a>
-      <a href="#/inventory" class="${on('#/inventory')}">Inventory</a>
-      <a href="#/syndication" class="${on('#/syndication')}">Syndication</a>
-      <a href="#/reporting" class="${on('#/reporting')}">Reporting</a>
+  const isOn = (l) => {
+    if (l.match) return r.includes(l.match);
+    const base = l.href.split('?')[0];
+    if (base === '#/inventory' && r.includes('f=b2')) return false;
+    return r.startsWith(base) || (base === '#/lotwalk' && r.startsWith('#/vehicle/'));
+  };
+  return `<aside class="side">
+    <div class="side-brand">ROOFTOP<i><svg viewBox="323.4 -54 29.5 67.5" aria-hidden="true"><path d="M349.1 -54 340.9 -29 352.9 -28.4 326 13.5 334.6 -15.5 323.4 -16.1Z"/></svg></i>AUTO</div>
+    <nav class="side-nav">
+      ${NAV.map(l => `<a class="slnk ${isOn(l) ? 'on' : ''}" href="${l.href}">${l.label}</a>`).join('')}
     </nav>
-    <div class="spacer"></div>
-    <div class="rtpick">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>
-      <select data-act="rooftop">
+    <div class="side-foot">
+      <div class="side-grp">Rooftops</div>
+      <select class="side-sel" data-act="rooftop">
         <option value="all" ${state.rooftop === 'all' ? 'selected' : ''}>All rooftops (2)</option>
         ${SEED.rooftops.map(rt => `<option value="${rt.id}" ${state.rooftop === rt.id ? 'selected' : ''}>${esc(rt.short)}</option>`).join('')}
       </select>
+      <div class="side-grp">Storefronts</div>
+      <a class="sfoot" href="#/store">${esc(SEED.virtualRooftop.name)} &#8599;</a>
+      <div class="side-user">
+        <div class="side-name">${esc(me.name)}</div>
+        <div class="side-role">${esc(me.role)} &middot; Cascade Motors</div>
+      </div>
     </div>
-    <a class="iconbtn" href="#/store" title="View the storefront">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></a>
-    <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
-    <div class="me" style="background:${me.color}">${me.initials}</div>
+  </aside>`;
+}
+
+/**
+ * The page header the real console draws: title, the one-line state of the
+ * lot, and the style switch. The switch is live here — both presentations are
+ * in the demo, because the log is what a dealer actually gets by default and a
+ * sales page that only shows the feed is selling the wrong screen.
+ */
+function pageHead(title, sub, style) {
+  return `<div class="phead">
+    <div><h1>${title}</h1><p>${sub}</p></div>
+    ${style ? `<div class="styleSw">
+      <a class="${style === 'social' ? 'on' : ''}" href="#/lotwalk">Lot Walk</a>
+      <a class="${style === 'log' ? 'on' : ''}" href="#/log">Activity log</a>
+    </div>` : ''}
   </div>`;
 }
 
-function railL() {
-  const m = metrics();
-  const lnk = (href, ic, label, badge) =>
-    `<a class="lnk ${state.route.startsWith(href) ? 'on' : ''}" href="${href}">
-       <span class="ic">${ic}</span><span class="grow">${label}</span>
-       ${badge != null ? `<span class="chip ${badge.cls || ''}">${badge.v}</span>` : ''}</a>`;
-  return `<div class="railL sticky">
-    ${lnk('#/lotwalk', '🏠', 'Lot Walk')}
-    ${lnk('#/inventory', '🚗', 'Inventory', { v: m.units })}
-    ${lnk('#/syndication', '📡', 'Syndication')}
-    ${lnk('#/reporting', '📊', 'Reporting')}
-    <div class="grp">Work lists</div>
-    ${lnk('#/inventory?f=b2', '⚠︎', 'At-risk list', { v: m.atRisk, cls: 'b2' })}
-    ${lnk('#/inventory?f=b4', '🕒', 'Aged units', { v: m.aged, cls: 'b4' })}
-    ${lnk('#/inventory?f=recon', '🔧', 'In recon', { v: m.inRecon })}
-    ${lnk('#/inventory?f=water', '🌊', 'Water units', { v: m.water, cls: 'b4' })}
-    <div class="grp">Rooftops</div>
-    ${SEED.rooftops.map(rt => `<a class="lnk" href="#" data-act="rooftop-set" data-id="${rt.id}">
-        <span class="ic">📍</span><span class="grow">${esc(rt.short)}</span>
-        <span class="chip">${state.vehicles.filter(v => v.rooftop === rt.id).length}</span></a>`).join('')}
-    <a class="lnk" href="#/store"><span class="ic">🌐</span><span class="grow">${esc(SEED.virtualRooftop.name)}</span>
-      <span class="chip brand">Online</span></a>
-  </div>`;
+function lotLine() {
+  const inv = scoped();
+  const n = state.rooftop === 'all' ? SEED.rooftops.length : 1;
+  return `Cascade Motors &middot; ${inv.length} units on the ground across ${n} rooftop${n === 1 ? '' : 's'}`;
+}
+
+const FEED_FILTERS = [
+  { k: 'all', label: 'Everything' },
+  { k: 'money', label: 'Money' },
+  { k: 'lot', label: 'The lot' },
+  { k: 'channels', label: 'Channels' },
+  { k: 'people', label: 'People' },
+];
+
+function filterChips() {
+  return `<div class="fchips">${FEED_FILTERS.map(f =>
+    `<a class="fchip ${f.k === 'all' ? 'on' : ''}" href="#/lotwalk">${f.label}</a>`).join('')}</div>`;
+}
+
+/** The screens that are not in the demo say so. */
+function viewStub(name) {
+  return `<div class="wrap"><div class="cols one">
+    <div class="stack">
+      ${pageHead(esc(name), 'Not part of this demo.')}
+      <div class="card pad" style="text-align:center;padding:56px 24px">
+        <div style="font-size:15px;font-weight:750">${esc(name)} is in the product, not in this demo.</div>
+        <div class="sm muted" style="margin-top:8px;max-width:460px;margin-inline:auto">
+          This walkthrough covers Lot Walk, the activity log, inventory, syndication and
+          reporting. ${esc(name)} is a live screen &mdash; ask for it on the call.
+        </div>
+        <a class="btn" style="margin-top:18px;display:inline-block" href="#/lotwalk">Back to Lot Walk</a>
+      </div>
+    </div>
+  </div></div>`;
 }
 
 function metricStrip() {
@@ -200,8 +252,8 @@ function railR() {
 function viewLotWalk() {
   const me = person(state.me);
   return `<div class="wrap"><div class="cols">
-    ${railL()}
     <div class="stack">
+      ${pageHead('Lot Walk', lotLine(), 'social')}
       ${metricStrip()}
       <div class="card">
         <div class="composer">
@@ -213,6 +265,7 @@ function viewLotWalk() {
           <button>💲 Price change</button><button>📸 Request photos</button><button>📣 Announcement</button>
         </div>
       </div>
+      ${filterChips()}
       ${buildFeed().map(postCard).join('')}
       <div class="card pad" style="text-align:center" class="muted">
         <div class="sm muted">That's the whole day. The feed only shows things that moved money.</div>
@@ -234,8 +287,8 @@ function viewInventory() {
   const chip = (id, label, cls) =>
     `<a class="fchip ${cls || ''} ${f === id ? 'on' : ''}" href="#/inventory${id ? '?f=' + id : ''}">${label}</a>`;
 
-  return `<div class="wrap"><div class="cols">${railL()}
-    <div class="stack" style="grid-column:span 2">
+  return `<div class="wrap"><div class="cols one">
+    <div class="stack">
       ${metricStrip()}
       <div class="card">
         <div class="filters">
@@ -848,14 +901,30 @@ const RIBBON = `<div class="ribbon">
 function render() {
   const r = state.route;
   let html;
-  if (r.startsWith('#/store/v/')) html = viewVDP(r.split('/')[3]);
-  else if (r.startsWith('#/store')) html = viewStore();
-  else if (r.startsWith('#/vehicle/')) html = topbar() + viewVehicle(r.split('/')[2]);
-  else if (r.startsWith('#/inventory')) html = topbar() + viewInventory();
-  else if (r.startsWith('#/syndication')) html = topbar() + viewSyndication();
-  else if (r.startsWith('#/reporting')) html = topbar() + viewReporting();
-  else html = topbar() + viewLotWalk();
-  document.body.innerHTML = RIBBON + html;
+  // The storefront is the dealer's public site and gets none of the console
+  // chrome; everything else lives inside the sidebar shell the app uses.
+  if (r.startsWith('#/store/v/')) {
+    document.body.innerHTML = RIBBON + viewVDP(r.split('/')[3]);
+    return;
+  }
+  if (r.startsWith('#/store')) {
+    document.body.innerHTML = RIBBON + viewStore();
+    return;
+  }
+
+  if (r.startsWith('#/vehicle/')) html = viewVehicle(r.split('/')[2]);
+  else if (r.startsWith('#/inventory')) html = viewInventory();
+  else if (r.startsWith('#/syndication')) html = viewSyndication();
+  else if (r.startsWith('#/reporting')) html = viewReporting();
+  else if (r.startsWith('#/log')) html = viewActivityLog();
+  else if (r.startsWith('#/dashboard')) html = viewStub('Dashboard');
+  else if (r.startsWith('#/ad-desk')) html = viewStub('Ad Desk');
+  else if (r.startsWith('#/website')) html = viewStub('Website');
+  else if (r.startsWith('#/lots')) html = viewStub('Lots');
+  else html = viewLotWalk();
+
+  document.body.innerHTML =
+    RIBBON + `<div class="shell">${sidebar()}<div class="main">${html}</div></div>`;
   const lg = $('.log'); if (lg) lg.scrollTop = lg.scrollHeight;
 }
 
@@ -929,3 +998,85 @@ document.addEventListener('input', (e) => {
 window.addEventListener('hashchange', () => { state.route = location.hash || '#/lotwalk'; window.scrollTo(0, 0); render(); });
 state.route = location.hash || '#/lotwalk';
 render();
+
+/* ============================ Activity log ============================
+   One event stream, two presentations — `claude/log-vs-social.md`. Same rows
+   the feed draws as cards: no avatars, no reactions, no composer, no faces.
+   The stats stay, and do more work here than they do on a card: strip the
+   chrome off a line with no figure on it and you are left with one line of
+   nothing.
+====================================================================== */
+const LOG_GLYPH = {
+  acquired: ['+', 'g-ink', 'Acquired'],
+  recon_in: ['→', 'g-amber', 'Into recon'],
+  recon_out: ['✓', 'g-green', 'Recon closed'],
+  photos: ['▣', 'g-ink', 'Photos'],
+  front_line: ['●', 'g-green', 'Front line'],
+  price_change: ['$', 'g-blue', 'Price'],
+  at_risk: ['!', 'g-warn', 'At risk'],
+  aged: ['!!', 'g-aged', 'Aged'],
+  water: ['~', 'g-hot', 'Water'],
+  vdp_milestone: ['↑', 'g-blue', 'Traffic'],
+  sync_error: ['×', 'g-red', 'Channel'],
+  sold: ['★', 'g-green', 'Sold'],
+  bell: ['★', 'g-amber', 'Bell'],
+  team: ['·', 'g-violet', 'Team'],
+  note: ['·', 'g-ink', 'Note'],
+  domain: ['@', 'g-blue', 'Website'],
+};
+
+function logStamp(hoursAgo) {
+  const d = new Date(Date.now() - hoursAgo * 3600e3);
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return hoursAgo < 24
+    ? time
+    : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+function logRow(e) {
+  const g = LOG_GLYPH[e.kind] || LOG_GLYPH.note;
+  const p = e.actor === 'system' ? null : person(e.actor);
+  const cmts = (e.comments || []).length + (state.extraComments[e.id] || []).length;
+  const v = e.vehicle || (e.units && e.units[0]);
+  return `<div class="lrow">
+    <span class="ltime num">${logStamp(e.hours)}</span>
+    <span class="lkind ${g[1]}"><i>${g[0]}</i>${g[2]}</span>
+    <div class="lmain">
+      <div class="ltitle">${esc(e.title)}${cmts ? `<span class="lcmt">\u{1F4AC}${cmts}</span>` : ''}</div>
+      ${e.text ? `<div class="lbody trunc">${esc(e.text)}</div>` : ''}
+      ${e.stats ? `<div class="lstats">${e.stats.map(s =>
+        `<span>${esc(s.k)} <b class="num ${s.good ? 'up' : s.bad ? 'down' : ''}">${s.v}</b></span>`).join('')}</div>` : ''}
+    </div>
+    <div class="lveh">${v ? `<a href="#/vehicle/${v.id}">
+        <div class="trunc">${esc(vname(v))}</div>
+        <div class="tiny muted num trunc">STK ${v.stock} · ${money(v.price)}</div></a>` : ''}</div>
+    <span class="lwho trunc">${p ? esc(p.name) : 'System'}</span>
+  </div>`;
+}
+
+function viewActivityLog() {
+  const rows = buildFeed();
+  return `<div class="wrap"><div class="cols one">
+    <div class="stack">
+      ${pageHead('Activity', lotLine(), 'log')}
+      ${metricStripLog()}
+      ${filterChips()}
+      <div class="card">
+        <div class="log-list">${rows.map(logRow).join('')}</div>
+        <div class="log-foot">Last ${rows.length} entries. Same record as Lot Walk &mdash; only the layout differs.</div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/** The log keeps the four money figures. The scoreboard is a Lot Walk thing. */
+function metricStripLog() {
+  const m = metrics();
+  const tile = (k, v) => `<div class="metric"><div class="k">${k}</div><div class="v num">${v}</div></div>`;
+  return `<div class="metrics four">
+    ${tile('Sold today', SALES.filter(s => s.when === 0).length)}
+    ${tile('Sold 30d', m.sales30)}
+    ${tile('Front gross 30d', money(m.grossMTD))}
+    ${tile('Money on the ground', money(m.invValue))}
+  </div>`;
+}
