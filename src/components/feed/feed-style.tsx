@@ -39,7 +39,7 @@ export function FeedStyleSwitch({
   isOverride: boolean;
   role: UserRole;
 }) {
-  const canSetHouse = role === 'OWNER' || role === 'MANAGER';
+  const canSetHouse = role === 'OWNER' || role === 'SALES_MANAGER';
 
   return (
     <div className="flex flex-col items-end gap-1">

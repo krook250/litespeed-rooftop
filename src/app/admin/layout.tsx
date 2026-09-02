@@ -8,6 +8,7 @@ import { RooftopWordmark } from '@/components/brand';
 import { PwaRegister } from '@/components/pwa-register';
 import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
+import { ROLE_LABEL, sectionsFor } from '@/lib/permissions';
 
 /**
  * The installable-app head lives here and on the auth screens, never in the
@@ -15,13 +16,6 @@ import { pwaMetadata, pwaViewport } from '@/lib/pwa';
  */
 export const metadata = pwaMetadata;
 export const viewport = pwaViewport;
-
-const ROLE_LABEL: Record<string, string> = {
-  OWNER: 'Owner',
-  MANAGER: 'Manager',
-  SALES: 'Sales',
-  LOT_PORTER: 'Lot porter',
-};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
@@ -44,7 +38,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
    */
   const sidebar = (
     <>
-      <AdminNav feedLabel={feed.style === 'LOG' ? 'Activity' : 'Lot Walk'} />
+      <AdminNav
+        feedLabel={feed.style === 'LOG' ? 'Activity' : 'Lot Walk'}
+        allowed={sectionsFor(user.role)}
+      />
 
       <div className="mt-auto border-t border-ink-800 px-3 py-4">
           <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">

@@ -96,7 +96,31 @@ export const feedUploadStatusEnum = pgEnum('feed_upload_status', [
   'UPLOADED', 'FAILED', 'SKIPPED',
 ]);
 
-export const userRoleEnum = pgEnum('user_role', ['OWNER', 'MANAGER', 'SALES', 'LOT_PORTER']);
+/**
+ * Jobs inside a dealership.
+ *
+ * Widened from OWNER / MANAGER / SALES / LOT_PORTER in Sep 2026, because the
+ * four could not express the thing a dealer actually asks for on the first
+ * call: "my sales guys shouldn't be in the ad account." `MANAGER` became
+ * `SALES_MANAGER` — it was always the sales desk, and calling it Manager
+ * invited it to be used for a service manager, who wants a completely
+ * different set of screens.
+ *
+ * `LOT_PORTER` stays. A porter is not a service writer and folding the two
+ * together would have lost the one role that opens the app purely to find out
+ * what moved. Which screens each of these can reach lives in
+ * `src/lib/permissions.ts`, not here — this enum is only the list of jobs.
+ */
+export const userRoleEnum = pgEnum('user_role', [
+  'OWNER',
+  'SALES_MANAGER',
+  'SALES',
+  'RECEPTION',
+  'PARTS',
+  'SERVICE',
+  'MARKETING',
+  'LOT_PORTER',
+]);
 
 /** Which screen a user lands on after signing in. Feed is the default bet. */
 export const homeViewEnum = pgEnum('home_view', ['FEED', 'DASHBOARD']);
@@ -544,7 +568,7 @@ export const users = pgTable('users', {
   groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
   email: text().notNull().unique(),
   name: text().notNull(),
-  role: userRoleEnum().notNull().default('MANAGER'),
+  role: userRoleEnum().notNull().default('SALES'),
   /** Landing screen. Lot Walk is the bet, so it is the default. */
   homeView: homeViewEnum().notNull().default('FEED'),
   /**
@@ -565,9 +589,8 @@ export const users = pgTable('users', {
 /**
  * Rooftop staff. Not dealers.
  *
- * WHY A TABLE AND NOT A ROLE. `userRoleEnum` is OWNER / MANAGER / SALES /
- * LOT_PORTER — all of them jobs inside a dealership — and adding a fifth value
- * would not have worked anyway. `users.groupId` is NOT NULL and every scope in
+ * WHY A TABLE AND NOT A ROLE. Every value in `userRoleEnum` is a job inside a
+ * dealership, and adding an operator value would not have worked anyway. `users.groupId` is NOT NULL and every scope in
  * `src/lib/scoped-db.ts` is derived from it, so a "staff" user would still be
  * pinned to whichever tenant they were created under. Operator work is
  * cross-tenant by definition, so the grant has to live somewhere that is not a

@@ -30,6 +30,7 @@ import {
   usd,
   VEHICLE_STATUS_LABEL,
 } from '@/lib/domain';
+import { requireSection } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export const dynamic = 'force-dynamic';
  */
 
 export default async function DashboardPage() {
+  await requireSection('dashboard');
   const [group, rooftops, inventory, sales, events] = await Promise.all([
     getGroup(),
     getRooftops(),

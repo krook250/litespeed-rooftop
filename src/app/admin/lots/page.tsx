@@ -19,6 +19,7 @@ import { getRooftops } from '@/lib/queries';
 import { saveRooftopDetails } from '@/lib/rooftop-actions';
 import { HoursCard } from '@/components/website/hours-card';
 import { MapPinField } from '@/components/website/map-pin-field';
+import { requireSection } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,7 @@ function Field({
 }
 
 export default async function LotsPage() {
+  await requireSection('lots');
   const rooftops = await getRooftops();
 
   return (

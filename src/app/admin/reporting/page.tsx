@@ -28,6 +28,7 @@ import {
 } from '@/lib/queries';
 import { AGING_DOT, AgeBadge, AgingBar, Card, CardHeader, EmptyState, Stat, cn } from '@/components/ui';
 import { BarRow, ColumnChart, LineArea, NEUTRAL_INK, NEUTRAL_INK_SOFT } from '@/components/charts';
+import { requireSection } from '@/lib/auth-guard';
 
 const WINDOWS = [30, 60, 90] as const;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -88,6 +89,7 @@ export default async function ReportingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireSection('reporting');
   const sp = await searchParams;
   const raw = Array.isArray(sp.days) ? sp.days[0] : sp.days;
   const days = WINDOWS.includes(Number(raw) as (typeof WINDOWS)[number]) ? Number(raw) : 30;

@@ -24,6 +24,7 @@ import { disconnectMetaForm, startMetaConnect } from '@/lib/meta/actions';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
 import { previewFeed, type FeedPreview } from '@/lib/meta/feed-preview';
+import { requireSection } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,7 @@ export default async function AdDeskPage({
 }: {
   searchParams: Promise<{ ok?: string; err?: string; msg?: string; partial?: string }>;
 }) {
+  await requireSection('ad-desk');
   const sp = await searchParams;
   const groupId = await requireGroupId();
 

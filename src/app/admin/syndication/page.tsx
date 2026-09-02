@@ -21,6 +21,7 @@ import {
   usd,
 } from '@/lib/domain';
 import { forceRefresh, repairConnection, retryListing } from '@/lib/actions';
+import { requireSection } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default async function SyndicationPage({
 }: {
   searchParams: Promise<{ rooftop?: string }>;
 }) {
+  await requireSection('syndication');
   const { rooftop: rooftopSlug } = await searchParams;
 
   const [channels, connections, rooftops, events] = await Promise.all([

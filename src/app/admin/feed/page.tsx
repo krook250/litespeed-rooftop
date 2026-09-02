@@ -6,7 +6,7 @@ import { LogRow } from '@/components/feed/log-row';
 import { FeedStyleSwitch } from '@/components/feed/feed-style';
 import { HomePreference } from '@/components/feed/home-preference';
 import { Scoreboard, TodaysBoard } from '@/components/feed/scoreboard';
-import { requireSession } from '@/lib/auth';
+import { requireSection } from '@/lib/auth-guard';
 import {
   getGroup,
   getLiveInventory,
@@ -72,7 +72,9 @@ export default async function LotWalkPage({
   const { f } = await searchParams;
   const filter = FILTERS.find((x) => x.key === f) ?? FILTERS[0]!;
 
-  const me = await requireSession();
+  // Open to every role, but guarded like the rest so the pattern holds and a
+  // future narrowing is one table edit rather than a new call site.
+  const me = await requireSection('feed');
   const scope = await sessionScope();
 
   // Threshold events — "crossed 30 days", "became a water unit" — have no write

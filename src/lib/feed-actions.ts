@@ -292,7 +292,7 @@ export async function setHouseFeedStyle(formData: FormData) {
   if (!isFeedStyle(raw)) return;
 
   const me = await requireSession();
-  if (me.role !== 'OWNER' && me.role !== 'MANAGER') return;
+  if (me.role !== 'OWNER' && me.role !== 'SALES_MANAGER') return;
 
   await db.update(t.dealerGroups).set({ feedStyle: raw }).where(eq(t.dealerGroups.id, me.groupId));
   // The person flipping the house default means it for themselves too, and

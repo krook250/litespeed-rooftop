@@ -25,6 +25,9 @@ import {
   usd,
   type DisMode,
 } from '@/lib/domain';
+import { requireSection } from '@/lib/auth-guard';
+import { can } from '@/lib/permissions';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +51,15 @@ function qs(base: SP, patch: Partial<SP>) {
 }
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const me = await requireSection('inventory');
   const sp = await searchParams;
+
+  /*
+   * The at-risk view is its own section. Everyone who can open the inventory
+   * can look a unit up; the aging list is a management screen and is gated
+   * separately — so the guard has to be on the *view*, not just the route.
+   */
+  if (sp.view === 'at-risk' && !can(me.role, 'at-risk')) redirect('/admin/inventory');
   const clock: DisMode = sp.clock === 'frontLine' ? 'frontLine' : 'dateIn';
 
   const [rooftops, all] = await Promise.all([getRooftops(), getLiveInventory()]);
