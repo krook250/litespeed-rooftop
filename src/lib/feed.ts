@@ -638,6 +638,72 @@ export type FeedCard = {
   commentCount: number;
 };
 
+/* ------------------------------------------------------------- roll-ups */
+
+/**
+ * Threshold kinds crossed by several units on the same morning.
+ *
+ * These are the only kinds that arrive in a clump. Every other kind is a
+ * discrete thing somebody did to one unit; `at_risk`, `aged` and `water` are a
+ * sweep noticing that the calendar moved, so five of them land within the same
+ * second and turn the feed into a wall of near-identical cards.
+ */
+const ROLLUP_KINDS: FeedEventKind[] = ['at_risk', 'aged', 'water'];
+
+export type FeedGroup = {
+  /**
+   * The card that owns the conversation.
+   *
+   * The **oldest** member, not the newest, and that is the whole trick: a group
+   * gains members as the morning's sweep runs, so anchoring to the newest would
+   * move the thread out from under anyone who had already commented. The oldest
+   * member of a same-day clump never changes.
+   */
+  anchor: FeedCard;
+  /** Newest first. Length 1 means this is an ordinary card, not a roll-up. */
+  cards: FeedCard[];
+};
+
+/**
+ * Group a same-day clump of threshold events into one card.
+ *
+ * **Read-time only.** Nothing here changes what was emitted or what is stored —
+ * the rows are still one per unit, the log still draws one line each, and a
+ * dealer who switches views sees the same history counted the same way. This
+ * resolves open question 2 in `claude/lot-walk.md`: it was never per-unit
+ * *versus* digest, it was per-unit in the register and digest in the feed.
+ *
+ * Only Lot Walk calls this. A log that collapsed five rows into one would be
+ * hiding entries from a register, which is the one thing a register may not do.
+ */
+export function groupFeed(cards: FeedCard[]): FeedGroup[] {
+  const out: FeedGroup[] = [];
+  const index = new Map<string, FeedGroup>();
+
+  for (const card of cards) {
+    const { kind, createdAt, rooftopId } = card.event;
+    if (!ROLLUP_KINDS.includes(kind)) {
+      out.push({ anchor: card, cards: [card] });
+      continue;
+    }
+    // Same kind, same lot, same calendar day. Two lots crossing 30 days on the
+    // same morning are two different conversations.
+    const key = `${kind}:${rooftopId}:${new Date(createdAt).toDateString()}`;
+    const existing = index.get(key);
+    if (existing) {
+      existing.cards.push(card);
+      // Events arrive newest first, so each new member is older than the last.
+      existing.anchor = card;
+    } else {
+      const group: FeedGroup = { anchor: card, cards: [card] };
+      index.set(key, group);
+      out.push(group);
+    }
+  }
+
+  return out;
+}
+
 /**
  * The feed itself. Scoped by rooftop, newest first. Everything a card needs is
  * fetched in five queries rather than N — a feed that N+1s is a feed that

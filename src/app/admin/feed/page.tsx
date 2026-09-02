@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { AgeBadge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
 import { Avatar, Composer } from '@/components/feed/bits';
-import { FeedPost } from '@/components/feed/card';
+import { FeedPost, FeedRollup } from '@/components/feed/card';
 import { LogRow } from '@/components/feed/log-row';
 import { FeedStyleSwitch } from '@/components/feed/feed-style';
 import { HomePreference } from '@/components/feed/home-preference';
+import { Scoreboard, TodaysBoard } from '@/components/feed/scoreboard';
 import { requireSession } from '@/lib/auth';
 import {
   getGroup,
@@ -12,23 +13,28 @@ import {
   getOpenTransfers,
   getRooftops,
   getSalesSince,
+  getStorefronts,
+  getTrafficByDay,
   resolveFeedStyle,
   sessionScope,
 } from '@/lib/queries';
-import { getFeed, sweepDerivedFeedEvents } from '@/lib/feed';
+import { getFeed, groupFeed, sweepDerivedFeedEvents } from '@/lib/feed';
 import { markTransferArrived } from '@/lib/actions';
 import type { FeedEventKind } from '@/db/schema';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import {
+  TURN_BENCHMARK,
   daysInStock,
+  daysSupply,
   isAtRisk,
   isWaterUnit,
   relativeTime,
   shortRooftopName,
   shortTitle,
   totalCost,
+  turnRate,
   usd,
 } from '@/lib/domain';
 
@@ -55,7 +61,7 @@ const FILTERS: { key: string; label: string; kinds?: FeedEventKind[] }[] = [
     ],
   },
   { key: 'channels', label: 'Channels', kinds: ['sync_error', 'vdp_milestone', 'domain'] },
-  { key: 'people', label: 'People', kinds: ['team', 'note'] },
+  { key: 'people', label: 'People', kinds: ['team', 'note', 'bell'] },
 ];
 
 export default async function LotWalkPage({
@@ -84,21 +90,27 @@ export default async function LotWalkPage({
   const { style, houseStyle, isOverride } = await resolveFeedStyle(me);
   const isLog = style === 'LOG';
 
-  const [group, rooftops, inventory, sales, cards, inTransit] = await Promise.all([
-    getGroup(),
-    getRooftops(),
-    getLiveInventory(),
-    getSalesSince(30),
-    getFeed({
-      rooftopIds: scope.rooftopIds,
-      viewerId: me.id,
-      // A log is scanned, a feed is read. Denser rows earn a longer page.
-      limit: isLog ? 120 : 40,
-      kinds: filter.kinds,
-      withSocial: !isLog,
-    }),
-    getOpenTransfers(scope),
-  ]);
+  const [group, rooftops, inventory, sales, cards, inTransit, storefronts, traffic7] =
+    await Promise.all([
+      getGroup(),
+      getRooftops(),
+      getLiveInventory(),
+      getSalesSince(30),
+      getFeed({
+        rooftopIds: scope.rooftopIds,
+        viewerId: me.id,
+        // A log is scanned, a feed is read. Denser rows earn a longer page.
+        limit: isLog ? 120 : 40,
+        kinds: filter.kinds,
+        withSocial: !isLog,
+      }),
+      getOpenTransfers(scope),
+      getStorefronts(),
+      // Only the scoreboard reads this, and only Lot Walk draws the scoreboard —
+      // but it is one grouped scan of a daily-stats table, so it rides along in
+      // the same Promise.all rather than earning a waterfall for the sake of it.
+      getTrafficByDay(7, { rooftopIds: scope.rooftopIds }),
+    ]);
 
   const staff = await db
     .select({ id: t.users.id, name: t.users.name, role: t.users.role })
@@ -115,6 +127,23 @@ export default async function LotWalkPage({
   const soldToday = sales.filter(
     (s) => new Date(s.soldDate).toDateString() === new Date().toDateString(),
   ).length;
+
+  /* ------------------------------------------------------------ scoreboard */
+  const freshAir = withDays.filter((v) => v.dis < 15).length;
+  const aging46to60 = withDays.filter((v) => v.dis >= 46 && v.dis <= 60).length;
+  const frontLine = withDays.filter((v) => v.status === 'FRONT_LINE_READY').length;
+  const avgDays = withDays.length
+    ? Math.round(withDays.reduce((s, v) => s + v.dis, 0) / withDays.length)
+    : null;
+  /**
+   * Only a custom domain makes a shareable address — see `vdpUrl` in the card.
+   * First storefront wins: a group with several is choosing which brand it
+   * posts under, and that is a setting, not a guess this page should make.
+   */
+  const shareBase = storefronts.find((sf) => sf.domain)?.domain ?? null;
+
+  const vdpViews7 = traffic7.reduce((s, r) => s + r.vdpViews, 0);
+  const leads7 = traffic7.reduce((s, r) => s + r.leads, 0);
 
   return (
     <div className={cn('mx-auto px-4 py-5 lg:px-6', isLog ? 'max-w-[1650px]' : 'max-w-[1400px]')}>
@@ -141,13 +170,37 @@ export default async function LotWalkPage({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          {/* the four numbers the feed is judged against */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Tile label="Sold today" value={String(soldToday)} />
-            <Tile label="Sold 30d" value={String(sales.length)} />
-            <Tile label="Front gross 30d" value={usd(grossMtd)} tone={grossMtd > 0 ? 'good' : undefined} />
-            <Tile label="Money on the ground" value={usd(tiedUp)} />
-          </div>
+          {/*
+            Two different jobs, so two different headers. The log wants the four
+            money figures it has always had — it is a register, and a register
+            is read for what it recorded. Lot Walk wants a scoreboard: how the
+            lot is *doing*, with a benchmark under each number. The money moves
+            to Today's Board in the rail, so nothing is lost either way.
+          */}
+          {isLog ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile label="Sold today" value={String(soldToday)} />
+              <Tile label="Sold 30d" value={String(sales.length)} />
+              <Tile label="Front gross 30d" value={usd(grossMtd)} tone={grossMtd > 0 ? 'good' : undefined} />
+              <Tile label="Money on the ground" value={usd(tiedUp)} />
+            </div>
+          ) : (
+            <Scoreboard
+              liveCount={withDays.length}
+              sold30={sales.length}
+              daysSupply={daysSupply(withDays.length, sales.length, 30)}
+              turnRate={turnRate(sales.length, 30, withDays.length)}
+              turnBenchmark={TURN_BENCHMARK.strong}
+              avgDays={avgDays}
+              freshAir={freshAir}
+              atRisk={atRisk.length}
+              aging46to60={aging46to60}
+              frontLine={frontLine}
+              inRecon={inRecon.length}
+              vdpViews7={vdpViews7}
+              leads7={leads7}
+            />
+          )}
 
           {/* The composer is the social layer, not the record. A log-mode store
               still gets every system event; what it does not get is a box
@@ -203,9 +256,30 @@ export default async function LotWalkPage({
             </Card>
           ) : (
             <div className="space-y-4">
-              {cards.map((card) => (
-                <FeedPost key={card.event.id} card={card} me={me.name} />
-              ))}
+              {/*
+                Grouped only here. The log above draws one row per event on
+                purpose — see `groupFeed`. A group of one renders as an ordinary
+                card, so nothing about a normal day changes.
+              */}
+              {groupFeed(cards).map((g) =>
+                g.cards.length > 1 ? (
+                  <FeedRollup
+                    key={g.anchor.event.id}
+                    group={g}
+                    me={me.name}
+                    dealer={group.name}
+                    shareBase={shareBase ? `https://${shareBase}` : null}
+                  />
+                ) : (
+                  <FeedPost
+                    key={g.anchor.event.id}
+                    card={g.anchor}
+                    me={me.name}
+                    dealer={group.name}
+                    shareBase={shareBase ? `https://${shareBase}` : null}
+                  />
+                ),
+              )}
               <p className="py-2 text-center text-xs text-ink-500">
                 That is the last {cards.length} cards. The feed only shows things that moved money.
               </p>
@@ -215,6 +289,15 @@ export default async function LotWalkPage({
 
         {/* ------------------------------------------------------- right rail */}
         <aside className="hidden space-y-4 lg:block">
+          {isLog ? null : (
+            <TodaysBoard
+              soldToday={soldToday}
+              soldMtd={sales.length}
+              grossMtd={usd(grossMtd)}
+              inventoryValue={usd(tiedUp)}
+            />
+          )}
+
           {/*
             On a truck right now. This is a rail and not a feed card on purpose:
             one move is already two cards (left / arrived) and a third at

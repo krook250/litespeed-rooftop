@@ -134,6 +134,13 @@
       "when": 1788240080451,
       "tag": "0018_normal_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788323767370,
+      "tag": "0019_real_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

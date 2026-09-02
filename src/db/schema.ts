@@ -129,6 +129,15 @@ export const feedStyleEnum = pgEnum('feed_style', ['SOCIAL', 'LOG']);
 export const feedEventKindEnum = pgEnum('feed_event_kind', [
   'acquired', 'recon_in', 'recon_out', 'photos', 'front_line', 'price_change',
   'at_risk', 'aged', 'water', 'vdp_milestone', 'sync_error', 'sold', 'team', 'note',
+  /**
+   * The bell. A human celebration post, drawn loud — see `claude/lot-walk.md`.
+   * Distinct from `sold`, which the system emits off the sale record: `sold` is
+   * what happened, `bell` is somebody choosing to make noise about it. A store
+   * that rings the bell for a first-ever sale, a good month or a hard trade
+   * gets a card for it; the log renders it as one dry line like everything
+   * else, which is exactly right.
+   */
+  'bell',
   /** Website/domain lifecycle: pointed, verifying, live, expiring, failed. */
   'domain',
   /**
@@ -234,8 +243,15 @@ export const dealerGroups = pgTable('dealer_groups', {
    * once at signup and never thinks about it again — but `users.feedStyle`
    * overrides it, because the controller at a twenty-person store should not be
    * forced into the same view as the receptionist.
+   *
+   * **Defaults to LOG as of Sep 2026.** It shipped defaulting to SOCIAL, which
+   * put every new signup on Lot Walk — and most signups are the three-person
+   * lot that finds a reaction bar on an inventory record silly. The log is the
+   * product everyone gets; Lot Walk is sold to the stores with the staff to
+   * enjoy it. Changing the column default does not touch existing rows, which
+   * is correct: a dealership already running Lot Walk chose it.
    */
-  feedStyle: feedStyleEnum().notNull().default('SOCIAL'),
+  feedStyle: feedStyleEnum().notNull().default('LOG'),
   /**
    * This group is ours, not a customer's — the seeded demo lot, or anything
    * else we stand up to show the product.

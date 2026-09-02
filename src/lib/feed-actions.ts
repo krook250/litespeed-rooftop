@@ -10,13 +10,13 @@
  */
 
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireSession } from '@/lib/auth';
 import { assertFeedEventInScope, sessionScope } from '@/lib/queries';
 import { emitFeedEvent } from '@/lib/feed';
-import { isAtRisk, daysInStock, totalCost, usd } from '@/lib/domain';
+import { isAtRisk, daysInStock, shortTitle, totalCost, usd } from '@/lib/domain';
 
 function refreshFeed() {
   revalidatePath('/admin', 'layout');
@@ -111,6 +111,131 @@ export async function postNote(formData: FormData) {
       { k: 'On the lot', v: String(inventory.length) },
       { k: 'At risk', v: String(atRisk), bad: atRisk > 0 },
       { k: 'Tied up', v: usd(tiedUp) },
+    ],
+  });
+
+  refreshFeed();
+}
+
+const LIVE_STATUSES = [
+  'ARRIVED', 'IN_RECON', 'PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE',
+] as const;
+
+/** The live inventory of one rooftop, with a photo count per unit. */
+async function rooftopInventory(rooftopId: string) {
+  const vehicles = await db
+    .select()
+    .from(t.vehicles)
+    .where(and(eq(t.vehicles.rooftopId, rooftopId), inArray(t.vehicles.status, LIVE_STATUSES)));
+  if (!vehicles.length) return [];
+  const photos = await db
+    .select({ vehicleId: t.vehiclePhotos.vehicleId })
+    .from(t.vehiclePhotos)
+    .where(inArray(t.vehiclePhotos.vehicleId, vehicles.map((v) => v.id)));
+  const counts = new Map<string, number>();
+  for (const p of photos) counts.set(p.vehicleId, (counts.get(p.vehicleId) ?? 0) + 1);
+  return vehicles.map((v) => ({ ...v, photoCount: counts.get(v.id) ?? 0 }));
+}
+
+/** Resolve the posting rooftop, refusing anything outside the caller's scope. */
+async function postTarget(formData: FormData) {
+  const scope = await sessionScope();
+  const asked = String(formData.get('rooftopId') ?? '');
+  return scope.rooftopIds.includes(asked) ? asked : (scope.rooftopIds[0] ?? null);
+}
+
+/**
+ * Ring the bell.
+ *
+ * This is the morale button, and it is deliberately **not** the `sold` event.
+ * `sold` is emitted off the sale record — it is what happened. `bell` is a
+ * person deciding the room should hear about it, which is a different fact and
+ * worth its own row: a store rings the bell for a first sale, a good month, a
+ * hard trade finally gone. Emitting both means the register stays honest and
+ * the feed still gets to cheer.
+ *
+ * It carries the month's numbers rather than the unit's, because what a bell
+ * is actually saying is "look where we are", and section 2's rule still
+ * applies — a card with no figure on it is a status update, and status updates
+ * are what killed Chatter.
+ */
+export async function ringTheBell(formData: FormData) {
+  const me = await requireSession();
+  const target = await postTarget(formData);
+  if (!target) return;
+
+  const body = String(formData.get('body') ?? '').trim();
+  const [firstLine, ...rest] = body.split('\n');
+
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [monthSales, inventory] = await Promise.all([
+    db
+      .select()
+      .from(t.sales)
+      .where(and(eq(t.sales.rooftopId, target), gte(t.sales.soldDate, monthStart))),
+    rooftopInventory(target),
+  ]);
+
+  const grossMtd = monthSales.reduce((sum, x) => sum + x.frontGross, 0);
+
+  await emitFeedEvent({
+    rooftopId: target,
+    kind: 'bell',
+    actorId: me.id,
+    title: (firstLine || 'Rang the bell').slice(0, 200),
+    body: rest.join('\n').trim(),
+    stats: [
+      { k: 'Sold MTD', v: String(monthSales.length) },
+      { k: 'Front gross MTD', v: usd(grossMtd), good: grossMtd > 0 },
+      { k: 'On the lot', v: String(inventory.length) },
+    ],
+  });
+
+  refreshFeed();
+}
+
+/**
+ * "Request photos."
+ *
+ * A real post with a real list, not a nag. A unit under the threshold is not
+ * merchandised — it is the single cheapest thing anyone on the lot can fix
+ * this afternoon — so the card names the count and the worst offenders rather
+ * than asking people to go hunting.
+ *
+ * Posts nothing when every unit is covered. A button that always fires is a
+ * button people learn to ignore.
+ */
+const PHOTO_TARGET = 6;
+
+export async function requestPhotos(formData: FormData) {
+  const me = await requireSession();
+  const target = await postTarget(formData);
+  if (!target) return;
+
+  const inventory = await rooftopInventory(target);
+  const short = inventory
+    .filter((v) => v.photoCount < PHOTO_TARGET)
+    .sort((a, b) => a.photoCount - b.photoCount);
+  if (!short.length) return;
+
+  const worst = short
+    .slice(0, 5)
+    .map((v) => `${shortTitle(v)} — ${v.photoCount === 0 ? 'no photos' : `${v.photoCount} up`}`)
+    .join('\n');
+
+  await emitFeedEvent({
+    rooftopId: target,
+    kind: 'note',
+    actorId: me.id,
+    title: `Photos needed on ${short.length} unit${short.length === 1 ? '' : 's'}`,
+    body: `Under ${PHOTO_TARGET} photos, so they are not merchandised anywhere yet.\n${worst}`,
+    stats: [
+      { k: 'Short on photos', v: String(short.length), bad: true },
+      { k: 'No photos at all', v: String(short.filter((v) => v.photoCount === 0).length) },
+      { k: 'On the lot', v: String(inventory.length) },
     ],
   });
 

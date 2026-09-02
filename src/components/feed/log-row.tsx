@@ -40,6 +40,8 @@ const GLYPH: Record<FeedEventKind, { mark: string; tone: string; label: string }
   sold:             { mark: '★',  tone: 'text-emerald-700',  label: 'Sold' },
   team:             { mark: '·',  tone: 'text-violet-700',   label: 'Team' },
   note:             { mark: '·',  tone: 'text-ink-600',      label: 'Note' },
+  // Loud on Lot Walk, one line here. A register does not cheer.
+  bell:             { mark: '★',  tone: 'text-amber-600',    label: 'Bell' },
   domain:           { mark: '@',  tone: 'text-blue-700',     label: 'Website' },
   transfer_out:     { mark: '⇢',  tone: 'text-violet-700',   label: 'Transfer' },
   transfer_inbound: { mark: '⇠',  tone: 'text-violet-700',   label: 'Inbound' },

@@ -597,8 +597,10 @@ describe('lot transfers', () => {
 describe('feed style — house default with a personal override', () => {
   it('a user who has never chosen inherits the dealership', async () => {
     const r = await resolveFeedStyle({ groupId: A.groupId, feedStyle: null });
-    assert.equal(r.style, 'SOCIAL', 'SOCIAL is the default bet');
-    assert.equal(r.houseStyle, 'SOCIAL');
+    // LOG since Sep 2026. Most signups are the three-person lot that finds a
+    // reaction bar on an inventory record silly; Lot Walk is sold, not defaulted.
+    assert.equal(r.style, 'LOG', 'LOG is the default bet');
+    assert.equal(r.houseStyle, 'LOG');
     assert.equal(r.isOverride, false);
   });
 
@@ -628,19 +630,20 @@ describe('feed style — house default with a personal override', () => {
 
     await db
       .update(t.dealerGroups)
-      .set({ feedStyle: 'SOCIAL' })
+      .set({ feedStyle: 'LOG' })
       .where(eq(t.dealerGroups.id, A.groupId));
   });
 
   it('style is per tenant — one dealership’s choice does not reach another', async () => {
-    await db
-      .update(t.dealerGroups)
-      .set({ feedStyle: 'LOG' })
-      .where(eq(t.dealerGroups.id, A.groupId));
-    assert.equal((await resolveFeedStyle({ groupId: B.groupId, feedStyle: null })).style, 'SOCIAL');
+    // A moves off the default; B must not follow it.
     await db
       .update(t.dealerGroups)
       .set({ feedStyle: 'SOCIAL' })
+      .where(eq(t.dealerGroups.id, A.groupId));
+    assert.equal((await resolveFeedStyle({ groupId: B.groupId, feedStyle: null })).style, 'LOG');
+    await db
+      .update(t.dealerGroups)
+      .set({ feedStyle: 'LOG' })
       .where(eq(t.dealerGroups.id, A.groupId));
   });
 
