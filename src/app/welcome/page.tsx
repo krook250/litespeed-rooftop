@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { MetaPixel } from '@/components/meta-pixel';
+import { GoogleAnalytics } from '@/components/ga';
 import { WelcomeHandoff } from './handoff';
 
 /*
@@ -30,6 +31,7 @@ export default async function WelcomePage() {
   return (
     <>
       <MetaPixel event="CompleteRegistration" />
+      <GoogleAnalytics event="sign_up" />
       <WelcomeHandoff />
       <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-sm text-neutral-400">
         Setting up your dealership…

@@ -4,6 +4,7 @@ import { auth, getSessionUser } from '@/lib/auth';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
 import { MetaPixel } from '@/components/meta-pixel';
+import { GoogleAnalytics } from '@/components/ga';
 
 // Installable from the sign-in screen too — otherwise a dealer who adds the
 // app before signing in bookmarks /login instead of the app.
@@ -66,6 +67,7 @@ export default async function SignupPage({
   return (
     <>
     <MetaPixel />
+    <GoogleAnalytics />
     <AuthShell
       title="Start a dealership"
       subtitle="Creates your group, first rooftop and storefront. Takes about ten seconds."
