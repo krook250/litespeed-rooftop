@@ -170,6 +170,24 @@ section[id],header[id]{scroll-margin-top:72px}
 .vbox.us h4{color:var(--brand-lt)}
 .vbox ul{margin:13px 0 0;padding-left:19px;color:#c3c9d3;font-size:15px;line-height:1.8}
 .vbox.us ul{color:#e6ebf1}
+.cmp{margin-top:34px;max-width:880px;border:1px solid rgba(255,255,255,.13);border-radius:14px;overflow:hidden}
+.cmp table{width:100%;border-collapse:collapse}
+.cmp th,.cmp td{padding:13px 16px;text-align:left;font-size:15px;border-bottom:1px solid rgba(255,255,255,.09)}
+.cmp thead th{font-family:var(--fh);font-size:11px;letter-spacing:1.6px;text-transform:uppercase;
+  color:#9aa4b1;font-weight:800;background:rgba(255,255,255,.05)}
+.cmp thead th.us{color:var(--brand-lt)}
+.cmp th.c,.cmp td.c{width:132px;text-align:center}
+.cmp td{color:#c3c9d3}
+.cmp td.f{color:#e6ebf1}
+.cmp tr.grp td{background:rgba(255,255,255,.05);font-family:var(--fh);font-size:11px;letter-spacing:1.6px;
+  text-transform:uppercase;color:#9aa4b1;font-weight:800}
+.cmp .us-col{background:rgba(61,139,255,.09)}
+.cmp .yes{color:var(--brand-lt);font-weight:800;font-size:17px}
+.cmp .no{color:#59636f;font-weight:700}
+.cmp tbody tr:last-child td{border-bottom:0}
+.cmp-note{margin-top:16px;font-size:14px;color:#9aa4b1}
+@media(max-width:640px){.cmp th,.cmp td{padding:10px 9px;font-size:13px}.cmp th.c,.cmp td.c{width:46px}
+  .cmp thead th{font-size:10px;letter-spacing:1px}.cmp tr.grp td{font-size:10px}}
 
 /* timing table */
 .timing{margin-top:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
@@ -452,36 +470,38 @@ fill="#3D8BFF" stroke="none">
 
 <!-- ======================= the angle ======================= -->
 <section class="wash"><div class="wrap"><div class="pband">
-  <div class="eyebrow on-dark">Read this part first</div>
-  <h2 style="margin-top:14px">Inventory management is the easy part.</h2>
-  <p class="lede">Every platform in this category is organized around the filing cabinet. Get the
-    cars in, keep the fields tidy, push a list out the door. That is a spreadsheet with a login, and
-    it is the part of your business that was never actually hard.</p>
-  <p class="lede">A car parked on your lot does not earn anything until somebody sees it. So Rooftop
-    is organized around that instead — the shortest path between <b>you took the car in</b> and
-    <b>the car is in an ad somebody is looking at tonight</b>. All the inventory tools everyone else
-    has, sitting on top of a marketing engine instead of a filing system.</p>
+  <div class="eyebrow on-dark">Rooftop vs. inventory software</div>
+  <h2 style="margin-top:14px;max-width:28ch">Everything they do. Plus the part that sells the car.</h2>
+  <p class="lede">Nobody has to talk you out of your current software. Rooftop does all of it &mdash;
+    and then keeps going into the half of the job that ends at &ldquo;the feed went out.&rdquo;</p>
 
-  <div class="vs">
-    <div class="vbox">
-      <h4>Inventory software asks</h4>
-      <ul>
-        <li>Is every field filled in?</li>
-        <li>Did the feed go out?</li>
-        <li>How many units are in stock?</li>
-        <li>Did we send it to the channel?</li>
-      </ul>
-    </div>
-    <div class="vbox us">
-      <h4>Rooftop asks</h4>
-      <ul>
-        <li>Is this car in a live ad right now?</li>
-        <li>Did the catalog pick up the new price?</li>
-        <li>Which channel is producing the views?</li>
-        <li>What is this unit costing you per day it sits?</li>
-      </ul>
-    </div>
+  <div class="cmp">
+    <table>
+      <thead><tr>
+        <th>&nbsp;</th>
+        <th class="c">Inventory<br>software</th>
+        <th class="c us us-col">Rooftop</th>
+      </tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">The stuff you already expect</td></tr>
+        <tr><td class="f">Unit intake, VIN decode, photos</td><td class="c no">&#10003;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Cost, pack, recon and gross</td><td class="c no">&#10003;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Aging and days-on-lot</td><td class="c no">&#10003;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Feeds to Cars.com, Autotrader, CarGurus</td><td class="c no">&#10003;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">More than one rooftop</td><td class="c no">&#10003;</td><td class="c yes us-col">&#10003;</td></tr>
+
+        <tr class="grp"><td colspan="3">Where it stops being a filing cabinet</td></tr>
+        <tr><td class="f">Your website, on your domain, included</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Meta catalog kept live automatically</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Marketplace posting, no copy-paste</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">A price cut reaches every ad today</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">Which channel produced the views</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+        <tr><td class="f">What a unit costs per day it sits</td><td class="c no">&mdash;</td><td class="c yes us-col">&#10003;</td></tr>
+      </tbody>
+    </table>
   </div>
+
+  <p class="cmp-note">A car on your lot earns nothing until somebody sees it. That is the half we built for.</p>
 </div></div></section>
 
 <!-- ======================= problem ======================= -->
