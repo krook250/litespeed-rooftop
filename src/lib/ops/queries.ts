@@ -1,5 +1,5 @@
 import 'server-only';
-import { asc, desc, eq, notExists, sql } from 'drizzle-orm';
+import { asc, count, desc, eq, notExists, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireStaff } from './guard';
@@ -285,3 +285,167 @@ export async function opsAccounts(): Promise<OpsAccount[]> {
 
   return rows.map((r) => ({ ...r, storefronts: byGroup.get(r.id) ?? [] }));
 }
+
+/* ------------------------------------------------------- one account, in full */
+
+/**
+ * Everything we hold about one dealer group, for the operator detail screen.
+ *
+ * WHAT IS NOT HERE, AND WHY: **payments.** There is no payment processor wired
+ * in — `dealer_groups.plan` is set by a human pressing "Mark paid", so
+ * `activatedAt` is the date somebody said they had paid, not a receipt. The page
+ * says exactly that rather than rendering a Payments panel that would be read as
+ * a ledger. When Authorize.net lands (`claude/billing-and-domain-economics.md`)
+ * this is where the real history hangs.
+ *
+ * Twilio numbers and ad-desk spend are the other two panels David wants and
+ * neither has a source yet.
+ *
+ * Everything below is scoped by `groupId`, not by `Scope` — this is the
+ * sanctioned cross-tenant module and `requireStaff()` is the gate.
+ */
+export async function opsAccountDetail(groupId: string) {
+  await requireStaff();
+
+  const [group] = await db
+    .select()
+    .from(t.dealerGroups)
+    .where(eq(t.dealerGroups.id, groupId))
+    .limit(1);
+  if (!group) return null;
+
+  const [people, tops, fronts, orders, byStatus, perRooftop, saleRows, leadRows] =
+    await Promise.all([
+      db
+        .select({
+          id: t.users.id,
+          name: t.users.name,
+          email: t.users.email,
+          role: t.users.role,
+          emailVerified: t.users.emailVerified,
+          createdAt: t.users.createdAt,
+        })
+        .from(t.users)
+        .where(eq(t.users.groupId, groupId))
+        .orderBy(asc(t.users.createdAt)),
+
+      db
+        .select({
+          id: t.rooftops.id,
+          name: t.rooftops.name,
+          slug: t.rooftops.slug,
+          addressLine1: t.rooftops.addressLine1,
+          city: t.rooftops.city,
+          state: t.rooftops.state,
+          postalCode: t.rooftops.postalCode,
+          phone: t.rooftops.phone,
+          email: t.rooftops.email,
+          latitude: t.rooftops.latitude,
+          longitude: t.rooftops.longitude,
+          isActive: t.rooftops.isActive,
+          createdAt: t.rooftops.createdAt,
+        })
+        .from(t.rooftops)
+        .where(eq(t.rooftops.groupId, groupId))
+        .orderBy(asc(t.rooftops.name)),
+
+      db
+        .select({
+          id: t.storefronts.id,
+          name: t.storefronts.name,
+          slug: t.storefronts.slug,
+          domain: t.storefronts.domain,
+          domainSource: t.storefronts.domainSource,
+          domainStatus: t.storefronts.domainStatus,
+          domainError: t.storefronts.domainError,
+        })
+        .from(t.storefronts)
+        .where(eq(t.storefronts.groupId, groupId))
+        .orderBy(asc(t.storefronts.name)),
+
+      db
+        .select({
+          id: t.domainOrders.id,
+          domain: t.domainOrders.domain,
+          status: t.domainOrders.status,
+          priceUsd: t.domainOrders.priceUsd,
+          renewalPriceUsd: t.domainOrders.renewalPriceUsd,
+          years: t.domainOrders.years,
+          autoRenew: t.domainOrders.autoRenew,
+          error: t.domainOrders.error,
+          createdAt: t.domainOrders.createdAt,
+          completedAt: t.domainOrders.completedAt,
+          orderedByEmail: t.users.email,
+        })
+        .from(t.domainOrders)
+        .leftJoin(t.users, eq(t.users.id, t.domainOrders.orderedBy))
+        .where(eq(t.domainOrders.groupId, groupId))
+        .orderBy(desc(t.domainOrders.createdAt)),
+
+      /* Units by status across every rooftop in the group. "Total ever" is the
+         sum of these — a vehicle is never deleted when it sells, it moves to
+         SOLD, which is what makes the lifetime number knowable at all. */
+      db
+        .select({ status: t.vehicles.status, n: count() })
+        .from(t.vehicles)
+        .innerJoin(t.rooftops, eq(t.rooftops.id, t.vehicles.rooftopId))
+        .where(eq(t.rooftops.groupId, groupId))
+        .groupBy(t.vehicles.status),
+
+      db
+        .select({ rooftopId: t.vehicles.rooftopId, n: count() })
+        .from(t.vehicles)
+        .innerJoin(t.rooftops, eq(t.rooftops.id, t.vehicles.rooftopId))
+        .where(eq(t.rooftops.groupId, groupId))
+        .groupBy(t.vehicles.rooftopId),
+
+      /* Aggregates are written with literal, qualified column names on purpose.
+         Interpolating a drizzle column into a `sql` fragment drops the table
+         prefix — that is what 500'd this whole surface, see
+         `claude/ops-surface.md`. Two joined tables here, so it matters. */
+      db
+        .select({
+          n: count(),
+          gross: sql<number>`coalesce(sum("sales"."frontGross"), 0)::int`,
+          revenue: sql<number>`coalesce(sum("sales"."soldPrice"), 0)::int`,
+          avgDays: sql<number>`coalesce(round(avg("sales"."daysToSell")), 0)::int`,
+          lastSold: sql<Date | null>`max("sales"."soldDate")`,
+        })
+        .from(t.sales)
+        .innerJoin(t.rooftops, eq(t.rooftops.id, t.sales.rooftopId))
+        .where(eq(t.rooftops.groupId, groupId)),
+
+      db
+        .select({ n: count(), last: sql<Date | null>`max("leads"."createdAt")` })
+        .from(t.leads)
+        .innerJoin(t.rooftops, eq(t.rooftops.id, t.leads.rooftopId))
+        .where(eq(t.rooftops.groupId, groupId)),
+    ]);
+
+  const counts = new Map(byStatus.map((r) => [r.status, r.n]));
+  const unitsBy = new Map(perRooftop.map((r) => [r.rooftopId, r.n]));
+  const pick = (...keys: string[]) => keys.reduce((sum, k) => sum + (counts.get(k as never) ?? 0), 0);
+
+  return {
+    group,
+    people,
+    rooftops: tops.map((r) => ({ ...r, units: unitsBy.get(r.id) ?? 0 })),
+    storefronts: fronts,
+    domainOrders: orders,
+    inventory: {
+      /** Every vehicle ever entered, sold ones included. */
+      ever: byStatus.reduce((sum, r) => sum + r.n, 0),
+      /** On the ground: anything not yet gone. */
+      active: pick('ARRIVED', 'IN_RECON', 'PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'),
+      /** Public on the storefront right now — the same three statuses the SRP shows. */
+      retailReady: pick('PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'),
+      sold: pick('SOLD'),
+      wholesaled: pick('WHOLESALED'),
+      byStatus,
+    },
+    sales: saleRows[0] ?? { n: 0, gross: 0, revenue: 0, avgDays: 0, lastSold: null },
+    leads: leadRows[0] ?? { n: 0, last: null },
+  };
+}
+
+export type OpsAccountDetail = NonNullable<Awaited<ReturnType<typeof opsAccountDetail>>>;

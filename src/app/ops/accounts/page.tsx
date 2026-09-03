@@ -10,6 +10,7 @@
  * button is the payment gate until Authorize.net lands.
  */
 
+import Link from 'next/link';
 import { requireStaff } from '@/lib/ops/guard';
 import { opsAccounts, type OpsAccount } from '@/lib/ops/queries';
 import { setGroupPlan } from '@/lib/ops/actions';
@@ -47,7 +48,14 @@ function Row({ a, now }: { a: OpsAccount; now: Date }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink-100 px-5 py-4 first:border-t-0">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-sm font-semibold text-ink-900">{a.name}</span>
+          {/* The name is the way in — the detail screen is where an operator
+              answers anything more specific than "are they paying". */}
+          <Link
+            href={`/ops/accounts/${a.id}`}
+            className="text-sm font-semibold text-ink-900 underline decoration-ink-300 underline-offset-2 hover:decoration-ink-900"
+          >
+            {a.name}
+          </Link>
           <PlanBadge a={a} now={now} />
           {a.isDemo ? (
             <span title="Our own lot — held out of every outbound marketplace file.">
