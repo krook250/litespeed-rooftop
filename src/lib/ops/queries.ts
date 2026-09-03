@@ -199,13 +199,25 @@ export async function opsAccounts(): Promise<OpsAccount[]> {
        * other and silently inflates both — the classic fan-out. At this row count
        * the cost is irrelevant and the correctness is not.
        */
+      /*
+       * COLUMNS ARE WRITTEN OUT, NOT INTERPOLATED, AND THAT IS THE FIX.
+       * Interpolating a column into a `sql` fragment (`${t.rooftops.id}`) emits
+       * the bare name — `"id"` — with no table qualifier, because drizzle only
+       * qualifies inside a builder context it owns. Three tables in one
+       * subquery then all contribute an `id` and a `groupId`, and Postgres
+       * refused the whole statement with 42702 `column reference "id" is
+       * ambiguous`. This page 500'd from the day it shipped until 3 Sep 2026.
+       * Table names still come from `t.*`; the aliases and column names are
+       * literal so the qualification is ours and cannot be dropped.
+       */
       vehicles: sql<number>`(
-        select count(*)::int from ${t.vehicles}
-        join ${t.rooftops} on ${t.rooftops.id} = ${t.vehicles.rooftopId}
-        where ${t.rooftops.groupId} = ${t.dealerGroups.id}
+        select count(*)::int
+        from ${t.vehicles} v
+        join ${t.rooftops} r on r."id" = v."rooftopId"
+        where r."groupId" = ${t.dealerGroups}."id"
       )`,
       users: sql<number>`(
-        select count(*)::int from ${t.users} where ${t.users.groupId} = ${t.dealerGroups.id}
+        select count(*)::int from ${t.users} u where u."groupId" = ${t.dealerGroups}."id"
       )`,
     })
     .from(t.dealerGroups)

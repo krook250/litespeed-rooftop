@@ -89,25 +89,7 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
         <span>live {relativeTime(c.liveAt, now)}</span>
       </div>
 
-      {/* ------------------------------------------------------- our fields */}
-      <form action={saveOpsFields} className="mt-3 flex flex-wrap items-center gap-2">
-        <input type="hidden" name="connectionId" value={c.connectionId} />
-        <input
-          name="providerDealerId"
-          defaultValue={c.providerDealerId ?? ''}
-          placeholder="provider dealer id (blank = our rooftop id)"
-          className="w-64 rounded border border-ink-300 px-2 py-1 text-xs"
-        />
-        <input
-          name="internalNote"
-          defaultValue={c.internalNote}
-          placeholder="internal note — incumbent feed, rep name"
-          className="min-w-[18rem] flex-1 rounded border border-ink-300 px-2 py-1 text-xs"
-        />
-        <Button type="submit" variant="secondary" size="sm">Save</Button>
-      </form>
-
-      {/* ---------------------------------------------------- transitions */}
+      {/* ------------------------------------------------- what to do next */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {c.status === 'AWAITING_DEALER' && c.dealerConfirmedAt ? (
           <form action={markSubmitted}>
@@ -120,18 +102,6 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
           <form action={markLive}>
             <input type="hidden" name="connectionId" value={c.connectionId} />
             <Button type="submit" size="sm">Mark live</Button>
-          </form>
-        ) : null}
-
-        {c.status !== 'ERROR' && c.status !== 'PENDING_SETUP' ? (
-          <form action={markError} className="flex items-center gap-2">
-            <input type="hidden" name="connectionId" value={c.connectionId} />
-            <input
-              name="errorMessage"
-              placeholder="what the dealer should be told"
-              className="w-72 rounded border border-ink-300 px-2 py-1 text-xs"
-            />
-            <Button type="submit" variant="secondary" size="sm">Flag error</Button>
           </form>
         ) : null}
 
@@ -151,6 +121,50 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
           Dealer&rsquo;s view &rarr;
         </Link>
       </div>
+
+      {/*
+       * Setup fields and the error flag, folded away.
+       *
+       * The provider dealer id and the internal note get set once while a
+       * connection is being stood up and then never again, and flagging an error
+       * is rare by definition. Open on every row they were three input boxes per
+       * connection, which at 27 connections is most of the page — and they buried
+       * the two or three rows that actually wanted a decision.
+       */}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-xs text-ink-500 hover:text-ink-800">
+          Edit fields
+        </summary>
+
+        <form action={saveOpsFields} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="connectionId" value={c.connectionId} />
+          <input
+            name="providerDealerId"
+            defaultValue={c.providerDealerId ?? ''}
+            placeholder="provider dealer id (blank = our rooftop id)"
+            className="w-64 rounded border border-ink-300 px-2 py-1 text-xs"
+          />
+          <input
+            name="internalNote"
+            defaultValue={c.internalNote}
+            placeholder="internal note — incumbent feed, rep name"
+            className="min-w-[18rem] flex-1 rounded border border-ink-300 px-2 py-1 text-xs"
+          />
+          <Button type="submit" variant="secondary" size="sm">Save</Button>
+        </form>
+
+        {c.status !== 'ERROR' && c.status !== 'PENDING_SETUP' ? (
+          <form action={markError} className="mt-2 flex items-center gap-2">
+            <input type="hidden" name="connectionId" value={c.connectionId} />
+            <input
+              name="errorMessage"
+              placeholder="what the dealer should be told"
+              className="w-72 rounded border border-ink-300 px-2 py-1 text-xs"
+            />
+            <Button type="submit" variant="secondary" size="sm">Flag error</Button>
+          </form>
+        ) : null}
+      </details>
     </div>
   );
 }
@@ -161,22 +175,56 @@ function Bucket({
   rows,
   now,
   tone,
+  collapsed,
 }: {
   title: string;
   subtitle: string;
   rows: OpsConnection[];
   now: Date;
   tone?: string;
+  /**
+   * Render closed, as a disclosure.
+   *
+   * For the buckets nobody has to act on. "Live" and "Not started" answer the
+   * question "is everything else still fine", which is worth asking occasionally
+   * and is not worth the whole viewport — between them they were 26 of 27 rows
+   * on a page that exists to surface the one that needs a decision. Count and
+   * subtitle stay on the summary line, so the reassurance survives the fold.
+   */
+  collapsed?: boolean;
 }) {
   if (rows.length === 0) return null;
+
+  const body = (
+    <div>
+      {rows.map((c) => (
+        <Row key={c.connectionId} c={c} now={now} />
+      ))}
+    </div>
+  );
+
+  if (collapsed) {
+    return (
+      <Card className={`mb-5 ${tone ?? ''}`}>
+        <details className="group">
+          <summary className="flex cursor-pointer list-none flex-wrap items-baseline gap-x-2 px-5 py-3.5 hover:bg-ink-50">
+            <span className="text-sm font-semibold text-ink-900">
+              {title} ({rows.length})
+            </span>
+            <span className="text-xs text-ink-500">{subtitle}</span>
+            <span className="ml-auto text-xs text-ink-400 group-open:hidden">show</span>
+            <span className="ml-auto hidden text-xs text-ink-400 group-open:inline">hide</span>
+          </summary>
+          <div className="border-t border-ink-100">{body}</div>
+        </details>
+      </Card>
+    );
+  }
+
   return (
     <Card className={`mb-5 ${tone ?? ''}`}>
       <CardHeader title={`${title} (${rows.length})`} subtitle={subtitle} />
-      <div>
-        {rows.map((c) => (
-          <Row key={c.connectionId} c={c} now={now} />
-        ))}
-      </div>
+      {body}
     </Card>
   );
 }
@@ -372,8 +420,27 @@ async function FeedUploads() {
   );
 }
 
-export default async function OpsPage() {
-  const all = await opsConnections();
+/*
+ * DEMO CONNECTIONS ARE HIDDEN BY DEFAULT.
+ *
+ * Rooftop Demo Motors is our own sales-demo lot. It is already held out of every
+ * outbound marketplace file, so nothing on this page is ever a real job — but at
+ * 15 of 27 connections it was the majority of the queue, and a queue that is
+ * mostly furniture stops being read. `?demo=1` brings it back, because "did the
+ * demo lot's Meta catalog actually go live" is still a question worth being able
+ * to answer.
+ */
+export default async function OpsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo?: string }>;
+}) {
+  const { demo } = await searchParams;
+  const showDemo = demo === '1';
+
+  const everything = await opsConnections();
+  const demoCount = everything.filter((c) => c.isDemo).length;
+  const all = showDemo ? everything : everything.filter((c) => !c.isDemo);
   const now = new Date();
 
   const readyToSubmit = all.filter(
@@ -391,7 +458,21 @@ export default async function OpsPage() {
     <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="mb-1 text-xl font-semibold text-ink-900">Onboarding queue</h1>
       <p className="mb-6 text-sm text-ink-500">
-        {all.length} connections across every dealer group. Ordered by whose move it is.
+        {all.length} connection{all.length === 1 ? '' : 's'} across every
+        {showDemo ? '' : ' real'} dealer group. Ordered by whose move it is.
+        {demoCount > 0 ? (
+          <>
+            {' · '}
+            <Link
+              href={showDemo ? '/ops' : '/ops?demo=1'}
+              className="underline hover:text-ink-800"
+            >
+              {showDemo
+                ? `hide the ${demoCount} demo connections`
+                : `show ${demoCount} demo connection${demoCount === 1 ? '' : 's'}`}
+            </Link>
+          </>
+        ) : null}
       </p>
 
       <FeedUploads />
@@ -432,12 +513,13 @@ export default async function OpsPage() {
         rows={waitingOnChannel}
         now={now}
       />
-      <Bucket title="Live" subtitle="Carrying inventory." rows={live} now={now} />
+      <Bucket title="Live" subtitle="Carrying inventory." rows={live} now={now} collapsed />
       <Bucket
         title="Not started"
         subtitle="The dealer has not asked for these."
         rows={idle}
         now={now}
+        collapsed
       />
     </div>
   );
