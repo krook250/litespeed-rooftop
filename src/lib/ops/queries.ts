@@ -178,6 +178,14 @@ export type OpsAccount = {
   isDemo: boolean;
   vehicles: number;
   users: number;
+  /**
+   * Every storefront this group owns, so the screen can link the real one.
+   *
+   * `slug` above is the GROUP slug and `/s/[slug]` resolves `storefronts.slug` —
+   * different columns, different values. Naming this field for the thing it
+   * actually is stops the next person reaching for `a.slug` again.
+   */
+  storefronts: { slug: string; domain: string | null; name: string }[];
 };
 
 export async function opsAccounts(): Promise<OpsAccount[]> {
@@ -223,5 +231,35 @@ export async function opsAccounts(): Promise<OpsAccount[]> {
     .from(t.dealerGroups)
     .orderBy(sql`${t.dealerGroups.trialEndsAt} asc nulls last`, desc(t.dealerGroups.createdAt));
 
-  return rows;
+  /*
+   * Storefronts, attached rather than joined.
+   *
+   * A group can own more than one — the demo group owns two — so a join here
+   * would duplicate every account row per storefront, and picking "the first
+   * one" would silently hide the others.
+   *
+   * This exists because the link on that screen used to be `/s/{group.slug}`,
+   * and a storefront is resolved by `storefronts.slug`, which is a different
+   * column with a different value: the group `malabar-truck-and-trade` owns the
+   * storefront `malabar-truck-and-trade-store`. Every one of those links 404'd,
+   * which read as "the storefronts are down" rather than "that link is wrong".
+   */
+  const fronts = await db
+    .select({
+      groupId: t.storefronts.groupId,
+      slug: t.storefronts.slug,
+      domain: t.storefronts.domain,
+      name: t.storefronts.name,
+    })
+    .from(t.storefronts)
+    .orderBy(asc(t.storefronts.name));
+
+  const byGroup = new Map<string, typeof fronts>();
+  for (const f of fronts) {
+    const list = byGroup.get(f.groupId) ?? [];
+    list.push(f);
+    byGroup.set(f.groupId, list);
+  }
+
+  return rows.map((r) => ({ ...r, storefronts: byGroup.get(r.id) ?? [] }));
 }

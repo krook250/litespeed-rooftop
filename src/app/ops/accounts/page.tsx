@@ -10,7 +10,6 @@
  * button is the payment gate until Authorize.net lands.
  */
 
-import Link from 'next/link';
 import { requireStaff } from '@/lib/ops/guard';
 import { opsAccounts, type OpsAccount } from '@/lib/ops/queries';
 import { setGroupPlan } from '@/lib/ops/actions';
@@ -63,13 +62,31 @@ function Row({ a, now }: { a: OpsAccount; now: Date }) {
         </p>
       </div>
 
-      <Link
-        href={`/s/${a.slug}`}
-        className="text-xs text-ink-500 underline hover:text-ink-800"
-        prefetch={false}
-      >
-        storefront
-      </Link>
+      {/*
+        * One link per storefront, keyed on `storefronts.slug` — NOT the group
+        * slug this row is named after. The two differ by construction (group
+        * `malabar-truck-and-trade` owns storefront
+        * `malabar-truck-and-trade-store`), so the old `/s/${a.slug}` link 404'd
+        * on every account and looked exactly like the storefronts being down.
+        *
+        * A storefront on its own domain is linked there, because that is the
+        * address a dealer's shopper actually gets and the one worth eyeballing.
+        */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {a.storefronts.length === 0 ? (
+          <span className="text-xs text-ink-400">no storefront</span>
+        ) : (
+          a.storefronts.map((sf) => (
+            <a
+              key={sf.slug}
+              href={sf.domain ? `https://${sf.domain}` : `/s/${sf.slug}`}
+              className="text-xs text-ink-500 underline hover:text-ink-800"
+            >
+              {a.storefronts.length === 1 ? 'storefront' : sf.name}
+            </a>
+          ))
+        )}
+      </div>
 
       {/*
         * Two separate one-button forms rather than a select. The destructive
