@@ -150,3 +150,66 @@ export async function opsFeedUploads(limit = 12) {
     .orderBy(desc(t.feedUploads.startedAt))
     .limit(limit);
 }
+
+/* ------------------------------------------------------------- accounts */
+
+/**
+ * Every dealer group and where it sits commercially.
+ *
+ * The trial queue. Cross-tenant by design, so it calls `requireStaff()` first
+ * like every other export here — the page guard is not the guard, because a
+ * query module is importable from anywhere. Deliberately does NOT take a
+ * `Scope`: `Scope` exists to make cross-tenant reads impossible by accident, and
+ * this read is on purpose, which is exactly the distinction `guard.ts` documents.
+ *
+ * Ordered by trial deadline soonest first, nulls last, so the group about to run
+ * out is the one at the top of the screen. Groups with no clock — ACTIVE, or the
+ * pre-launch rows the 0022 migration marked ACTIVE — sort to the bottom, which
+ * is where an account that needs nothing belongs.
+ */
+export type OpsAccount = {
+  id: string;
+  name: string;
+  slug: string;
+  plan: (typeof t.dealerGroups.plan.enumValues)[number];
+  trialEndsAt: Date | null;
+  activatedAt: Date | null;
+  createdAt: Date;
+  isDemo: boolean;
+  vehicles: number;
+  users: number;
+};
+
+export async function opsAccounts(): Promise<OpsAccount[]> {
+  await requireStaff();
+
+  const rows = await db
+    .select({
+      id: t.dealerGroups.id,
+      name: t.dealerGroups.name,
+      slug: t.dealerGroups.slug,
+      plan: t.dealerGroups.plan,
+      trialEndsAt: t.dealerGroups.trialEndsAt,
+      activatedAt: t.dealerGroups.activatedAt,
+      createdAt: t.dealerGroups.createdAt,
+      isDemo: t.dealerGroups.isDemo,
+      /*
+       * Correlated subqueries rather than joins with a group-by. Two counts over
+       * two different tables in one grouped join multiplies the rows against each
+       * other and silently inflates both — the classic fan-out. At this row count
+       * the cost is irrelevant and the correctness is not.
+       */
+      vehicles: sql<number>`(
+        select count(*)::int from ${t.vehicles}
+        join ${t.rooftops} on ${t.rooftops.id} = ${t.vehicles.rooftopId}
+        where ${t.rooftops.groupId} = ${t.dealerGroups.id}
+      )`,
+      users: sql<number>`(
+        select count(*)::int from ${t.users} where ${t.users.groupId} = ${t.dealerGroups.id}
+      )`,
+    })
+    .from(t.dealerGroups)
+    .orderBy(sql`${t.dealerGroups.trialEndsAt} asc nulls last`, desc(t.dealerGroups.createdAt));
+
+  return rows;
+}

@@ -9,6 +9,7 @@ import { PwaRegister } from '@/components/pwa-register';
 import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
 import { ROLE_LABEL, sectionsFor } from '@/lib/permissions';
+import { TrialBanner } from '@/components/trial-banner';
 
 /**
  * The installable-app head lives here and on the auth screens, never in the
@@ -94,6 +95,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             "A Litespeed company" line are for signed-out chrome and the
             marketing site, not for every page a dealer works on. */}
         <AdminMobileNav brand={<RooftopWordmark height={17} />}>{sidebar}</AdminMobileNav>
+        {/* Above the page, not inside it — the clock is true on every screen,
+            and a banner that appears on some of them reads as a bug. */}
+        <TrialBanner group={group} />
         {children}
       </div>
     </div>

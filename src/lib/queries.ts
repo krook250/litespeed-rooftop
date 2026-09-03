@@ -489,7 +489,17 @@ export async function createLead(input: {
   email: string;
   phone?: string;
   message?: string;
+  /** The exact disclosure the visitor ticked, or null. See `@/lib/store/sms-consent`. */
+  smsConsentText?: string | null;
 }) {
+  /*
+   * Consent is only recorded when there is a number to consent about. A ticked
+   * box with an empty phone field is not consent to anything, and a row with a
+   * consent timestamp and no number is the kind of thing that reads as sloppy
+   * record-keeping in exactly the audit this column exists for.
+   */
+  const consented = Boolean(input.smsConsentText && (input.phone ?? '').trim());
+
   const rows = await db
     .insert(t.leads)
     .values({
@@ -500,6 +510,8 @@ export async function createLead(input: {
       email: input.email,
       phone: input.phone ?? '',
       message: input.message ?? '',
+      smsConsentAt: consented ? new Date() : null,
+      smsConsentText: consented ? input.smsConsentText! : null,
     })
     .returning();
   return rows[0]!;

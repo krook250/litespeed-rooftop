@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { smsConsentLabel } from '@/lib/store/sms-consent';
 
 export type LeadState = {
   status: 'idle' | 'ok' | 'error';
@@ -20,11 +21,17 @@ export function LeadForm({
   action,
   stockNumber,
   dealerPhone,
+  dealerName,
+  privacyHref,
   defaultMessage,
 }: {
   action: LeadAction;
   stockNumber: string;
   dealerPhone: string;
+  /** Named in the consent line — on the dealer's domain this is their consent, not ours. */
+  dealerName: string;
+  /** The storefront's own privacy policy. Must be a real, ungated link. */
+  privacyHref: string;
   defaultMessage: string;
 }) {
   const [state, formAction, pending] = useActionState(action, INITIAL);
@@ -84,6 +91,44 @@ export function LeadForm({
         aria-label="Message"
         className={inputClass}
       />
+
+      {/*
+        THE OPT-IN AREA. Carrier review for A2P 10DLC reads this block, not the
+        privacy policy and not the footer. Four things have to be true here and
+        each of them is a documented rejection cause:
+
+          - the checkbox is UNCHECKED by default and never `required`. Consent
+            bundled into "submit this form" is not consent, and phone is optional
+            on this form anyway.
+          - the literal word "may" appears in both the frequency and the rates
+            sentence. See `@/lib/store/sms-consent`.
+          - the privacy link is here, in the opt-in area, and goes straight to
+            the policy with nothing in between.
+          - "Consent is not a condition of purchase" is stated.
+
+        Do not move this below the button, do not collapse it behind a "details"
+        toggle, and do not shorten the label to make the card tidier.
+      */}
+      <label className="flex cursor-pointer items-start gap-2 pt-0.5">
+        <input
+          type="checkbox"
+          name="smsConsent"
+          value="yes"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--line)] accent-[var(--brand)]"
+        />
+        <span className="text-[11px] leading-snug text-[var(--text-3)]">
+          {smsConsentLabel(dealerName)}{' '}
+          <a
+            href={privacyHref}
+            className="underline hover:text-[var(--text-2)]"
+            target="_blank"
+            rel="noopener"
+          >
+            Privacy Policy
+          </a>
+          .
+        </span>
+      </label>
 
       {state.status === 'error' ? (
         <p className="text-xs font-medium text-red-700">{state.message}</p>

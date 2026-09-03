@@ -31,6 +31,19 @@ export default async function SignupPage({
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = String(formData.get('password') ?? '');
 
+    /*
+     * Honeypot. A hidden field no human can see and no human fills in; a form
+     * bot fills every field it finds. Same trick as `site/contact.php`, and the
+     * same response — go to the success page. Telling a bot it was caught is
+     * how it learns to stop filling that field.
+     *
+     * Costs a real dealer nothing, which matters: this is the front door of a
+     * paid funnel, and every extra step here is signups that do not happen. The
+     * rate limit in `auth-config.ts` is the control that has teeth; this one is
+     * free.
+     */
+    if (String(formData.get('company') ?? '').trim()) redirect('/login');
+
     if (!dealershipName || !name || !email || !password) redirect('/signup?error=missing');
     if (password.length < 8) redirect('/signup?error=weak');
 
@@ -63,6 +76,16 @@ export default async function SignupPage({
       }
     >
       <form action={submit}>
+        {/* Honeypot — see the check in `submit`. `aria-hidden` and
+            `tabIndex={-1}` keep it away from screen readers and the tab order;
+            `autoComplete="off"` keeps a password manager from helpfully filling
+            it and locking a real dealer out of their own signup. */}
+        <div className="hidden" aria-hidden="true">
+          <label>
+            Company
+            <input name="company" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+          </label>
+        </div>
         <Field
           label="Dealership name"
           name="dealershipName"

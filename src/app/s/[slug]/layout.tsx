@@ -271,6 +271,17 @@ export default async function StorefrontLayout({
               deceptive. See `claude/meta-screencast-recording-guide.md` §9.
               Do not turn this back into a plain <p>.
             */}
+            {/*
+              A direct, ungated link, in the footer of every page including the
+              credit application. Carrier review for A2P 10DLC rejects an opt-in
+              whose privacy policy is not reachable in one click, and the credit
+              app collects consumer PII. See the route's own header comment.
+            */}
+            <p className="mt-2">
+              <Link href={`${base}/privacy`} className="underline hover:text-[var(--footer-text)]">
+                Privacy Policy
+              </Link>
+            </p>
             <p className="mt-2">
               Powered by{' '}
               <a

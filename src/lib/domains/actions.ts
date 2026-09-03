@@ -10,8 +10,10 @@
  * `claude/auth-hosting-and-scale.md`, and it is closed the same way.
  *
  * MONEY: `purchaseDomain` is the only action that spends anything. Its guardrails
- * are layered on purpose — database caps here, price caps in `./vercel.ts`, and
- * `expectedPrice` at Vercel — because any single one of them can be wrong.
+ * are layered on purpose — the plan gate and the database caps here, price caps in
+ * `./vercel.ts`, and `expectedPrice` at Vercel — because any single one of them can
+ * be wrong. The plan gate runs first and is the only one that is not a cap: see
+ * `@/lib/plan`.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -21,6 +23,7 @@ import * as t from '@/db/schema';
 import { getSessionUser, requireGroupId } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertStorefrontInScope } from '@/lib/scoped-db';
+import { isPaid, PAID_ONLY_DOMAIN_MESSAGE } from '@/lib/plan';
 import { lookupDomain } from './lookup';
 import { buildInstructions, type Instructions } from './instructions';
 import { publicUnitCount } from './units';
@@ -461,6 +464,27 @@ export async function purchaseDomain(_prev: unknown, formData: FormData): Promis
 
   const groupId = await requireGroupId();
   const user = await getSessionUser();
+
+  /*
+   * Guardrail 0: the account has to be paying.
+   *
+   * First, before any of the caps, because it is the only one that asks whose
+   * money this is. The caps below bound the spend *per group* at roughly
+   * DOMAIN_PRICE_CAP_USD x DOMAINS_PER_GROUP_CAP; groups are free to create from
+   * an open signup form, so without this the per-group cap bounds nothing at all.
+   *
+   * Read from the database on every call rather than trusted off the session:
+   * `plan` changes in /ops while a dealer is signed in, and a session minted
+   * before a downgrade must not keep spending.
+   */
+  const [group] = await db
+    .select({ plan: t.dealerGroups.plan, trialEndsAt: t.dealerGroups.trialEndsAt })
+    .from(t.dealerGroups)
+    .where(eq(t.dealerGroups.id, groupId))
+    .limit(1);
+  if (!group || !isPaid(group)) {
+    return { ok: false, error: PAID_ONLY_DOMAIN_MESSAGE };
+  }
 
   // Guardrail 3a: one domain per storefront.
   if (sf.domain) {

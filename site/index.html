@@ -91,6 +91,10 @@ p{margin:0}
 .navlinks{display:flex;gap:24px;font-size:15px;font-weight:500;color:#b6bec9}
 .navlinks a:hover{color:#fff}
 .nav .btn{padding:10px 18px;font-size:14.5px}
+.nav .btn+.btn{margin-left:10px}
+.signin{font-size:14.5px;font-weight:500;color:#b6bec9;margin-right:18px}
+.signin:hover{color:#fff}
+@media(max-width:640px){.signin,.nav .btn.ghost{display:none}}
 @media(max-width:1020px){.nav .in{gap:18px}.navlinks{gap:15px;font-size:14.5px}}
 @media(max-width:900px){.navlinks{display:none}}
 @media(max-width:520px){
@@ -394,7 +398,9 @@ fill="#3D8BFF" stroke="none">
     <a href="#faq">FAQ</a>
   </div>
   <div style="flex:1"></div>
-  <a class="btn" href="demo/">See the demo</a>
+  <a class="signin" href="https://app.rooftopauto.com/login">Sign in</a>
+  <a class="btn ghost on-dark" href="demo/">See the demo</a>
+  <a class="btn" href="https://app.rooftopauto.com/signup">Start free</a>
 </div></nav>
 
 <!-- ======================= hero ======================= -->
@@ -405,10 +411,11 @@ fill="#3D8BFF" stroke="none">
     website, your Meta catalog, Marketplace and the aggregators all update themselves — so the money
     you spend is always pointed at cars you actually have, at the price you actually want.</p>
   <div class="btns">
-    <a class="btn big on-dark" href="demo/">Walk through the demo &rarr;</a>
-    <a class="btn big ghost on-dark" href="#contact">Book 15 minutes</a>
+    <a class="btn big on-dark" href="https://app.rooftopauto.com/signup">Start your free 30 days &rarr;</a>
+    <a class="btn big ghost on-dark" href="demo/">Walk through the demo</a>
   </div>
-  <p class="worksWith"><b>Works with your DMS.</b> Nothing to rip out, no data migration, no two-year contract.</p>
+  <p class="worksWith"><b>No credit card. Nothing to cancel.</b> Works with your DMS &mdash; nothing to rip out,
+    no data migration, no two-year contract. Or <a href="#contact" style="color:#b9c1cc;text-decoration:underline">book 15 minutes</a> and we will walk you through it.</p>
 
   <div class="shotwrap"><div class="shot">
     <picture>
@@ -725,10 +732,14 @@ fill="#3D8BFF" stroke="none">
       <li><i>&#10003;</i><span>Multi-rooftop and combined storefronts</span></li>
       <li><i>&#10003;</i><span>We move your current inventory over for you</span></li>
     </ul>
-    <div class="foot"><a class="btn big" href="#contact">Claim a founding spot</a></div>
+    <div class="foot">
+      <a class="btn big" href="https://app.rooftopauto.com/signup">Start 30 days free</a>
+      <p style="margin-top:12px;font-size:14.5px;color:var(--ink4)">No credit card. Full product, not a
+        cut-down version. We only ask for a card when the 30 days are up.</p>
+    </div>
   </div>
   <p class="pnote">Month to month, cancel any time. Founding dealers keep $99 for as long as they
-    stay on the plan.</p>
+    stay on the plan. Prefer to talk first? <a href="#contact">Book 15 minutes</a>.</p>
 </div></section>
 
 <!-- ======================= faq ======================= -->
@@ -780,6 +791,15 @@ fill="#3D8BFF" stroke="none">
       <p>Founding pricing is $99 a month per rooftop. You can run them as separate storefronts or
         combine them into one website — a lot of groups do the second, because a shopper does not
         care which of your lots a truck is parked on.</p></details>
+
+    <details><summary>What is the free trial, exactly?</summary>
+      <p>Thirty days of the whole product, with no credit card. You make an account, we help you get
+        your inventory in, and you use it. Nothing is switched off at the end without us talking to
+        you first &mdash; there is no card on file to charge, so there is nothing to cancel and no way
+        to be billed by accident.</p>
+      <p>One thing is held back until you are on a paid plan: registering a brand-new domain, because
+        we pay the registrar for that one. If you already own your domain you can connect it on the
+        trial, and that is what most lots do.</p></details>
 
     <details><summary>Am I signing a contract?</summary>
       <p>No. Month to month. The whole pitch is that this pays for itself in one extra unit

@@ -12,6 +12,7 @@ import { AboutCard } from '@/components/website/about-card';
 import { FinancingCard } from '@/components/website/financing-card';
 import { HoursCard } from '@/components/website/hours-card';
 import { parseFacts } from '@/lib/store/about';
+import { isPaid, PAID_ONLY_DOMAIN_MESSAGE } from '@/lib/plan';
 import { loadWebsite, WebsiteHeader } from '../shared';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,9 @@ export default async function WebsiteContentPage() {
     sf, group, rooftops, rooftop, host, live, interimUrl, previewUrl,
     configured, phase, instructions, readiness, daysSaved,
   } = data;
+
+  /** Whether this dealer may spend Litespeed's money on a registration. See `@/lib/plan`. */
+  const paid = isPaid(group);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-6 sm:px-6">
@@ -107,7 +111,22 @@ export default async function WebsiteContentPage() {
                 On us — it&apos;s in your subscription. We register it and point it at your storefront
                 the same minute. Nothing for you to configure.
               </p>
-              {configured ? (
+              {/*
+                * The plan gate is checked again inside `purchaseDomain`, which is
+                * the one that matters. This is here so a trial dealer never gets as
+                * far as picking a name and being told no — searching and choosing a
+                * domain you cannot buy is a worse experience than not being offered
+                * it, and it is Litespeed's card behind the button either way.
+                */}
+              {!paid ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-ink-700">{PAID_ONLY_DOMAIN_MESSAGE}</p>
+                  <p className="text-xs text-ink-500">
+                    Already own one? Use <strong>I already own a domain</strong> — that works on the
+                    trial, and nothing about your email changes.
+                  </p>
+                </div>
+              ) : configured ? (
                 <BuyDomainPanel
                   storefrontId={sf.id}
                   dealerDefaults={{

@@ -23,6 +23,12 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
           <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
             every dealer
           </span>
+          <Link href="/ops" className="text-xs text-ink-300 hover:text-white">
+            Onboarding
+          </Link>
+          <Link href="/ops/accounts" className="text-xs text-ink-300 hover:text-white">
+            Accounts
+          </Link>
           <span className="ml-auto text-xs text-ink-400">{me.email}</span>
           <Link href="/admin" className="text-xs text-ink-300 hover:text-white">
             Back to admin

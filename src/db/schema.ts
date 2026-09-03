@@ -12,6 +12,7 @@
  */
 
 import {
+  bigint,
   boolean,
   date,
   index,
@@ -257,6 +258,27 @@ export const domainOrderStatusEnum = pgEnum('domain_order_status', [
 
 /* ---------------------------------------------------------------- tenancy */
 
+/**
+ * Where a dealer group sits commercially.
+ *
+ * There is no payment processor wired in yet — `claude/billing-and-domain-economics.md`
+ * has the Authorize.net design and none of it is built — so this column is not a
+ * mirror of a subscription somewhere else. It is the authority. A group is ACTIVE
+ * because a human at Litespeed marked it ACTIVE in `/ops`, and that is the whole
+ * mechanism until ARB and CIM exist.
+ *
+ * It exists now, before billing, because **`purchaseDomain` spends Litespeed's
+ * money**. Signup is open to the internet; without a flag to gate on, every
+ * self-serve trial account can register up to `DOMAINS_PER_GROUP_CAP` domains on
+ * our card. See `src/lib/domains/actions.ts`.
+ *
+ * PAST_DUE and CANCELED are unused today and deliberately declared anyway —
+ * adding a value to a Postgres enum later is a migration, and the gate reads
+ * `=== 'ACTIVE'` rather than `!== 'TRIALING'` so an unused value can never fail
+ * open.
+ */
+export const planStatusEnum = pgEnum('plan_status', ['TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELED']);
+
 export const dealerGroups = pgTable('dealer_groups', {
   id: cuid().primaryKey(),
   name: text().notNull(),
@@ -298,6 +320,26 @@ export const dealerGroups = pgTable('dealer_groups', {
    * Defaults false, so a real dealer signing up is never accidentally excluded
    * from their own syndication — the failure direction that would be invisible.
    */
+  /**
+   * Commercial state. See `planStatusEnum`. Defaults to TRIALING so a new
+   * signup is never accidentally treated as paid — the failure direction that
+   * costs money is the other one.
+   */
+  plan: planStatusEnum().notNull().default('TRIALING'),
+  /**
+   * When the 30-day free trial runs out. Set at provisioning, in the signup
+   * hook, so the clock starts at the moment the tenant exists rather than at
+   * first sign-in.
+   *
+   * Nullable, and null means **no deadline**, not "expired". Every group that
+   * existed before this column was added is ours or hand-onboarded, and the
+   * migration marks those ACTIVE with a null trial; a null here on a TRIALING
+   * group is a provisioning bug, and `trialDaysLeft()` returns null rather than
+   * inventing a number for it.
+   */
+  trialEndsAt: timestamp({ withTimezone: true }),
+  /** When a human marked this group ACTIVE, and who is in the ops log. */
+  activatedAt: timestamp({ withTimezone: true }),
   isDemo: boolean().notNull().default(false),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
@@ -690,6 +732,34 @@ export const accounts = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (a) => [index('accounts_user_idx').on(a.userId)],
+);
+
+/**
+ * Better Auth's rate-limit counters. **Named `rateLimit` because Better Auth
+ * looks the model up by that key** through the Drizzle adapter — renaming the
+ * export silently disables rate limiting rather than failing.
+ *
+ * WHY THE TABLE AND NOT THE DEFAULT. Better Auth rate-limits in memory unless
+ * given storage. This runs on Vercel functions: memory is per-instance and
+ * per-cold-start, so an in-memory limit on a scaled-out serverless deployment
+ * counts a fraction of the requests it thinks it does and resets constantly. A
+ * table is the only shared counter available here.
+ *
+ * `lastRequest` is a bigint of epoch milliseconds rather than a timestamp because
+ * that is the shape the library writes; it is not ours to make prettier.
+ *
+ * Rows are disposable. Nothing reads them but the limiter, and deleting the
+ * table's contents costs one window of protection and nothing else.
+ */
+export const rateLimit = pgTable(
+  'rate_limit',
+  {
+    id: text().primaryKey(),
+    key: text().notNull(),
+    count: integer().notNull().default(0),
+    lastRequest: bigint({ mode: 'number' }),
+  },
+  (r) => [index('rate_limit_key_idx').on(r.key)],
 );
 
 export const verifications = pgTable(
@@ -1160,6 +1230,23 @@ export const leads = pgTable(
     email: text().notNull(),
     phone: text().notNull().default(''),
     message: text().notNull().default(''),
+    /**
+     * When this person agreed to be texted, and the exact words they agreed to.
+     *
+     * PROOF OF CONSENT, NOT A PREFERENCE FLAG. A2P 10DLC puts the burden on the
+     * sender: a carrier or TCR audit asks what a specific consumer opted in to,
+     * and the defensible answer is the sentence that was on their screen at the
+     * time. So the text is stored verbatim alongside the timestamp rather than
+     * as a version number to be looked up later — see `@/lib/store/sms-consent`.
+     *
+     * Null means no consent, which is the common case: the phone field on the
+     * lead form is optional and the checkbox is unchecked by default. **Nothing
+     * may text a lead whose `smsConsentAt` is null**, however much a salesperson
+     * would like to. Storing a bare boolean here was the tempting shortcut and
+     * it is the one that loses the audit.
+     */
+    smsConsentAt: timestamp({ withTimezone: true }),
+    smsConsentText: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('leads_rooftop_idx').on(t.rooftopId, t.createdAt)],

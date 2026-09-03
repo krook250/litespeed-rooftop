@@ -22,6 +22,7 @@ import { requireStaff } from '@/lib/ops/guard';
 import { runCarGurusUpload } from '@/lib/cargurus/run';
 import { reconcileRooftopSync } from '@/lib/sync-states';
 import { enqueueConnectionBacklog } from '@/lib/sync-engine';
+import { trialEndsAtFrom } from '@/lib/plan';
 
 function refresh(rooftopId: string) {
   revalidatePath('/ops');
@@ -206,4 +207,56 @@ export async function runCarGurusNow(formData: FormData) {
   const force = String(formData.get('force') ?? '') === '1';
   await runCarGurusUpload({ force });
   revalidatePath('/ops');
+}
+
+/* --------------------------------------------------------- plan control */
+
+/**
+ * Move a dealer group between TRIALING and ACTIVE.
+ *
+ * **This is the payment gate.** Until Authorize.net exists (see
+ * `claude/billing-and-domain-economics.md`), a group is paid because a human at
+ * Litespeed said so here, and `purchaseDomain` spends Litespeed's money on the
+ * strength of it. So:
+ *
+ * - `requireStaff()` runs again, in the action, not only on the page. A server
+ *   action is a POST endpoint reachable by anyone who can guess its id.
+ * - The target status is validated against a literal allowlist rather than cast
+ *   from the form value. PAST_DUE and CANCELED are in the enum and nothing sets
+ *   them yet; a bare cast would let a crafted POST write one, and every gate in
+ *   the app reads `=== 'ACTIVE'`, so an unexpected value fails closed — but the
+ *   allowlist means we never have to rely on that.
+ *
+ * Activating clears `trialEndsAt`: the clock is meaningless once they are paying,
+ * and leaving a stale date behind is how a paying dealer eventually gets shown a
+ * "your trial ended" banner. Going back to TRIALING gives a fresh full trial
+ * rather than resurrecting the old deadline — the only reason to press it is that
+ * a group was marked paid by mistake, and the honest repair is a clean clock.
+ */
+export async function setGroupPlan(formData: FormData): Promise<void> {
+  const me = await requireStaff();
+
+  const groupId = String(formData.get('groupId') ?? '');
+  const requested = String(formData.get('plan') ?? '');
+  if (!groupId) return;
+
+  const plan = requested === 'ACTIVE' ? 'ACTIVE' : requested === 'TRIALING' ? 'TRIALING' : null;
+  if (!plan) return;
+
+  await db
+    .update(t.dealerGroups)
+    .set(
+      plan === 'ACTIVE'
+        ? { plan, activatedAt: new Date(), trialEndsAt: null }
+        : { plan, activatedAt: null, trialEndsAt: trialEndsAtFrom() },
+    )
+    .where(eq(t.dealerGroups.id, groupId));
+
+  console.info(`[ops] ${me.email} set group ${groupId} to ${plan}`);
+
+  revalidatePath('/ops');
+  revalidatePath('/ops/accounts');
+  // The trial banner and the domain panel both read this group; they are on the
+  // dealer's side of the app, so refresh the whole admin tree rather than a page.
+  revalidatePath('/admin', 'layout');
 }

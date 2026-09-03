@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
 import { eq } from 'drizzle-orm';
+import { trialEndsAtFrom } from '@/lib/plan';
 import { db, schema } from '@/db';
 import * as t from '@/db/schema';
 import { sendEmail, resetPasswordEmail } from '@/lib/email';
@@ -165,9 +166,21 @@ export const auth = betterAuth({
               : `${(user as { name?: string }).name ?? 'New'} Motors`;
 
           const slug = await uniqueSlug(dealershipName);
+          /*
+           * The trial clock starts here, at provisioning, not at first sign-in.
+           * `plan` takes its column default of TRIALING — spelled out in the
+           * values anyway, because a self-serve signup landing on ACTIVE is the
+           * one mistake in this file that costs real money, and it should be
+           * visible at the call site rather than inferred from the schema.
+           */
           const [group] = await db
             .insert(t.dealerGroups)
-            .values({ name: dealershipName, slug })
+            .values({
+              name: dealershipName,
+              slug,
+              plan: 'TRIALING',
+              trialEndsAt: trialEndsAtFrom(),
+            })
             .returning();
 
           return { data: { ...user, groupId: group.id, role: 'OWNER' as const } };
@@ -233,6 +246,36 @@ export const auth = betterAuth({
             .values({ storefrontId: storefront.id, rooftopId: rooftop.id });
         },
       },
+    },
+  },
+
+  /**
+   * Rate limiting, backed by the `rate_limit` table.
+   *
+   * WHY IT EXISTS AT ALL: `/signup` is open to the internet and every submit
+   * provisions a dealer group, a rooftop and a storefront. Paid traffic starts
+   * arriving 4 Sep 2026 and bots follow paid traffic. Without a limit, the cost
+   * of creating a thousand tenants is a thousand POSTs.
+   *
+   * `storage: 'database'` is not optional here — see the comment on `rateLimit`
+   * in `src/db/schema.ts`. In-memory counters on Vercel functions count a
+   * fraction of the traffic and reset on every cold start.
+   *
+   * The sign-up window is deliberately generous per IP: a real dealership behind
+   * one office NAT might legitimately create two accounts in an afternoon, and
+   * five an hour is far below what a script does and far above what a human
+   * does. Sign-in gets its own tighter rule because that one is credential
+   * stuffing, a different attack with a different shape.
+   */
+  rateLimit: {
+    enabled: true,
+    storage: 'database',
+    window: 60,
+    max: 100,
+    customRules: {
+      '/sign-up/email': { window: 3600, max: 5 },
+      '/sign-in/email': { window: 300, max: 10 },
+      '/forget-password': { window: 3600, max: 5 },
     },
   },
 

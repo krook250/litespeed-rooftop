@@ -34,6 +34,7 @@ import {
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
+import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
 import { VehicleCard, primaryPhoto } from '@/components/store/vehicle-card';
 
@@ -161,12 +162,34 @@ export default async function VehicleDetailPage({ params }: Params) {
   const vehicleId = vehicle.id;
   const rooftopId = vehicle.rooftopId;
 
+  /*
+   * Hoisted out of the action because a server action closes over values, not
+   * over the request. `privacyHref` is what the visitor clicks; the absolute
+   * form is what goes into the stored consent record, since "/privacy" is not an
+   * answer to "where was the policy" a year later in an audit.
+   */
+  const storefrontName = storefront.name;
+  const privacyHref = `${basePath}/privacy`;
+  const absolutePrivacyUrl = `${origin}${basePath}/privacy`;
+
   async function submitLead(_prev: LeadState, formData: FormData): Promise<LeadState> {
     'use server';
     const name = String(formData.get('name') ?? '').trim();
     const email = String(formData.get('email') ?? '').trim();
     const phone = String(formData.get('phone') ?? '').trim();
     const message = String(formData.get('message') ?? '').trim();
+
+    /*
+     * The consent record is built on the SERVER from the same constant the form
+     * rendered, never read out of the request body. A posted consent string is
+     * attacker-controlled text that would end up stored as our own proof of what
+     * a consumer agreed to — which is the one field in this table that has to be
+     * ours. The checkbox contributes a yes/no and nothing else.
+     */
+    const smsConsentText =
+      formData.get('smsConsent') === 'yes'
+        ? smsConsentRecord(storefrontName, absolutePrivacyUrl)
+        : null;
 
     if (!name || !email) {
       return { status: 'error', message: 'Name and email are required.' };
@@ -175,7 +198,9 @@ export default async function VehicleDetailPage({ params }: Params) {
       return { status: 'error', message: 'That email address does not look right.' };
     }
 
-    await createLead({ vehicleId, storefrontId, rooftopId, name, email, phone, message });
+    await createLead({
+      vehicleId, storefrontId, rooftopId, name, email, phone, message, smsConsentText,
+    });
     return { status: 'ok', firstName: name.split(/\s+/)[0] };
   }
 
@@ -325,6 +350,8 @@ export default async function VehicleDetailPage({ params }: Params) {
                   action={submitLead}
                   stockNumber={vehicle.stockNumber}
                   dealerPhone={rooftop.phone}
+                  dealerName={storefrontName}
+                  privacyHref={privacyHref}
                   defaultMessage={`Is the ${title} (stock #${vehicle.stockNumber}) still available?`}
                 />
               </div>
