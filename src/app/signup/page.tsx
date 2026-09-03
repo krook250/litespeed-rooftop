@@ -5,6 +5,7 @@ import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
 import { MetaPixel } from '@/components/meta-pixel';
 import { GoogleAnalytics } from '@/components/ga';
+import { landingFor } from '@/lib/landing';
 
 // Installable from the sign-in screen too — otherwise a dealer who adds the
 // app before signing in bookmarks /login instead of the app.
@@ -24,7 +25,10 @@ export default async function SignupPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  if (await getSessionUser()) redirect('/admin');
+  // Already signed in: operators go to /ops, dealers to /admin. See
+  // src/lib/landing.ts.
+  const signedIn = await getSessionUser();
+  if (signedIn) redirect(await landingFor(signedIn.id));
 
   async function submit(formData: FormData) {
     'use server';

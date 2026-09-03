@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
+import { landingFor, landingForEmail } from '@/lib/landing';
 
 // Installable from the sign-in screen too — otherwise a dealer who adds the
 // app before signing in bookmarks /login instead of the app.
@@ -15,7 +16,10 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
   const { error, reset } = await searchParams;
-  if (await getSessionUser()) redirect('/admin');
+  // Already signed in: operators go to /ops, dealers to /admin. See
+  // src/lib/landing.ts.
+  const signedIn = await getSessionUser();
+  if (signedIn) redirect(await landingFor(signedIn.id));
 
   async function submit(formData: FormData) {
     'use server';
@@ -28,7 +32,10 @@ export default async function LoginPage({
     } catch {
       redirect('/login?error=1');
     }
-    redirect('/admin');
+    // Not '/admin'. An operator's own dealer group is an empty lot; the surface
+    // they signed in to use is /ops. src/lib/landing.ts explains why this is
+    // resolved by email rather than by reading the session back.
+    redirect(await landingForEmail(email));
   }
 
   return (

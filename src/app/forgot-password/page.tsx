@@ -16,6 +16,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
+import { landingFor } from '@/lib/landing';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 
 export default async function ForgotPasswordPage({
@@ -24,7 +25,10 @@ export default async function ForgotPasswordPage({
   searchParams: Promise<{ sent?: string }>;
 }) {
   const { sent } = await searchParams;
-  if (await getSessionUser()) redirect('/admin');
+  // Already signed in: operators go to /ops, dealers to /admin. See
+  // src/lib/landing.ts.
+  const signedIn = await getSessionUser();
+  if (signedIn) redirect(await landingFor(signedIn.id));
 
   async function submit(formData: FormData) {
     'use server';

@@ -30,8 +30,12 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             Accounts
           </Link>
           <span className="ml-auto text-xs text-ink-400">{me.email}</span>
+          {/* An operator's own dealer group is a real (and empty) lot of their
+              own, not an admin view of somebody else's -- see
+              src/lib/ops/guard.ts. Signing in now lands here rather than there,
+              so the label says which lot it means. */}
           <Link href="/admin" className="text-xs text-ink-300 hover:text-white">
-            Back to admin
+            My dealership
           </Link>
         </div>
       </header>

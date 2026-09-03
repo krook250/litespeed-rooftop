@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
+import { landingFor } from '@/lib/landing';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { findLiveInvite } from '@/lib/invites';
 import { ROLE_LABEL, ROLE_BLURB } from '@/lib/permissions';
@@ -35,9 +36,11 @@ export default async function InvitePage({
   const { token } = await params;
   const { error } = await searchParams;
 
-  // Already signed in as somebody: sending them to /admin is right, because
-  // accepting would mean creating a second account they did not ask for.
-  if (await getSessionUser()) redirect('/admin');
+  // Already signed in as somebody: sending them to their own home is right,
+  // because accepting would mean creating a second account they did not ask
+  // for. Operators land on /ops, dealers on /admin -- see src/lib/landing.ts.
+  const signedIn = await getSessionUser();
+  if (signedIn) redirect(await landingFor(signedIn.id));
 
   const invite = await findLiveInvite(token);
 

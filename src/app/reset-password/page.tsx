@@ -16,6 +16,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
+import { landingFor } from '@/lib/landing';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 
 const MIN_PASSWORD = 8;
@@ -26,7 +27,10 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ token?: string; error?: string }>;
 }) {
   const { token, error } = await searchParams;
-  if (await getSessionUser()) redirect('/admin');
+  // Already signed in: operators go to /ops, dealers to /admin. See
+  // src/lib/landing.ts.
+  const signedIn = await getSessionUser();
+  if (signedIn) redirect(await landingFor(signedIn.id));
 
   // No token means the link was mangled, already used, or somebody typed the
   // URL. Nothing to do here but send them round again.

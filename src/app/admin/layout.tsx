@@ -10,6 +10,7 @@ import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
 import { ROLE_LABEL, sectionsFor } from '@/lib/permissions';
 import { TrialBanner } from '@/components/trial-banner';
+import { isStaff } from '@/lib/ops/guard';
 
 /**
  * The installable-app head lives here and on the auth screens, never in the
@@ -20,10 +21,11 @@ export const viewport = pwaViewport;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSession();
-  const [group, storefronts, feed] = await Promise.all([
+  const [group, storefronts, feed, staff] = await Promise.all([
     getGroup(),
     getStorefronts(),
     resolveFeedStyle(user),
+    isStaff(user.id),
   ]);
 
   async function doSignOut() {
@@ -45,6 +47,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       />
 
       <div className="mt-auto border-t border-ink-800 px-3 py-4">
+          {/* Rooftop staff only, and rendered from the same `staff` table the
+              /ops guard reads -- never from an email or a role. For everyone
+              else this is not a hidden link, it is not in the tree at all, and
+              /ops still 404s for them. Without it the operator surface was
+              reachable only by editing the address bar. Amber, not brand blue:
+              it is the same colour /ops wears, and the point of that colour is
+              "you are about to leave your own lot". */}
+          {staff && (
+            <Link
+              href="/ops"
+              className="mb-3 block rounded-md border border-amber-700/50 bg-amber-500/10 px-2 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
+            >
+              Rooftop Ops — every dealer
+            </Link>
+          )}
           <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">
             Storefronts
           </div>

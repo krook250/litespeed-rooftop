@@ -200,7 +200,12 @@ DIS_PLAN.forEach((dis, i) => {
   const reconDays = inRecon ? dis : Math.min(dis, ri(3, 11));
   // photoCount is what the dealer has on file; the gallery shows the subset we
   // actually hold a licensed photo for. Never let it read lower than what we show.
-  const photoCount = Math.max(inRecon ? ri(0, 3) : ri(14, 32), inRecon ? 0 : g.shots.length);
+  // A unit in recon is deliberately short of photos -- that is the state the demo
+  // is illustrating -- but it is never at ZERO. Zero made art.js fall through to
+  // the grey "Awaiting photos" tile, so the one recon unit was the largest image
+  // on the Lot Walk feed and it had no car in it. Floor it at one, and never
+  // below the number of licensed frames we actually hold for the group.
+  const photoCount = Math.max(inRecon ? ri(1, 3) : ri(14, 32), g.shots.length);
   const frontLineReady = !inRecon && photoCount >= 12;
 
   // VDP views: decay with age, boost for trucks & fresh units
