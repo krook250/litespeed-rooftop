@@ -16,7 +16,15 @@
   .b{display:inline-flex;gap:9px;align-items:center;margin-top:28px;padding:14px 24px;border-radius:11px;
     background:#fff;color:#0f1620;font-weight:800;text-decoration:none}
   .b.g{background:transparent;color:#fff;border:1.5px solid #39434f;margin-left:8px}
-</style><!-- Meta Pixel Code -->
+</style><!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-JPJLFV5STR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-JPJLFV5STR');
+</script>
+<!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -43,8 +51,9 @@ src="https://www.facebook.com/tr?id=2026531694695828&ev=PageView&noscript=1"
 </div><script>
 /* Lead fires only for a real submission. contact.php sends the honeypot path to
    thanks.html with no query string, so a bot never counts as a lead. */
-if (window.fbq && new URLSearchParams(location.search).get('s') === '1') {
-  fbq('track', 'Lead', { content_name: 'Contact form' });
+if (new URLSearchParams(location.search).get('s') === '1') {
+  if (window.fbq)  fbq('track', 'Lead', { content_name: 'Contact form' });
+  if (window.gtag) gtag('event', 'generate_lead', { form_name: 'contact' });
 }
 </script>
 </body></html>
