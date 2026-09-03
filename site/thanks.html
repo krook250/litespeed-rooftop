@@ -16,11 +16,35 @@
   .b{display:inline-flex;gap:9px;align-items:center;margin-top:28px;padding:14px 24px;border-radius:11px;
     background:#fff;color:#0f1620;font-weight:800;text-decoration:none}
   .b.g{background:transparent;color:#fff;border:1.5px solid #39434f;margin-left:8px}
-</style></head><body><div class="c">
+</style><!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '2026531694695828');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=2026531694695828&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
+</head><body><div class="c">
   <div class="m"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg></div>
   <h1>Got it.</h1>
   <p>We will come back to you the same day to set up a time. No drip sequence, no sales cadence &mdash;
      just a reply from a person.</p>
   <p>While you wait, the demo is right here.</p>
   <a class="b" href="demo/">Open the demo &rarr;</a><a class="b g" href="index.html">Back to the site</a>
-</div></body></html>
+</div><script>
+/* Lead fires only for a real submission. contact.php sends the honeypot path to
+   thanks.html with no query string, so a bot never counts as a lead. */
+if (window.fbq && new URLSearchParams(location.search).get('s') === '1') {
+  fbq('track', 'Lead', { content_name: 'Contact form' });
+}
+</script>
+</body></html>

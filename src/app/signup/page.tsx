@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth, getSessionUser } from '@/lib/auth';
 import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
+import { MetaPixel } from '@/components/meta-pixel';
 
 // Installable from the sign-in screen too — otherwise a dealer who adds the
 // app before signing in bookmarks /login instead of the app.
@@ -58,10 +59,13 @@ export default async function SignupPage({
       if (message.includes('exist') || message.includes('unique')) redirect('/signup?error=taken');
       redirect('/signup?error=failed');
     }
-    redirect('/admin');
+    // /welcome fires the signup conversion, then hands off to /admin.
+    redirect('/welcome');
   }
 
   return (
+    <>
+    <MetaPixel />
     <AuthShell
       title="Start a dealership"
       subtitle="Creates your group, first rooftop and storefront. Takes about ten seconds."
@@ -107,5 +111,6 @@ export default async function SignupPage({
         <SubmitButton>Create account</SubmitButton>
       </form>
     </AuthShell>
+    </>
   );
 }

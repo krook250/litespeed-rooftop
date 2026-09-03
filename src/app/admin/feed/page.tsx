@@ -19,6 +19,9 @@ import {
   sessionScope,
 } from '@/lib/queries';
 import { getFeed, groupFeed, sweepDerivedFeedEvents } from '@/lib/feed';
+import { onboardingFrom } from '@/lib/onboarding';
+import { isDefaultPalette } from '@/lib/branding/palette';
+import { OnboardingCard } from '@/components/onboarding-card';
 import { markTransferArrived } from '@/lib/actions';
 import type { FeedEventKind } from '@/db/schema';
 import { db } from '@/db';
@@ -114,6 +117,15 @@ export default async function LotWalkPage({
       getTrafficByDay(7, { rooftopIds: scope.rooftopIds }),
     ]);
 
+  /* Renders nothing once the gating steps are done, which is the case for every
+     established dealer — see @/lib/onboarding. */
+  const onboarding = onboardingFrom({
+    rooftops,
+    storefront: storefronts[0],
+    inventory,
+    isDefaultPalette,
+  });
+
   const staff = await db
     .select({ id: t.users.id, name: t.users.name, role: t.users.role })
     .from(t.users)
@@ -169,6 +181,15 @@ export default async function LotWalkPage({
           <HomePreference current={me.homeView} thisView="FEED" />
         </div>
       </header>
+
+      {/* Above the two-column grid, not inside it: on a brand-new account the
+          feed is empty and the rail is empty, and a checklist tucked into a
+          sidebar next to nothing is worse than no checklist. */}
+      {onboarding.complete ? null : (
+        <div className="mb-5">
+          <OnboardingCard o={onboarding} />
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">

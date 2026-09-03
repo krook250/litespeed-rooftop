@@ -45,5 +45,5 @@ $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
 // keep a local copy so nothing is lost if mail() is throttled
 @file_put_contents(__DIR__ . '/leads.log', $body . "\n----\n", FILE_APPEND | LOCK_EX);
 
-header('Location: thanks.html');
+header('Location: thanks.html?s=1');
 exit;

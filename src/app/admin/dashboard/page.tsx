@@ -10,6 +10,7 @@ import {
   getRooftops,
   getRecentEvents,
   getSalesSince,
+  getStorefronts,
   getSyncMatrix,
   sessionScope,
   getTrafficPerVehicle,
@@ -31,6 +32,9 @@ import {
   VEHICLE_STATUS_LABEL,
 } from '@/lib/domain';
 import { requireSection } from '@/lib/auth-guard';
+import { onboardingFrom } from '@/lib/onboarding';
+import { isDefaultPalette } from '@/lib/branding/palette';
+import { OnboardingCard } from '@/components/onboarding-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,13 +49,23 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   await requireSection('dashboard');
-  const [group, rooftops, inventory, sales, events] = await Promise.all([
+  const [group, rooftops, inventory, sales, events, storefronts] = await Promise.all([
     getGroup(),
     getRooftops(),
     getLiveInventory(),
     getSalesSince(90),
     getRecentEvents(12),
+    // Only the first-run checklist reads this, and it renders for almost nobody —
+    // but it rides along in the existing Promise.all rather than earning a
+    // waterfall, same reasoning as getTrafficByDay on the feed.
+    getStorefronts(),
   ]);
+  const onboarding = onboardingFrom({
+    rooftops,
+    storefront: storefronts[0],
+    inventory,
+    isDefaultPalette,
+  });
   const rooftopCount = rooftops.length;
   const me = await requireSession();
   const traffic = await getTrafficPerVehicle(30);
@@ -92,6 +106,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="px-6 py-6 lg:px-8">
+      {onboarding.complete ? null : (
+        <div className="mb-6">
+          <OnboardingCard o={onboarding} />
+        </div>
+      )}
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink-900">{group.name}</h1>
