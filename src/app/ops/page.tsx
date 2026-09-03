@@ -114,12 +114,25 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
           </a>
         ) : null}
 
-        <Link
-          href={`/admin/syndication/${c.connectionId}`}
-          className="ml-auto text-xs text-ink-500 hover:text-ink-800"
-        >
-          Dealer&rsquo;s view &rarr;
-        </Link>
+        {/*
+          * THERE IS DELIBERATELY NO LINK OUT OF THIS ROW.
+          *
+          * It used to point at `/admin/syndication/[connectionId]` — the dealer's
+          * own view of this connection — and that link 404'd every single time it
+          * was clicked. Every route under `/admin` resolves through
+          * `sessionScope()`, the signed-in user's own group; an operator is in
+          * exactly one group, and staff-owned groups are filtered out of this
+          * queue on purpose, so every row here belongs to somebody else by
+          * construction. The link could never have worked.
+          *
+          * `/s/<slug>` was the obvious replacement and is not one either: that
+          * route resolves `storefronts.slug`, which is not the rooftop slug this
+          * query carries, and the storefronts are down as of 3 Sep 2026 anyway.
+          *
+          * Nothing is lost. The dealer-facing error text is rendered above, which
+          * is the only thing that view showed that this row does not. Before
+          * adding a link back, check it resolves for a group that is not yours.
+          */}
       </div>
 
       {/*
