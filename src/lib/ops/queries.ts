@@ -229,6 +229,28 @@ export async function opsAccounts(): Promise<OpsAccount[]> {
       )`,
     })
     .from(t.dealerGroups)
+    /*
+     * STAFF-OWNED GROUPS ARE EXCLUDED, same rule and same reason as
+     * `opsRooftopChannels`. Signing up is the only way to create an account and
+     * it always provisions a tenant, so every Rooftop operator necessarily owns
+     * a dealer group that is not a dealership. Left in, "Rooftop Ops" sits in
+     * the Paid list forever at 0 units, and a list whose rows are partly
+     * furniture gets skimmed instead of read.
+     *
+     * Filtering on staff membership rather than a name or a flag means it stays
+     * true for the next operator without anybody maintaining it — and it keeps
+     * this screen's answer to "how many dealers do we have" honest, which is the
+     * number that will end up on a slide.
+     */
+    .where(
+      notExists(
+        db
+          .select({ one: sql`1` })
+          .from(t.users)
+          .innerJoin(t.staff, eq(t.staff.userId, t.users.id))
+          .where(eq(t.users.groupId, t.dealerGroups.id)),
+      ),
+    )
     .orderBy(sql`${t.dealerGroups.trialEndsAt} asc nulls last`, desc(t.dealerGroups.createdAt));
 
   /*
