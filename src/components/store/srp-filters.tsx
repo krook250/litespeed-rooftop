@@ -27,12 +27,19 @@ export type Filters = {
   maxPrice: number | null;
   maxMiles: number | null;
   minYear: number | null;
+  /* RV. Opposite polarity on purpose, because the questions are opposite:
+   * length is a ceiling — "will it fit my site, can my truck pull it" — and
+   * sleeps is a floor — "does it hold my family". Getting either backwards
+   * gives an answer that is precisely useless. */
+  maxLengthFt: number | null;
+  minSleeps: number | null;
   sort: SortKey;
 };
 
 /** Filter keys that show up as a clearable pill. `sort` is not a filter. */
 export const FILTER_KEYS = [
   'q', 'make', 'model', 'body', 'drivetrain', 'minPrice', 'maxPrice', 'maxMiles', 'minYear',
+  'maxLengthFt', 'minSleeps',
 ] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 
@@ -63,6 +70,8 @@ export function parseFilters(sp: RawSearchParams): Filters {
     minPrice: intOrNull(sp, 'minPrice'),
     maxPrice: intOrNull(sp, 'maxPrice'),
     maxMiles: intOrNull(sp, 'maxMiles'),
+    maxLengthFt: intOrNull(sp, 'maxLengthFt'),
+    minSleeps: intOrNull(sp, 'minSleeps'),
     minYear: intOrNull(sp, 'minYear'),
     sort,
   };
@@ -98,6 +107,14 @@ export function matchesFilters(
   if (f.maxPrice != null && price > f.maxPrice) return false;
   if (f.maxMiles != null && v.mileage > f.maxMiles) return false;
   if (f.minYear != null && v.year < f.minYear) return false;
+
+  /* A unit with no measurement recorded is EXCLUDED, not included, whenever one
+   * of these is set. Both are hard constraints — a 32-foot site and a family of
+   * six — and "we never wrote the length down" is not evidence that it fits.
+   * The permissive reading would put units in a result set the shopper has just
+   * said they cannot use, which is worse than a short list. */
+  if (f.maxLengthFt != null && (v.rvLengthFt == null || v.rvLengthFt > f.maxLengthFt)) return false;
+  if (f.minSleeps != null && (v.rvSleeps == null || v.rvSleeps < f.minSleeps)) return false;
   return true;
 }
 
@@ -151,6 +168,8 @@ export function pillLabel(key: FilterKey, f: Filters): string {
     case 'maxPrice': return `Up to ${usd(f.maxPrice)}`;
     case 'maxMiles': return `Under ${miles(f.maxMiles)}`;
     case 'minYear': return `${f.minYear} and newer`;
+    case 'maxLengthFt': return `${f.maxLengthFt} ft or less`;
+    case 'minSleeps': return `Sleeps ${f.minSleeps}+`;
   }
 }
 
@@ -159,6 +178,11 @@ export function pillLabel(key: FilterKey, f: Filters): string {
 export type FacetOption = { value: string; label: string; count: number };
 
 const MILEAGE_STEPS = [25_000, 50_000, 75_000, 100_000, 125_000, 150_000];
+/* Campground and towing thresholds, not round numbers for their own sake: many
+ * state parks cap around 30 ft, and half-ton trucks run out of tongue weight
+ * well before 35. */
+const LENGTH_STEPS = [20, 25, 30, 35, 40, 45];
+const SLEEPS_STEPS = [2, 4, 6, 8, 10];
 
 const fieldClass =
   'w-full rounded-md border border-[var(--line)] bg-[var(--paper)] px-2.5 py-2 text-sm text-[var(--text)] ' +
@@ -207,6 +231,8 @@ export function SrpFilters({
   bodies,
   drivetrains,
   years,
+  showAuto,
+  showRv,
   className,
 }: {
   /** the rail renders twice (mobile drawer + desktop), so ids must not collide */
@@ -218,6 +244,13 @@ export function SrpFilters({
   bodies: FacetOption[];
   drivetrains: FacetOption[];
   years: number[];
+  /* Which questions this lot can answer, derived from what is actually on it —
+   * see `s/[slug]/page.tsx`. An RV lot is not asked about drivetrain or
+   * odometer, a car lot is not asked how many it sleeps, and a lot carrying
+   * both is asked everything. Derived rather than configured: it cannot go
+   * stale, and it needs nobody to have set it up correctly. */
+  showAuto: boolean;
+  showRv: boolean;
   className?: string;
 }) {
   return (
@@ -247,15 +280,61 @@ export function SrpFilters({
         options={models}
         anyLabel={filters.make ? `All ${filters.make} models` : 'All models'}
       />
-      <Facet idPrefix={idPrefix} name="body" label="Body style" value={filters.body} options={bodies} anyLabel="All body styles" />
       <Facet
         idPrefix={idPrefix}
-        name="drivetrain"
-        label="Drivetrain"
-        value={filters.drivetrain}
-        options={drivetrains}
-        anyLabel="Any drivetrain"
+        name="body"
+        label={showRv && !showAuto ? 'RV type' : 'Body style'}
+        value={filters.body}
+        options={bodies}
+        anyLabel={showRv && !showAuto ? 'All RV types' : 'All body styles'}
       />
+      {showAuto ? (
+        <Facet
+          idPrefix={idPrefix}
+          name="drivetrain"
+          label="Drivetrain"
+          value={filters.drivetrain}
+          options={drivetrains}
+          anyLabel="Any drivetrain"
+        />
+      ) : null}
+
+      {showRv ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={labelClass} htmlFor={`${idPrefix}-maxLengthFt`}>
+              Max length
+            </label>
+            <select
+              id={`${idPrefix}-maxLengthFt`}
+              name="maxLengthFt"
+              defaultValue={filters.maxLengthFt ? String(filters.maxLengthFt) : ''}
+              className={cn(fieldClass, 'tnum')}
+            >
+              <option value="">Any</option>
+              {LENGTH_STEPS.map((n) => (
+                <option key={n} value={n}>{n} ft</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor={`${idPrefix}-minSleeps`}>
+              Sleeps at least
+            </label>
+            <select
+              id={`${idPrefix}-minSleeps`}
+              name="minSleeps"
+              defaultValue={filters.minSleeps ? String(filters.minSleeps) : ''}
+              className={cn(fieldClass, 'tnum')}
+            >
+              <option value="">Any</option>
+              {SLEEPS_STEPS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : null}
 
       <div>
         <span className={labelClass}>Price</span>
@@ -287,24 +366,26 @@ export function SrpFilters({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className={labelClass} htmlFor={`${idPrefix}-maxMiles`}>
-            Max miles
-          </label>
-          <select
-            id={`${idPrefix}-maxMiles`}
-            name="maxMiles"
-            defaultValue={filters.maxMiles ? String(filters.maxMiles) : ''}
-            className={cn(fieldClass, 'tnum')}
-          >
-            <option value="">Any</option>
-            {MILEAGE_STEPS.map((m) => (
-              <option key={m} value={m}>
-                {m.toLocaleString('en-US')}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showAuto ? (
+          <div>
+            <label className={labelClass} htmlFor={`${idPrefix}-maxMiles`}>
+              Max miles
+            </label>
+            <select
+              id={`${idPrefix}-maxMiles`}
+              name="maxMiles"
+              defaultValue={filters.maxMiles ? String(filters.maxMiles) : ''}
+              className={cn(fieldClass, 'tnum')}
+            >
+              <option value="">Any</option>
+              {MILEAGE_STEPS.map((m) => (
+                <option key={m} value={m}>
+                  {m.toLocaleString('en-US')}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label className={labelClass} htmlFor={`${idPrefix}-minYear`}>
             Year and newer
@@ -367,6 +448,8 @@ export function SrpFilterBar({
   bodies,
   drivetrains,
   years,
+  showAuto,
+  showRv,
   className,
 }: {
   idPrefix: string;
@@ -377,6 +460,13 @@ export function SrpFilterBar({
   bodies: FacetOption[];
   drivetrains: FacetOption[];
   years: number[];
+  /* Which questions this lot can answer, derived from what is actually on it —
+   * see `s/[slug]/page.tsx`. An RV lot is not asked about drivetrain or
+   * odometer, a car lot is not asked how many it sleeps, and a lot carrying
+   * both is asked everything. Derived rather than configured: it cannot go
+   * stale, and it needs nobody to have set it up correctly. */
+  showAuto: boolean;
+  showRv: boolean;
   className?: string;
 }) {
   return (
@@ -426,15 +516,60 @@ export function SrpFilterBar({
 
       {/* the narrowing */}
       <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Facet idPrefix={idPrefix} name="body" label="Body" value={filters.body} options={bodies} anyLabel="Any" />
         <Facet
           idPrefix={idPrefix}
-          name="drivetrain"
-          label="Drivetrain"
-          value={filters.drivetrain}
-          options={drivetrains}
+          name="body"
+          label={showRv && !showAuto ? 'RV type' : 'Body'}
+          value={filters.body}
+          options={bodies}
           anyLabel="Any"
         />
+        {showAuto ? (
+          <Facet
+            idPrefix={idPrefix}
+            name="drivetrain"
+            label="Drivetrain"
+            value={filters.drivetrain}
+            options={drivetrains}
+            anyLabel="Any"
+          />
+        ) : null}
+        {showRv ? (
+          <>
+            <div>
+              <label className={labelClass} htmlFor={`${idPrefix}-maxLengthFt`}>
+                Max length
+              </label>
+              <select
+                id={`${idPrefix}-maxLengthFt`}
+                name="maxLengthFt"
+                defaultValue={filters.maxLengthFt ? String(filters.maxLengthFt) : ''}
+                className={cn(fieldClass, 'tnum')}
+              >
+                <option value="">Any</option>
+                {LENGTH_STEPS.map((n) => (
+                  <option key={n} value={n}>{n} ft</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor={`${idPrefix}-minSleeps`}>
+                Sleeps at least
+              </label>
+              <select
+                id={`${idPrefix}-minSleeps`}
+                name="minSleeps"
+                defaultValue={filters.minSleeps ? String(filters.minSleeps) : ''}
+                className={cn(fieldClass, 'tnum')}
+              >
+                <option value="">Any</option>
+                {SLEEPS_STEPS.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        ) : null}
 
         <div className="col-span-2 sm:col-span-1">
           <span className={labelClass}>Price</span>
@@ -465,24 +600,26 @@ export function SrpFilterBar({
           </div>
         </div>
 
-        <div>
-          <label className={labelClass} htmlFor={`${idPrefix}-maxMiles`}>
-            Max miles
-          </label>
-          <select
-            id={`${idPrefix}-maxMiles`}
-            name="maxMiles"
-            defaultValue={filters.maxMiles ? String(filters.maxMiles) : ''}
-            className={cn(fieldClass, 'tnum')}
-          >
-            <option value="">Any</option>
-            {MILEAGE_STEPS.map((m) => (
-              <option key={m} value={m}>
-                {m.toLocaleString('en-US')}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showAuto ? (
+          <div>
+            <label className={labelClass} htmlFor={`${idPrefix}-maxMiles`}>
+              Max miles
+            </label>
+            <select
+              id={`${idPrefix}-maxMiles`}
+              name="maxMiles"
+              defaultValue={filters.maxMiles ? String(filters.maxMiles) : ''}
+              className={cn(fieldClass, 'tnum')}
+            >
+              <option value="">Any</option>
+              {MILEAGE_STEPS.map((m) => (
+                <option key={m} value={m}>
+                  {m.toLocaleString('en-US')}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         <div>
           <label className={labelClass} htmlFor={`${idPrefix}-minYear`}>

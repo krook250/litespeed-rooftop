@@ -25,6 +25,11 @@ export type StorefrontView = {
     bodies: FacetOption[];
     drivetrains: FacetOption[];
     years: number[];
+    /* What this lot actually carries, so the rail can ask the right questions.
+     * Derived from inventory rather than a setting on the rooftop — nothing to
+     * configure, nothing to go stale, and an empty lot reads as a car lot. */
+    showAuto: boolean;
+    showRv: boolean;
   };
   /** '' on a custom domain, '/s/<slug>' on the shared app host. */
   basePath: string;

@@ -14,7 +14,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getLiveInventory, getStorefrontByKey, storefrontBasePath, type LiveVehicle } from '@/lib/queries';
-import { BODY_LABEL, DRIVETRAIN_LABEL, daysInStock, isFreshAir, shouldBadgeFreshAir } from '@/lib/domain';
+import { BODY_LABEL, DRIVETRAIN_LABEL, daysInStock, isFreshAir, isRvBody, shouldBadgeFreshAir } from '@/lib/domain';
 import { layoutFor } from '@/components/store/layouts';
 import { StoreSections } from '@/components/store/location';
 import { canonicalOrigin, storefrontLd, type SeoRooftop } from '@/lib/store/seo';
@@ -93,6 +93,17 @@ export default async function StorefrontSrp({
       bodies: tally(bodyPool, (v) => v.bodyStyle, (k) => BODY_LABEL[k] ?? k),
       drivetrains: tally(drivetrainPool, (v) => v.drivetrain, (k) => DRIVETRAIN_LABEL[k] ?? k),
       years: [...new Set(inventory.map((v) => v.year))].sort((a, b) => b - a),
+      /* Measured against the whole lot, not the filtered results — same rule as
+       * the fresh-air badge below. Filtering down to Fifth Wheel must not make
+       * the Drivetrain control disappear mid-search.
+       *
+       * An empty lot falls back to the car rail: a dealer who has not added
+       * inventory yet is overwhelmingly a car dealer, and a storefront with no
+       * filters at all looks broken rather than empty. */
+      showRv: inventory.some((v) => isRvBody(v.bodyStyle)),
+      showAuto:
+        inventory.some((v) => !isRvBody(v.bodyStyle)) ||
+        !inventory.some((v) => isRvBody(v.bodyStyle)),
     },
     basePath,
     searchParams: sp,

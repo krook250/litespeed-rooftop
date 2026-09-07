@@ -93,6 +93,8 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
         models={facets.models}
         bodies={facets.bodies}
         drivetrains={facets.drivetrains}
+            showAuto={facets.showAuto}
+            showRv={facets.showRv}
         years={facets.years}
         className="mt-8"
       />
