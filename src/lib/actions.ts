@@ -205,13 +205,35 @@ export async function saveVehicle(formData: FormData) {
     const rooftopId = str('rooftopId');
     const scope = await sessionScope();
     if (!scope.rooftopIds.includes(rooftopId)) return;
-    const vin = str('vin') || buildVin(base.make, base.year, base.stockNumber || String(Date.now()));
+    /* Which vertical this unit is. Read only on create; the edit path does not
+     * post it yet, and defaulting it there would silently reset an RV to AUTO
+     * on every save. Unrecognised or absent falls back to the column default. */
+    const vtRaw = str('vehicleType');
+    const vehicleType = (t.vehicleTypeEnum.enumValues as readonly string[]).includes(vtRaw)
+      ? (vtRaw as typeof t.vehicleTypeEnum.enumValues[number])
+      : 'AUTO';
+
+    /* An RV does not get a synthesised VIN.
+     *
+     * `buildVin` returns a structurally valid string — real WMI, correct check
+     * digit — that no manufacturer ever issued. On a car that is a seed and demo
+     * convenience and the blank-VIN case is rare. On RV inventory it is the
+     * normal case: towables frequently have no VIN keyed at the dealership, and
+     * no marketplace publishes one, so a lot migrated off RV Trader arrives
+     * VIN-less by default. Minting fakes at that volume means syndicating
+     * seventeen characters that fail any decoder a shopper or a marketplace
+     * runs them through. Null is the honest answer and the column now allows it. */
+    const vin = str('vin')
+      || (vehicleType === 'AUTO'
+        ? buildVin(base.make, base.year, base.stockNumber || String(Date.now()))
+        : null);
     const acquired = str('acquiredDate') ? new Date(str('acquiredDate')) : new Date();
     const inserted = await db
       .insert(t.vehicles)
       .values({
         ...base,
         rooftopId,
+        vehicleType,
         vin,
         acquiredDate: acquired,
         frontLineDate: base.status === 'FRONT_LINE_READY' ? new Date() : null,

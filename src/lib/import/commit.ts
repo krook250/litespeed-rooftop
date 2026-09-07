@@ -180,7 +180,15 @@ export async function commitImport(
         .from(t.vehicles)
         .where(inArray(t.vehicles.vin, vins))
     : [];
-  const byVin = new Map(existing.map((v) => [v.vin, v]));
+  /* Null-keyed rows are dropped rather than mapped. `inArray` cannot return one
+   * today — every value in `vins` is a non-empty string off the file — but
+   * `vehicles.vin` is nullable now, and a Map keyed on `null` would collide every
+   * VIN-less unit onto one entry and hand the wrong existing row to whichever
+   * draft looked it up. Cheaper to make that impossible than to rely on the
+   * query shape staying the way it is. */
+  const byVin = new Map(
+    existing.flatMap((v) => (v.vin === null ? [] : [[v.vin, v] as const])),
+  );
 
   const withPhotos = new Set(
     existing.length

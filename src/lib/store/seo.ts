@@ -188,7 +188,7 @@ export function storefrontLd(
 /** Vehicle detail page: the car, its offer, and who is selling it. */
 export function vehicleLd(
   v: {
-    vin: string;
+    vin: string | null;
     year: number;
     make: string;
     model: string;
@@ -220,7 +220,10 @@ export function vehicleLd(
     ...clean({
       name,
       url: opts.url,
-      vehicleIdentificationNumber: v.vin,
+      /* Omitted rather than emitted empty. An empty
+         `vehicleIdentificationNumber` in structured data is a validation warning
+         in Search Console and tells a consumer nothing a missing key would not. */
+      vehicleIdentificationNumber: v.vin ?? undefined,
       sku: v.stockNumber,
       description: v.description ? firstParagraph(v.description) : undefined,
       brand: { '@type': 'Brand', name: v.make },

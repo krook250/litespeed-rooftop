@@ -47,7 +47,10 @@ export type FeedPhoto = {
 
 export type FeedVehicle = {
   id: string;
-  vin: string;
+  /* Nullable since `vehicles.vin` is. The NO_VIN issue below already guards on
+   * falsy, so behaviour is unchanged; the export writes an empty cell, which is
+   * what Meta's spec expects for an absent optional field. */
+  vin: string | null;
   stockNumber: string;
   year: number;
   make: string;
@@ -550,7 +553,7 @@ export function buildFeed(
       'mileage.unit': 'MI',
       price: `${activePrice(v)} USD`,
       sale_price: v.salePrice != null ? `${v.salePrice} USD` : '',
-      vin: v.vin,
+      vin: v.vin ?? '',
       stock_number: v.stockNumber,
       availability: sold ? 'not_available' : 'available',
       address: addressBlob(lot),

@@ -470,9 +470,13 @@ export default async function VehicleDetailPage({ params }: Params) {
               <SpecRow label="Stock number">
                 <span className="tnum">{vehicle.stockNumber}</span>
               </SpecRow>
-              <SpecRow label="VIN">
-                <span className="font-mono text-[13px] tracking-tight">{vehicle.vin}</span>
-              </SpecRow>
+              {/* Dropped entirely when absent. A VDP row reading "VIN —" invites
+                  the question; no row at all does not. */}
+              {vehicle.vin ? (
+                <SpecRow label="VIN">
+                  <span className="font-mono text-[13px] tracking-tight">{vehicle.vin}</span>
+                </SpecRow>
+              ) : null}
               <SpecRow label="Title">
                 {vehicle.titleStatus.charAt(0) + vehicle.titleStatus.slice(1).toLowerCase()}
               </SpecRow>

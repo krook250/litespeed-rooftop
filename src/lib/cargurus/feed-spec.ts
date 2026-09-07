@@ -38,7 +38,9 @@ export type CgPhoto = {
 
 export type CgVehicle = {
   id: string;
-  vin: string;
+  /* Nullable since `vehicles.vin` is. CarGurus genuinely requires one, and the
+   * NO_VIN readiness issue below already holds those units out of the file. */
+  vin: string | null;
   stockNumber: string;
   year: number;
   make: string;
@@ -384,7 +386,7 @@ export function buildCarGurusFeed(
       title,
       issues,
       row: {
-        VIN: v.vin,
+        VIN: v.vin ?? '',
         'Stock Number': v.stockNumber,
         Year: String(v.year),
         Make: v.make,
@@ -601,6 +603,9 @@ export function combineFeeds(parts: CgBatchPart[]): CgBatch {
 
     for (const row of part.built.rows) {
       const vin = row.VIN;
+      /* An empty VIN is not a VIN. Without this, two VIN-less units on different
+       * lots collide on '' and report a cross-rooftop duplicate that is not one. */
+      if (!vin) { rows.push(row); continue; }
       const prior = seen.get(vin);
       if (prior && prior !== part.rooftopId) {
         // A VIN cannot be on two lots at once — `vehicles.rooftopId` is single —

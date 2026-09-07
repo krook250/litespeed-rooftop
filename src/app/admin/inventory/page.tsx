@@ -87,7 +87,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   if (sp.q) {
     const q = sp.q.toLowerCase();
     rows = rows.filter((v) =>
-      [v.year, v.make, v.model, v.trim, v.stockNumber, v.vin, v.exteriorColor]
+      [v.year, v.make, v.model, v.trim, v.stockNumber, v.vin ?? '', v.exteriorColor]
         .join(' ')
         .toLowerCase()
         .includes(q),

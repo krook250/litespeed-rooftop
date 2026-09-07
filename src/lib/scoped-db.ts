@@ -84,6 +84,11 @@ export async function scopeForGroup(groupId: string): Promise<Scope> {
  *
  * A tenant with no rooftops returns nothing rather than reaching the database —
  * `inArray` with an empty list is a syntax error in Postgres, not an empty set.
+ *
+ * VIN-less units (RV inventory, mostly) are simply absent from the set, which is
+ * the correct answer: the importer keys on VIN, so a row with none can never be
+ * matched by one and must be treated as a create. Matching those on stock number
+ * is a separate decision and does not belong in a function called `vinsInScope`.
  */
 export async function vinsInScope(scope: Scope): Promise<Set<string>> {
   if (scope.rooftopIds.length === 0) return new Set();
@@ -91,7 +96,7 @@ export async function vinsInScope(scope: Scope): Promise<Set<string>> {
     .select({ vin: t.vehicles.vin })
     .from(t.vehicles)
     .where(inArray(t.vehicles.rooftopId, scope.rooftopIds));
-  return new Set(rows.map((r) => r.vin));
+  return new Set(rows.map((r) => r.vin).filter((v): v is string => v !== null));
 }
 
 /**

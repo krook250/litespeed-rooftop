@@ -35,6 +35,29 @@ const cuid = () => text().$defaultFn(() => crypto.randomUUID());
 
 /* ------------------------------------------------------------------ enums */
 
+/** What kind of thing this is. The discriminator every vertical hangs off.
+ *
+ * Towable and motorized RVs are separate values rather than one 'RV' because
+ * they decode differently and the difference is not cosmetic. vPIC returns real
+ * data for a towable — make, year, TrailerBodyType, TrailerLength, axles — but a
+ * motorhome VIN belongs to the *chassis*, so a 2008 Gulf Stream Sun Voyager
+ * decodes as `Make: FORD, Manufacturer: DETROIT CHASSIS LLC,
+ * VehicleType: INCOMPLETE VEHICLE`. Under the usual "the VIN proves, the file
+ * claims" precedence that overwrites the coach make and we syndicate a Ford —
+ * the front-wheel-drive Explorer bug, one vertical over. See
+ * `claude/rv-vertical-fit.md`. Precedence must switch on this column:
+ *   AUTO         — vPIC wins its own fields, as today
+ *   RV_TOWABLE   — vPIC wins make, year, trailer body type, length, axles.
+ *                  Never model: vPIC gives the family ("Wildwood Towables"),
+ *                  never the floorplan ("2301BHS"), which is what buyers search.
+ *   RV_MOTORIZED — vPIC wins YEAR ONLY. Make and model belong to the human.
+ *
+ * Append-only. New verticals (POWERSPORT, BOAT, TRAILER) are added values, so
+ * nothing here needs rewriting to sell a category we do not sell yet. */
+export const vehicleTypeEnum = pgEnum('vehicle_type', [
+  'AUTO', 'RV_TOWABLE', 'RV_MOTORIZED',
+]);
+
 export const bodyStyleEnum = pgEnum('body_style', [
   'SEDAN', 'SUV', 'TRUCK', 'COUPE', 'HATCHBACK', 'WAGON', 'VAN', 'CONVERTIBLE',
 ]);
@@ -784,7 +807,33 @@ export const vehicles = pgTable(
     rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
 
     // identity
-    vin: text().notNull().unique(),
+    /* Defaults to AUTO so every existing row and every existing insert keeps
+     * behaving exactly as it did. Nothing car-side changes until a caller
+     * deliberately says otherwise. */
+    vehicleType: vehicleTypeEnum().notNull().default('AUTO'),
+    /* Nullable on purpose, same reasoning as `transmission` above: a blank is
+     * honest and a fabricated one is not.
+     *
+     * Towables often have no VIN keyed at the dealership at all, and no
+     * marketplace publishes one — RV Trader listing pages carry a full spec
+     * block and no VIN anywhere — so anything migrated off a marketplace
+     * arrives VIN-less. `saveVehicle` used to paper over this by synthesising
+     * one from make/year/stock via `buildVin`, which produces a string that
+     * looks like a VIN, fails its check digit, and gets syndicated. Null is the
+     * correct answer to "we do not know it".
+     *
+     * The unique constraint STAYS. Postgres permits multiple NULLs in a unique
+     * column, so nothing collides, and the deliberate behaviour documented in
+     * `commit.ts` — a VIN owned by another rooftop fails loudly rather than
+     * quietly updating someone else's car, which is real after a wholesale
+     * trade — is preserved for every row that actually has one.
+     *
+     * Every read site must handle null. Notably: the Meta and CarGurus feed
+     * specs both require a VIN (CarGurus is auto-only; Meta's is optional in
+     * the spec and enforced here), `store/seo.ts` emits
+     * `vehicleIdentificationNumber` into JSON-LD, and `scoped-db.ts` builds a
+     * Set<string> from a bare vin select. */
+    vin: text().unique(),
     stockNumber: text().notNull(),
     year: integer().notNull(),
     make: text().notNull(),
@@ -846,6 +895,17 @@ export const vehicles = pgTable(
   (t) => [
     index('vehicles_rooftop_status_idx').on(t.rooftopId, t.status),
     index('vehicles_make_model_idx').on(t.make, t.model),
+    /* With `vin` nullable, stock number is the fallback dedupe key for a
+     * VIN-less unit. Deliberately NOT unique yet — production may already carry
+     * duplicate stock numbers within a rooftop, and a unique index that fails to
+     * build takes the migration down with it. Verify first:
+     *   select "rooftopId", "stockNumber", count(*) from vehicles
+     *   group by 1,2 having count(*) > 1;
+     * (quoted — this schema uses camelCase identifiers, so the unquoted
+     * snake_case spelling errors out rather than returning zero rows.)
+     * then promote to unique in its own migration. */
+    index('vehicles_rooftop_stock_idx').on(t.rooftopId, t.stockNumber),
+    index('vehicles_rooftop_type_idx').on(t.rooftopId, t.vehicleType),
   ],
 );
 

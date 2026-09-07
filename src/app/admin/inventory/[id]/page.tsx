@@ -136,7 +136,7 @@ export default async function VehiclePage({
             </h1>
             <div className="tnum mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
               <span>Stock {vehicle.stockNumber}</span>
-              <span className="font-mono">{vehicle.vin}</span>
+              {vehicle.vin ? <span className="font-mono">{vehicle.vin}</span> : null}
               <span>{num(vehicle.mileage)} mi</span>
               <span>{vehicle.rooftop.name}</span>
             </div>

@@ -81,7 +81,7 @@ export function matchesFilters(
   skip?: 'make' | 'body' | 'drivetrain',
 ): boolean {
   if (f.q) {
-    const hay = `${v.year} ${v.make} ${v.model} ${v.trim} ${v.stockNumber} ${v.vin}`.toLowerCase();
+    const hay = `${v.year} ${v.make} ${v.model} ${v.trim} ${v.stockNumber} ${v.vin ?? ''}`.toLowerCase();
     for (const term of f.q.toLowerCase().split(/\s+/).filter(Boolean)) {
       if (!hay.includes(term)) return false;
     }

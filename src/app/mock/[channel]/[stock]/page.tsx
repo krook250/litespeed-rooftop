@@ -133,7 +133,7 @@ export default async function MockListingPage({ params }: Params) {
             <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-ink-200 pt-4 text-sm sm:grid-cols-3">
               {[
                 ['Stock', vehicle.stockNumber],
-                ['VIN', vehicle.vin],
+                ['VIN', vehicle.vin ?? '—'],
                 ['Transmission', vehicle.transmission ? TRANSMISSION_LABEL[vehicle.transmission] ?? '' : '—'],
                 ['Fuel', FUEL_LABEL[vehicle.fuelType] ?? ''],
                 ['Exterior', vehicle.exteriorColor],
