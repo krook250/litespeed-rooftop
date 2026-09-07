@@ -288,6 +288,101 @@ footer a:hover{color:#fff}
   .logo .sub{font-size:8px;letter-spacing:1.1px;margin-top:3px}
   .nav .btn{padding:8px 11px;font-size:12.5px}
 }
+
+/* ============ ad examples ============ */
+.adrow{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);
+  gap:clamp(30px,4.5vw,58px);align-items:center}
+.adrow.flip{grid-template-columns:minmax(0,1fr) minmax(0,400px)}
+.adrow.flip>.adstage{order:2}
+.adrow+.adrow{margin-top:84px}
+@media(max-width:940px){
+  .adrow,.adrow.flip{grid-template-columns:minmax(0,1fr);gap:32px}
+  .adrow.flip>.adstage{order:0}
+  .adrow+.adrow{margin-top:64px}
+}
+.adtext h3{margin-top:13px}
+.adtext p{margin-top:14px;color:var(--ink2)}
+.adnote{margin-top:20px;font-size:14px;color:var(--ink3);border-left:2px solid var(--line);
+  padding-left:14px;line-height:1.55}
+.adlabel{font-family:var(--fm);font-size:11px;letter-spacing:1.3px;text-transform:uppercase;
+  color:var(--ink4);margin-bottom:11px}
+
+/* a Facebook / Instagram feed post */
+.fbpost{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 16px 42px rgba(15,22,32,.13);max-width:400px}
+.fbhead{display:flex;align-items:center;gap:10px;padding:13px 14px 10px}
+.fbhead .av{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--brand),var(--brand-dk));color:#fff;
+  font-family:var(--fh);font-weight:800;font-size:13.5px;letter-spacing:-.4px}
+.fbhead b{display:block;font-size:14.5px;font-weight:700;line-height:1.25}
+.fbhead .sub{font-size:12.5px;color:var(--ink3)}
+.fbhead .dots{margin-left:auto;color:var(--ink4);font-size:17px;line-height:1;letter-spacing:1px}
+.fbcopy{padding:0 14px 12px;font-size:14.5px;line-height:1.5}
+.carousel{display:flex;gap:8px;overflow-x:auto;padding:0 14px 14px;
+  scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.carousel::-webkit-scrollbar{height:6px}
+.carousel::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.carousel:after{content:"";flex:0 0 2px}
+.acard{flex:0 0 166px;scroll-snap-align:start;border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.acard img{aspect-ratio:1/1;object-fit:cover;width:100%}
+.acard .ab{padding:9px 10px 10px;display:flex;flex-direction:column;flex:1}
+.acard .ap{font-family:var(--fh);font-weight:800;font-size:16px;letter-spacing:-.4px}
+.acard .at{font-size:12.5px;font-weight:600;margin-top:3px;line-height:1.3}
+.acard .as{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.acard .as{margin-bottom:9px}
+.acard .cta{display:block;margin-top:auto;text-align:center;background:var(--wash);
+  border-radius:7px;padding:6px;font-size:12px;font-weight:700;color:var(--ink2)}
+.fbimg img{aspect-ratio:1.91/1;object-fit:cover;width:100%}
+.lcard{background:var(--wash);border-top:1px solid var(--line2);padding:11px 14px;
+  display:flex;align-items:center;gap:12px}
+.lcard .dom{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--ink3)}
+.lcard .lt{font-family:var(--fh);font-weight:800;font-size:15px;line-height:1.25;
+  letter-spacing:-.2px;margin-top:3px}
+.lcard .ld{font-size:12.5px;color:var(--ink3);margin-top:3px}
+.lcard .lbtn{margin-left:auto;flex:0 0 auto;background:#fff;border:1px solid var(--line);
+  border-radius:7px;padding:8px 13px;font-size:12.5px;font-weight:700;color:var(--ink2)}
+.fbbar{display:flex;border-top:1px solid var(--line2)}
+.fbbar span{flex:1;text-align:center;padding:9px 0;font-size:13px;font-weight:600;color:var(--ink3)}
+
+/* Google */
+.gwrap{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);
+  gap:clamp(30px,4.5vw,58px);align-items:start;margin-top:84px}
+@media(max-width:940px){.gwrap{grid-template-columns:minmax(0,1fr);gap:32px;margin-top:64px}}
+.gunits{display:flex;flex-direction:column;gap:22px}
+.gunit{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 16px 42px rgba(15,22,32,.13)}
+.gbar{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--wash);
+  border-bottom:1px solid var(--line2)}
+.gbar .gq{flex:1;background:#fff;border:1px solid var(--line);border-radius:999px;
+  padding:8px 15px;font-size:13.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.gsp{font-size:12.5px;font-weight:700;padding:13px 15px 0}
+.gtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;padding:11px 15px 15px}
+@media(min-width:560px){.gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:940px){.gtiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1040px){.gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.gtile{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.gtile img{aspect-ratio:4/3;object-fit:cover;width:100%}
+.gtile{display:flex;flex-direction:column}
+.gtile .tb{padding:8px 9px 10px;display:flex;flex-direction:column;flex:1}
+.gtile .ts{margin-top:auto}
+.gtile .tp{font-family:var(--fh);font-weight:800;font-size:15px;letter-spacing:-.4px}
+.gtile .tt{font-size:12px;font-weight:600;margin-top:3px;line-height:1.3}
+.gtile .ts{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.35}
+.gtxt{padding:15px}
+.gsite{display:flex;align-items:center;gap:9px;margin-top:9px}
+.gsite .gfav{width:26px;height:26px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  background:var(--brand-wash);color:var(--brand-dk);font-family:var(--fh);font-weight:800;font-size:11px}
+.gsite b{display:block;font-size:13.5px;font-weight:700;line-height:1.25}
+.gsite span{font-size:12px;color:var(--ink3)}
+.gh{display:block;margin-top:10px;font-size:19px;line-height:1.3;color:#1a48b8;
+  font-family:var(--fh);font-weight:600;letter-spacing:-.2px}
+.gd{margin-top:6px;font-size:14px;color:var(--ink2);line-height:1.5;max-width:62ch}
+.gsl{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:12px}
+.gsl a{font-size:13.5px;color:#1a48b8;font-weight:600}
+.gsl a:hover{text-decoration:underline}
+.adfoot{margin-top:34px;padding-top:18px;border-top:1px solid var(--line)}
 </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-JPJLFV5STR"></script>
@@ -434,7 +529,7 @@ fill="#3D8BFF" stroke="none">
   </a>
   <div class="navlinks">
     <a href="features/">Features</a>
-    <a href="#advertise">Advertising</a>
+    <a href="#ads">Ad examples</a>
     <a href="#lotwalk">Lot Walk</a>
     <a href="#dms">Not a DMS</a>
     <a href="#pricing">Pricing</a>
@@ -531,6 +626,209 @@ fill="#3D8BFF" stroke="none">
     That is not a discipline problem. It is five systems nobody ever connected.</p>
   <p class="lede" style="margin-top:14px;max-width:66ch"><b>In Rooftop it is one edit.</b> You change
     the price on the unit. Every one of those five hears about it without you opening a tab.</p>
+</div></section>
+
+<!-- ======================= ad examples ======================= -->
+<section class="wash" id="ads"><div class="wrap">
+  <div class="shead">
+    <div class="eyebrow">The ads themselves</div>
+    <h2>This is what actually runs.</h2>
+    <p class="lede">Not a diagram of a feed. These are the units your budget buys &mdash; assembled out
+      of the inventory record, corrected when the record changes, and pointed at a page on your own
+      domain with your own pixel on it.</p>
+  </div>
+
+  <!-- Meta vehicle ads -->
+  <div class="adrow" style="margin-top:52px">
+    <div class="adstage">
+      <div class="adlabel">Facebook &amp; Instagram &middot; vehicle ads</div>
+      <div class="fbpost">
+        <div class="fbhead">
+          <span class="av">CM</span>
+          <div>
+            <b>Cascade Motors</b>
+            <span class="sub">Sponsored</span>
+          </div>
+          <span class="dots">&middot;&middot;&middot;</span>
+        </div>
+        <p class="fbcopy">Just landed in Vancouver. Every unit priced, photographed and ready to
+          drive today &mdash; see the payment before you come in.</p>
+        <div class="carousel">
+          <a class="acard" href="demo/">
+            <picture><source srcset="img/ads/m1.webp" type="image/webp">
+              <img src="img/ads/m1.jpg" width="480" height="480" loading="lazy" alt="2022 Subaru Forester Limited"></picture>
+            <div class="ab"><div class="ap">$24,495</div><div class="at">2022 Subaru Forester Limited</div>
+              <div class="as">51,750 mi &middot; AWD</div><span class="cta">Learn more</span></div>
+          </a>
+          <a class="acard" href="demo/">
+            <picture><source srcset="img/ads/m2.webp" type="image/webp">
+              <img src="img/ads/m2.jpg" width="480" height="480" loading="lazy" alt="2019 Toyota Tacoma TRD Sport"></picture>
+            <div class="ab"><div class="ap">$27,995</div><div class="at">2019 Toyota Tacoma TRD Sport</div>
+              <div class="as">78,180 mi &middot; 4WD</div><span class="cta">Learn more</span></div>
+          </a>
+          <a class="acard" href="demo/">
+            <picture><source srcset="img/ads/m3.webp" type="image/webp">
+              <img src="img/ads/m3.jpg" width="480" height="480" loading="lazy" alt="2018 Chevrolet Silverado 1500 RST"></picture>
+            <div class="ab"><div class="ap">$31,495</div><div class="at">2018 Chevrolet Silverado 1500 RST</div>
+              <div class="as">71,200 mi &middot; 4WD</div><span class="cta">Learn more</span></div>
+          </a>
+          <a class="acard" href="demo/">
+            <picture><source srcset="img/ads/m4.webp" type="image/webp">
+              <img src="img/ads/m4.jpg" width="480" height="480" loading="lazy" alt="2020 Honda Accord Sport"></picture>
+            <div class="ab"><div class="ap">$16,495</div><div class="at">2020 Honda Accord Sport</div>
+              <div class="as">91,610 mi &middot; FWD</div><span class="cta">Learn more</span></div>
+          </a>
+          <a class="acard" href="demo/">
+            <picture><source srcset="img/ads/m5.webp" type="image/webp">
+              <img src="img/ads/m5.jpg" width="480" height="480" loading="lazy" alt="2019 Subaru Outback Limited"></picture>
+            <div class="ab"><div class="ap">$20,995</div><div class="at">2019 Subaru Outback Limited</div>
+              <div class="as">63,590 mi &middot; AWD</div><span class="cta">Learn more</span></div>
+          </a>
+        </div>
+        <div class="fbbar"><span>Like</span><span>Comment</span><span>Share</span></div>
+      </div>
+    </div>
+    <div class="adtext">
+      <div class="eyebrow">Vehicle ads</div>
+      <h3>Nobody writes this ad. It writes itself off the car.</h3>
+      <p>The photo, the price, the mileage and the link are read straight off the unit in Rooftop.
+        Somebody who looked at the Tacoma on Tuesday sees the Tacoma on Thursday &mdash; for exactly
+        as long as you still have it.</p>
+      <p>Cut the price and the card carries the new one. Sell it and the card is gone. That is the
+        whole reason these beat a boosted photo of the lot, and the whole reason most stores cannot
+        keep one running for a month.</p>
+      <div class="ticks">
+        <div class="tick"><i>&#10003;</i><span>Runs off the same record as your website &mdash; no second data entry</span></div>
+        <div class="tick"><i>&#10003;</i><span>Retargets the shopper with <b>the unit they actually looked at</b></span></div>
+        <div class="tick"><i>&#10003;</i><span>A rejected listing lands on the vehicle with Meta&rsquo;s reason attached</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meta catalog, RV -->
+  <div class="adrow flip">
+    <div class="adstage">
+      <div class="adlabel">Facebook &amp; Instagram &middot; catalog ads</div>
+      <div class="fbpost">
+        <div class="fbhead">
+          <span class="av">CM</span>
+          <div>
+            <b>Cascade Motors</b>
+            <span class="sub">Sponsored</span>
+          </div>
+          <span class="dots">&middot;&middot;&middot;</span>
+        </div>
+        <p class="fbcopy">Front-living fifth wheel, four slides, sitting on the lot in
+          Vancouver right now. Real price, real photos &mdash; come walk through it this weekend.</p>
+        <a class="fbimg" href="demo/">
+          <picture><source srcset="img/ads/rv-hemisphere.webp" type="image/webp">
+            <img src="img/ads/rv-hemisphere.jpg" width="900" height="471" loading="lazy"
+              alt="2022 Forest River Salem Hemisphere 36FL fifth wheel"></picture>
+        </a>
+        <div class="lcard">
+          <div>
+            <div class="dom">cascademotorswa.com</div>
+            <div class="lt">2022 Forest River Salem Hemisphere 36FL</div>
+            <div class="ld">$47,900 &middot; Fifth wheel &middot; 43 ft &middot; Sleeps 6</div>
+          </div>
+          <span class="lbtn">Learn more</span>
+        </div>
+        <div class="fbbar"><span>Like</span><span>Comment</span><span>Share</span></div>
+      </div>
+    </div>
+    <div class="adtext">
+      <div class="eyebrow">RV and towables</div>
+      <h3>Same machinery. Different lot.</h3>
+      <p>An RV does not fit Meta&rsquo;s vehicle catalog &mdash; there is no body style for a fifth
+        wheel, and the intent signals behind it are the car ones. So RV inventory runs as a plain
+        product catalog instead. Identical mechanics, nothing to get approved, live the same week.</p>
+      <p>Floorplan, length and sleeping capacity are what an RV shopper actually searches, so those
+        are what go on the card. Sold Saturday morning, out of the catalog Saturday morning.</p>
+      <div class="ticks">
+        <div class="tick"><i>&#10003;</i><span>Towable specs &mdash; length, axles, body type &mdash; pulled off the VIN where they exist</span></div>
+        <div class="tick"><i>&#10003;</i><span>Floorplan, slides and dry weight are yours to enter once, then they follow the unit everywhere</span></div>
+        <div class="tick"><i>&#10003;</i><span>A coach on a Ford chassis stays a Gulf Stream &mdash; the VIN decoder does not get to rename it</span></div>
+      </div>
+      <p class="adnote">A catalog ad shows one unit at a time &mdash; whichever one that shopper is
+        most likely to want. Which one that is changes by the hour. What does not change is that
+        it is a unit you still have, at the price you set this morning.</p>
+    </div>
+  </div>
+
+  <!-- Google -->
+  <div class="gwrap">
+    <div class="adtext">
+      <div class="eyebrow">Google</div>
+      <h3>Two units, and only one of them is about cars.</h3>
+      <p>Google Vehicle Ads put real inventory &mdash; photo, price, mileage, distance &mdash; above
+        the results for somebody searching a used Outback near them. Same feed, same record, no
+        separate upload. They are also cars only: no RVs, no powersports, no equipment.</p>
+      <p>Everything else runs on ordinary Search and Performance Max, landing on a VDP on your own
+        domain. That is the part a dealer living on somebody else&rsquo;s marketplace does not have
+        &mdash; no page of their own to send traffic to, and no pixel on it if they did.</p>
+      <div class="ticks">
+        <div class="tick"><i>&#10003;</i><span>Vehicle Ads run off the same feed as Meta and your website</span></div>
+        <div class="tick"><i>&#10003;</i><span>Search and PMax point at your VDPs, not a marketplace listing</span></div>
+        <div class="tick"><i>&#10003;</i><span>Conversions land on your own pixel, so the spend is measurable</span></div>
+      </div>
+    </div>
+    <div class="gunits">
+      <div class="gunit">
+        <div class="gbar"><span class="gq">used subaru outback vancouver wa</span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9aa4b1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg></div>
+        <div class="gsp">Sponsored</div>
+        <div class="gtiles">
+          <a class="gtile" href="demo/">
+            <picture><source srcset="img/ads/g1.webp" type="image/webp">
+              <img src="img/ads/g1.jpg" width="520" height="390" loading="lazy" alt="2018 Honda CR-V Touring"></picture>
+            <div class="tb"><div class="tp">$18,995</div><div class="tt">2018 Honda CR-V Touring</div>
+              <div class="ts">92,030 mi<br>Cascade Motors &middot; 6 mi</div></div>
+          </a>
+          <a class="gtile" href="demo/">
+            <picture><source srcset="img/ads/g2.webp" type="image/webp">
+              <img src="img/ads/g2.jpg" width="520" height="390" loading="lazy" alt="2019 Ram 1500 Laramie"></picture>
+            <div class="tb"><div class="tp">$29,995</div><div class="tt">2019 Ram 1500 Laramie</div>
+              <div class="ts">85,650 mi<br>Cascade Motors &middot; 6 mi</div></div>
+          </a>
+          <a class="gtile" href="demo/">
+            <picture><source srcset="img/ads/g3.webp" type="image/webp">
+              <img src="img/ads/g3.jpg" width="520" height="390" loading="lazy" alt="2020 Subaru Crosstrek Limited"></picture>
+            <div class="tb"><div class="tp">$17,495</div><div class="tt">2020 Subaru Crosstrek Limited</div>
+              <div class="ts">74,280 mi<br>Cascade Motors &middot; 9 mi</div></div>
+          </a>
+          <a class="gtile" href="demo/">
+            <picture><source srcset="img/ads/g4.webp" type="image/webp">
+              <img src="img/ads/g4.jpg" width="520" height="390" loading="lazy" alt="2017 Ford F-150 King Ranch"></picture>
+            <div class="tb"><div class="tp">$27,995</div><div class="tt">2017 Ford F-150 King Ranch</div>
+              <div class="ts">118,860 mi<br>Cascade Motors &middot; 9 mi</div></div>
+          </a>
+        </div>
+      </div>
+      <div class="gunit">
+        <div class="gtxt">
+          <div class="gsp" style="padding:0">Sponsored</div>
+          <div class="gsite">
+            <span class="gfav">CM</span>
+            <div><b>Cascade Motors</b><span>cascademotorswa.com/inventory</span></div>
+          </div>
+          <a class="gh" href="demo/">Used Cars in Vancouver, WA &mdash; Priced, Photographed, In Stock Today</a>
+          <p class="gd">Every unit on both lots, with real photos and the real price. Check what is
+            still here before you drive over. Financing for most credit situations.</p>
+          <div class="gsl">
+            <a href="demo/">Trucks &amp; SUVs</a>
+            <a href="demo/">Under $20,000</a>
+            <a href="demo/">Value Your Trade</a>
+            <a href="demo/">Get Pre-Approved</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="adfoot">
+    <p class="tiny muted">Cascade Motors is our sample dealership and the units and prices above are
+      samples &mdash; the cars are the same data the demo runs on. These are mockups of the ad
+      formats, not screenshots of a live campaign.</p>
+  </div>
 </div></section>
 
 <!-- ======================= meta catalog / advertising ======================= -->
