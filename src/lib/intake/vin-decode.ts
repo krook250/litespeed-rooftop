@@ -55,6 +55,17 @@ export type VpicRow = {
   FuelTypePrimary?: string;
   ElectrificationLevel?: string;
   VehicleType?: string;
+
+  /* Trailer columns. Unused by the mapping below — there is nowhere in
+   * `Extraction` to put them yet — but declared so the RV field group can read
+   * them off a cached decode instead of re-fetching. vPIC populates these for
+   * towables and they are genuinely useful: a Forest River WMI returns
+   * TrailerBodyType "Camping or Travel Trailer", TrailerType "Ball Type Pull",
+   * TrailerLength and Axles. Length is a top-three RV search filter. */
+  TrailerBodyType?: string;
+  TrailerType?: string;
+  TrailerLength?: string;
+  Axles?: string;
 };
 
 type BodyStyle = (typeof t.bodyStyleEnum.enumValues)[number];
@@ -210,22 +221,71 @@ export async function decodeVin(vin: string): Promise<DecodeOutcome> {
  * judgement call about somebody else's string, and `vin-decode.test.ts` pins
  * each one against a recorded row.
  */
+/**
+ * What vPIC actually decoded — which is not always the thing being sold.
+ *
+ * A VIN identifies a *chassis*. For a car those are the same object and the
+ * distinction never comes up. For an RV they are not:
+ *
+ *   TRAILER            a towable. vPIC knows the manufacturer and the trailer's
+ *                      own attributes, but `Model` is the product FAMILY
+ *                      ("Wildwood Towables"), never the floorplan ("2301BHS"),
+ *                      and the floorplan is what a shopper searches for.
+ *   INCOMPLETE VEHICLE a motorhome's stripped chassis. `Make` is the chassis
+ *                      builder, not the coach. A 2008 Gulf Stream Sun Voyager
+ *                      decodes as Make FORD, Manufacturer DETROIT CHASSIS LLC.
+ *
+ * Left ungated this is not a near miss, it is a wrong listing published to every
+ * channel: the last BODY_RULES entry matches /incomplete/ and files that coach
+ * as a TRUCK, `DriveType` on the chassis gives it a drivetrain, and `enrich.ts`
+ * takes body style and drivetrain outright rather than flagging them. The
+ * front-wheel-drive Explorer, one vertical over.
+ *
+ * Deliberately read off vPIC's own `VehicleType` rather than our
+ * `vehicles.vehicleType` column: the answer is in the payload, so every caller
+ * — importer, intake scanner, vehicle form — is protected without plumbing our
+ * discriminator through three layers, and a car dealer who takes in one
+ * motorhome is covered without having classified it first.
+ */
+export type VpicClass = 'CAR' | 'TRAILER' | 'INCOMPLETE';
+
+export function vpicClass(r: VpicRow): VpicClass {
+  const vt = (clean(r.VehicleType) ?? '').toUpperCase();
+  if (vt.includes('TRAILER')) return 'TRAILER';
+  if (vt.includes('INCOMPLETE')) return 'INCOMPLETE';
+  return 'CAR';
+}
+
 export function vpicToExtraction(r: VpicRow): Extraction {
   const e: Extraction = {};
   const from = 'NHTSA vPIC';
+  const kind = vpicClass(r);
 
+  /* Year is the one field every class proves. The model year code is position
+   * 10 of the VIN and means the same thing on a fifth wheel as on a sedan. */
   const year = num(r.ModelYear);
   if (year) e.year = field(year, 'vin', 'high', from);
 
   const make = clean(r.Make);
   // vPIC shouts: "TOYOTA". Title-case it so it matches how it is typed by hand.
-  if (make) e.make = field(titleCase(make), 'vin', 'high', from);
+  // Withheld on INCOMPLETE: that is the chassis builder, and asserting it
+  // renames the coach.
+  if (make && kind !== 'INCOMPLETE') e.make = field(titleCase(make), 'vin', 'high', from);
 
-  const model = clean(r.Model);
-  if (model) e.model = field(model, 'vin', 'high', from);
+  if (kind === 'CAR') {
+    const model = clean(r.Model);
+    if (model) e.model = field(model, 'vin', 'high', from);
 
-  const trim = clean(r.Trim) ?? clean(r.Series);
-  if (trim) e.trim = field(trim, 'vin', 'medium', from);
+    const trim = clean(r.Trim) ?? clean(r.Series);
+    if (trim) e.trim = field(trim, 'vin', 'medium', from);
+  }
+
+  /* Everything past here is car-shaped — an eight-value body enum, doors,
+   * cylinders, drivetrain, transmission, fuel. None of it describes a travel
+   * trailer, and on a motorhome all of it describes the chassis rather than the
+   * vehicle. Asserting nothing is the correct answer; the human owns these
+   * fields for RV inventory and the RV field group is where they will live. */
+  if (kind !== 'CAR') return e;
 
   const body = firstMatch(BODY_RULES, clean(r.BodyClass) ?? clean(r.VehicleType) ?? undefined);
   if (body) e.bodyStyle = field(body, 'vin', 'high', `${from}: ${r.BodyClass ?? r.VehicleType}`);

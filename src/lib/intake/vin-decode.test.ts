@@ -9,11 +9,19 @@
  *
  * The rows below are recorded shapes, not invented ones. Hermetic — no network,
  * no database.
+ *
+ * `dotenv/config` is imported for a reason that has nothing to do with these
+ * tests: `./vin-decode` imports `@/db`, which THROWS at module load when
+ * DATABASE_URL is unset, and `src/db/index.ts` does not load dotenv itself. So
+ * this hermetic file was the one failure in `npm test` — not because anything
+ * here needs a database, but because the import chain could not be constructed.
+ * postgres-js connects lazily, so loading the config opens no socket.
  */
 
+import 'dotenv/config';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { vpicToExtraction, type VpicRow } from './vin-decode';
+import { vpicClass, vpicToExtraction, type VpicRow } from './vin-decode';
 
 const base: VpicRow = { ErrorCode: '0' };
 const row = (r: Partial<VpicRow>): VpicRow => ({ ...base, ...r });
@@ -258,4 +266,84 @@ test('a recorded 2019 Camry row comes out whole', () => {
     assert.equal(e[key]?.confidence, 'high', `${key} should be high confidence`);
     assert.equal(e[key]?.source, 'vin', `${key} should be sourced from the VIN`);
   }
+});
+
+/* ------------------------------------------------------- RV: what a VIN is not
+
+   A VIN identifies a chassis. On a car that is the vehicle; on an RV it is not,
+   and vPIC answers about the chassis with the same "high confidence" it uses for
+   a Camry. These rows are recorded shapes from the live API, decoded 7 Sep 2026.
+   See `claude/rv-vertical-fit.md`. */
+
+test('a motorhome chassis asserts nothing but the year', () => {
+  // Real shape for WMI 1F6, MY2008 — the chassis under a Class A coach such as
+  // the 2008 Gulf Stream Sun Voyager. vPIC has never heard of Gulf Stream.
+  const e = vpicToExtraction(
+    row({
+      VehicleType: 'INCOMPLETE VEHICLE',
+      ModelYear: '2008',
+      Make: 'FORD',
+      BodyClass: 'Incomplete - Chassis Cab',
+      DriveType: 'RWD/Rear-Wheel Drive',
+      FuelTypePrimary: 'Gasoline',
+      Doors: '2',
+      EngineCylinders: '8',
+      DisplacementL: '6.8',
+    }),
+  );
+
+  assert.equal(e.year?.value, 2008, 'the model year code means the same thing on any chassis');
+
+  // The four that would each have produced a wrong listing.
+  assert.equal(e.make, undefined, 'FORD is the chassis builder, not the coach');
+  assert.equal(e.bodyStyle, undefined, 'BODY_RULES matches /incomplete/ and would file it as a TRUCK');
+  assert.equal(e.drivetrain, undefined, 'the chassis drivetrain is not a spec anyone advertises on a coach');
+  assert.equal(e.fuelType, undefined);
+  assert.equal(e.model, undefined);
+  assert.equal(e.doors, undefined);
+  assert.equal(e.cylinders, undefined);
+  assert.equal(e.engine, undefined);
+});
+
+test('a towable keeps its make and gives up its model', () => {
+  // Real shape for a Forest River trailer WMI (4X4), MY2022.
+  const e = vpicToExtraction(
+    row({
+      VehicleType: 'TRAILER',
+      BodyClass: 'Trailer',
+      ModelYear: '2022',
+      Make: 'FOREST RIVER',
+      Model: 'Wildwood Towables',
+      TrailerBodyType: 'Camping or Travel Trailer',
+      TrailerType: 'Ball Type Pull',
+      TrailerLength: '26',
+      Axles: '2',
+    }),
+  );
+
+  assert.equal(e.year?.value, 2022);
+  assert.equal(e.make?.value, 'Forest River', 'the trailer builder IS the make');
+
+  /* The one that matters most. "Wildwood Towables" is the product family; the
+     unit a shopper is searching for is a "2301BHS". Filing the family as the
+     model produces a listing that matches nothing anyone types. */
+  assert.equal(e.model, undefined, 'vPIC gives the family, never the floorplan');
+
+  // Car-shaped fields on a box with two axles and no engine.
+  assert.equal(e.bodyStyle, undefined);
+  assert.equal(e.transmission, undefined);
+  assert.equal(e.drivetrain, undefined);
+  assert.equal(e.fuelType, undefined);
+});
+
+test('the classifier reads vPIC, not our own column', () => {
+  assert.equal(vpicClass(row({ VehicleType: 'PASSENGER CAR' })), 'CAR');
+  assert.equal(vpicClass(row({ VehicleType: 'TRAILER' })), 'TRAILER');
+  assert.equal(vpicClass(row({ VehicleType: 'INCOMPLETE VEHICLE' })), 'INCOMPLETE');
+
+  /* Absent VehicleType falls through to CAR rather than to a safe-looking
+     nothing. Every VIN decoded before this change had no classification and was
+     treated as a car; that must keep being true or the importer quietly stops
+     filling drivetrain on the whole existing fleet. */
+  assert.equal(vpicClass(row({})), 'CAR');
 });
