@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import type { LiveVehicle } from '@/lib/queries';
 import { SORTS, buildHref, pillLabel, type FilterKey, type Filters, type RawSearchParams } from '@/components/store/srp-filters';
-import { activePrice, miles, usd, vehicleTitle, BODY_LABEL, DRIVETRAIN_LABEL } from '@/lib/domain';
+import { activePrice, miles, usd, vehicleTitle, BODY_LABEL, DRIVETRAIN_LABEL, hasOdometer, isRvBody } from '@/lib/domain';
 import { primaryPhoto } from '@/components/store/vehicle-card';
 
 export function ResultCount({ shown, total, filtered }: { shown: number; total: number; filtered: boolean }) {
@@ -120,8 +120,15 @@ export function VehicleRow({ v, basePath }: { v: LiveVehicle; basePath: string }
           {vehicleTitle(v)}
         </div>
         <div className="tnum mt-0.5 truncate text-xs text-[var(--text-2)]">
-          {miles(v.mileage)} · {BODY_LABEL[v.bodyStyle] ?? v.bodyStyle} ·{' '}
-          {DRIVETRAIN_LABEL[v.drivetrain] ?? v.drivetrain} · Stock #{v.stockNumber}
+          {/* A travel trailer has no odometer and no drivetrain. "0 mi · FWD"
+              under a fifth wheel is the kind of small wrongness a shopper reads
+              as a broken site, so those parts are dropped rather than zeroed. */}
+          {[
+            hasOdometer(v.bodyStyle) ? miles(v.mileage) : null,
+            BODY_LABEL[v.bodyStyle] ?? v.bodyStyle,
+            isRvBody(v.bodyStyle) ? null : DRIVETRAIN_LABEL[v.drivetrain] ?? v.drivetrain,
+            `Stock #${v.stockNumber}`,
+          ].filter(Boolean).join(' · ')}
         </div>
       </div>
 

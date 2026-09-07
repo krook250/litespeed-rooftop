@@ -58,8 +58,28 @@ export const vehicleTypeEnum = pgEnum('vehicle_type', [
   'AUTO', 'RV_TOWABLE', 'RV_MOTORIZED',
 ]);
 
+/**
+ * Body style, extended rather than made nullable.
+ *
+ * An RV has to answer "what kind of thing is it" the same way a car does, and
+ * there were two ways to let it. Making `bodyStyle` nullable would have pushed
+ * a null check into ~25 call sites — cards, VDP, SRP facets, both feed specs,
+ * the photo placeholder — to buy nothing. Adding the values keeps the column
+ * NOT NULL, keeps every one of those sites working, and means the SRP body
+ * facet filters RV inventory for free.
+ *
+ * It also removes the need for a separate `rvType` column: two columns both
+ * naming the kind of unit is two columns that can disagree. `vehicleType`
+ * (AUTO / RV_TOWABLE / RV_MOTORIZED) is DERIVED from this by
+ * `vehicleTypeForBody` in `lib/domain.ts`, so a form that sets one sets both.
+ *
+ * Appended, never reordered — Postgres enum values carry an ordinal, and
+ * `ALTER TYPE ... ADD VALUE` can only append without a rewrite.
+ */
 export const bodyStyleEnum = pgEnum('body_style', [
   'SEDAN', 'SUV', 'TRUCK', 'COUPE', 'HATCHBACK', 'WAGON', 'VAN', 'CONVERTIBLE',
+  'TRAVEL_TRAILER', 'FIFTH_WHEEL', 'TOY_HAULER', 'POP_UP', 'TRUCK_CAMPER',
+  'CLASS_A', 'CLASS_B', 'CLASS_C',
 ]);
 export const transmissionEnum = pgEnum('transmission', ['AUTOMATIC', 'MANUAL', 'CVT']);
 export const drivetrainEnum = pgEnum('drivetrain', ['FWD', 'RWD', 'AWD', 'FOUR_WD']);
@@ -853,6 +873,28 @@ export const vehicles = pgTable(
     fuelType: fuelTypeEnum().notNull().default('GAS'),
     mpgCity: integer(),
     mpgHwy: integer(),
+
+    /* ---------------------------------------------------------------- RV ----
+     * Null on a car, and null on an RV nobody has measured yet — these are
+     * human-entered, permanently. No VIN carries any of them: vPIC gives a
+     * towable its length and axle count and nothing else, and gives a motorhome
+     * chassis nothing at all. See `claude/rv-vertical-fit.md`.
+     *
+     * Chosen because they are what shoppers actually filter on. Deliberately
+     * NOT here: fresh/grey/black tank capacity, awning count, generator hours.
+     * Those go on a spec sheet, not in a search, and every one of them is
+     * another field a dealer has to fill before a unit can go live.
+     *
+     * The floorplan — "2301BHS", the thing buyers search by name — reuses
+     * `trim`, which is exactly what trim already is: model is "Minnie", trim is
+     * "2301BHS", the same shape as a Camry XSE. */
+    rvLengthFt: integer(),
+    rvSleeps: integer(),
+    rvSlideouts: integer(),
+    rvDryWeightLbs: integer(),
+    rvGvwrLbs: integer(),
+    rvAxles: integer(),
+    rvAcUnits: integer(),
 
     exteriorColor: text().notNull().default(''),
     exteriorColorHex: text().notNull().default('#9ca3af'),

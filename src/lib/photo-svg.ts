@@ -16,7 +16,36 @@ export type PhotoScene =
   | 'ENGINE';
 
 export type PhotoBody =
-  | 'SEDAN' | 'SUV' | 'TRUCK' | 'COUPE' | 'HATCHBACK' | 'WAGON' | 'VAN' | 'CONVERTIBLE';
+  | 'SEDAN' | 'SUV' | 'TRUCK' | 'COUPE' | 'HATCHBACK' | 'WAGON' | 'VAN' | 'CONVERTIBLE'
+  | 'TRAILER' | 'MOTORHOME';
+
+/**
+ * Body style → silhouette.
+ *
+ * Two shapes cover all eight RV body styles, because the placeholder's whole job
+ * is to keep a card from being empty while being honest about what it is. A
+ * fifth wheel and a toy hauler are the same box from the roadside; what matters
+ * is that neither is drawn as a sedan. Before this existed `GEO[spec.body] ??
+ * GEO.SEDAN` quietly gave every travel trailer a four-door saloon outline,
+ * which is worse than a grey rectangle — it asserts something false about the
+ * unit on the search results page.
+ */
+const RV_SHAPE: Record<string, PhotoBody> = {
+  TRAVEL_TRAILER: 'TRAILER', FIFTH_WHEEL: 'TRAILER', TOY_HAULER: 'TRAILER',
+  POP_UP: 'TRAILER', TRUCK_CAMPER: 'TRAILER',
+  CLASS_A: 'MOTORHOME', CLASS_B: 'MOTORHOME', CLASS_C: 'MOTORHOME',
+};
+
+const CAR_SHAPES = [
+  'SEDAN', 'SUV', 'TRUCK', 'COUPE', 'HATCHBACK', 'WAGON', 'VAN', 'CONVERTIBLE',
+];
+
+/** Never throws and never widens: anything unrecognised is still a sedan. */
+export function photoBody(bodyStyle: string): PhotoBody {
+  const rv = RV_SHAPE[bodyStyle];
+  if (rv) return rv;
+  return CAR_SHAPES.includes(bodyStyle) ? (bodyStyle as PhotoBody) : 'SEDAN';
+}
 
 export interface PhotoSpec {
   scene: PhotoScene;
@@ -75,6 +104,30 @@ interface Geometry {
 }
 
 const GEO: Record<PhotoBody, Geometry> = {
+  /* Tandem-axle box with a coupler tongue. Smaller wheels than a car, sitting on
+   * the same ground line (cy + r = 642) so a trailer and a truck in the same
+   * results grid do not appear to float at different heights. */
+  TRAILER: {
+    body:
+      'M236 545 L236 302 Q236 272 268 272 L1022 272 Q1054 272 1054 302 L1054 545 ' +
+      'Q1054 566 1028 566 L262 566 Q236 566 236 545 Z ' +
+      'M236 474 L124 508 L124 534 L236 506 Z',
+    glass:
+      'M292 306 Q292 298 302 298 L470 298 Q480 298 480 306 L480 386 Q480 394 470 394 ' +
+      'L302 394 Q292 394 292 386 Z',
+    frontWheelX: 560, rearWheelX: 736, wheelR: 62, wheelCY: 580,
+    beltline: 'M250 430 L1044 438',
+  },
+  /* Class A profile: flat front, deep windshield, long rear overhang. Reads
+   * close enough for a B or a C at thumbnail size. */
+  MOTORHOME: {
+    body:
+      'M152 545 L152 320 Q152 292 190 284 L318 262 L372 240 Q392 228 428 228 L1020 228 ' +
+      'Q1054 228 1054 260 L1054 545 Q1054 566 1028 566 L178 566 Q152 566 152 545 Z',
+    glass: 'M198 316 L330 276 Q350 262 392 260 L470 258 L470 344 L198 344 Z',
+    frontWheelX: 300, rearWheelX: 908, wheelR: 86, wheelCY: 556,
+    beltline: 'M200 420 L1046 424',
+  },
   SEDAN: {
     body:
       'M148 542 L148 500 Q150 466 200 454 L342 428 L436 352 Q470 324 548 320 L740 320 ' +

@@ -109,7 +109,19 @@ export function unmappedRequired(mapping: Mapping): ImportField[] {
 
 /* ------------------------------------------------------------- normalisers */
 
-export type BodyStyle = 'SEDAN' | 'SUV' | 'TRUCK' | 'COUPE' | 'HATCHBACK' | 'WAGON' | 'VAN' | 'CONVERTIBLE';
+/* Written out rather than derived from `bodyStyleEnum`, matching the three
+ * unions below it: this module is deliberately dependency-free apart from
+ * `normaliseVin`, which is what lets `plan.ts` stay pure and testable without
+ * a database. Keep in step with `db/schema.ts` by hand.
+ *
+ * The RV values are accepted but not yet PRODUCED — `toBodyStyle` has no
+ * synonyms for them, so an import file saying "Travel Trailer" still lands as
+ * unrecognised. They are here because `enrich.ts` feeds vPIC's extraction
+ * through this type and that extraction is typed off the full enum. */
+export type BodyStyle =
+  | 'SEDAN' | 'SUV' | 'TRUCK' | 'COUPE' | 'HATCHBACK' | 'WAGON' | 'VAN' | 'CONVERTIBLE'
+  | 'TRAVEL_TRAILER' | 'FIFTH_WHEEL' | 'TOY_HAULER' | 'POP_UP' | 'TRUCK_CAMPER'
+  | 'CLASS_A' | 'CLASS_B' | 'CLASS_C';
 export type Transmission = 'AUTOMATIC' | 'MANUAL' | 'CVT';
 export type Drivetrain = 'FWD' | 'RWD' | 'AWD' | 'FOUR_WD';
 export type FuelType = 'GAS' | 'DIESEL' | 'HYBRID' | 'PLUGIN_HYBRID' | 'ELECTRIC' | 'FLEX';

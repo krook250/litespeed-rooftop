@@ -14,7 +14,7 @@
 import Link from 'next/link';
 import { SrpFilterBar, FILTER_KEYS, type FilterKey } from '@/components/store/srp-filters';
 import { VehicleCard, primaryPhoto } from '@/components/store/vehicle-card';
-import { activePrice, miles, usd, vehicleTitle, BODY_LABEL, DRIVETRAIN_LABEL } from '@/lib/domain';
+import { activePrice, miles, usd, vehicleTitle, BODY_LABEL, DRIVETRAIN_LABEL, hasOdometer, isRvBody } from '@/lib/domain';
 import type { StorefrontView } from './types';
 import { ActivePills, EmptyState, ResultCount } from './shared';
 
@@ -56,8 +56,12 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
                   {vehicleTitle(hero)}
                 </h1>
                 <p className="tnum mt-1 text-sm text-[var(--text-2)]">
-                  {miles(hero.mileage)} · {BODY_LABEL[hero.bodyStyle] ?? hero.bodyStyle} ·{' '}
-                  {DRIVETRAIN_LABEL[hero.drivetrain] ?? hero.drivetrain} · Stock #{hero.stockNumber}
+                  {[
+                    hasOdometer(hero.bodyStyle) ? miles(hero.mileage) : null,
+                    BODY_LABEL[hero.bodyStyle] ?? hero.bodyStyle,
+                    isRvBody(hero.bodyStyle) ? null : DRIVETRAIN_LABEL[hero.drivetrain] ?? hero.drivetrain,
+                    `Stock #${hero.stockNumber}`,
+                  ].filter(Boolean).join(' · ')}
                 </p>
               </div>
               <div className="text-right">

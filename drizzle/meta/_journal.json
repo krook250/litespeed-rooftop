@@ -183,6 +183,13 @@
       "when": 1788796828347,
       "tag": "0025_dapper_lord_tyger",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788798131328,
+      "tag": "0026_typical_the_fallen",
+      "breakpoints": true
     }
   ]
 }

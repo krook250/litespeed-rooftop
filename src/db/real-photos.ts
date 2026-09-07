@@ -108,7 +108,10 @@ const GROUPS: Group[] = [
 const ORIGIN = (process.env.DEMO_PHOTO_ORIGIN ?? 'https://app.rooftopauto.com').replace(/\/+$/, '');
 
 /** Trim is group-agnostic; a re-badged unit keeps a plausible one for its body. */
-const TRIMS: Record<BodyStyle, string[]> = {
+/* Partial: the demo groups are all cars, and there is no plausible "trim" for a
+ * fifth wheel — an RV's equivalent is its floorplan, which comes off the unit
+ * itself rather than a list of invented names. */
+const TRIMS: Partial<Record<BodyStyle, string[]>> = {
   SEDAN: ['LX', 'EX', 'Sport', 'Touring'],
   SUV: ['LE', 'EX-L', 'Limited', 'Premium'],
   TRUCK: ['SLE', 'Big Horn', 'LT Crew Cab', 'XLT'],
@@ -146,7 +149,7 @@ async function main() {
     // Keep the existing year when the photographed generation allows it, so
     // days-on-lot ageing and price history stay coherent with what was seeded.
     const year = v.year >= g.yr[0] && v.year <= g.yr[1] ? v.year : g.yr[0];
-    const trims = TRIMS[g.body];
+    const trims = TRIMS[g.body] ?? ['Base'];
     const trim = trims[i % trims.length]!;
 
     await db

@@ -10,7 +10,7 @@ import * as t from './schema';
 import { SEED_CHANNELS, SEED_VEHICLES, SOLD_POOL, type SeedVehicle } from './seed-data';
 import { buildVin } from '@/lib/vin';
 import { carriesListings } from '@/lib/domain';
-import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
+import { PHOTO_SET, generatedPhotoUrl, photoBody } from '@/lib/photo-svg';
 import { auth } from '@/lib/auth-config';
 import { assertSafeToWipe } from './guard';
 import { backfillFeed } from './backfill-feed';
@@ -291,7 +291,7 @@ async function main() {
         vehicleId: veh.id,
         url: generatedPhotoUrl({
           scene,
-          body: veh.bodyStyle,
+          body: photoBody(veh.bodyStyle),
           hex: veh.exteriorColorHex,
           label: dealerLabel,
           sublabel: `STK ${veh.stockNumber}`,

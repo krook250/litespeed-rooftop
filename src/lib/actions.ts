@@ -16,10 +16,10 @@ import {
 import { buildVin } from '@/lib/vin';
 import { createHash } from 'node:crypto';
 import { del, put } from '@vercel/blob';
-import { PHOTO_SET, generatedPhotoUrl } from '@/lib/photo-svg';
+import { PHOTO_SET, generatedPhotoUrl, photoBody } from '@/lib/photo-svg';
 import { requireSession } from '@/lib/auth';
 import { assertVehicleInScope, sessionScope } from '@/lib/queries';
-import { VEHICLE_STATUS_LABEL, daysInStock, totalCost } from '@/lib/domain';
+import { VEHICLE_STATUS_LABEL, daysInStock, totalCost, vehicleTypeForBody } from '@/lib/domain';
 import {
   feedAcquired,
   feedFrontLine,
@@ -166,6 +166,12 @@ export async function saveVehicle(formData: FormData) {
     model: str('model'),
     trim: str('trim'),
     bodyStyle: str('bodyStyle') as typeof t.bodyStyleEnum.enumValues[number],
+    /* Derived, never posted. The form offers one control — the body style — and
+     * the discriminator that gates vPIC precedence and feed eligibility follows
+     * from it. Living in `base` rather than the create branch means an edit
+     * carries it too: change a unit from SUV to FIFTH_WHEEL and it stops being
+     * an AUTO in the same save, which is the only way the two can never drift. */
+    vehicleType: vehicleTypeForBody(str('bodyStyle')),
     doors: int('doors') ?? 4,
     engine: str('engine'),
     cylinders: int('cylinders'),
@@ -176,6 +182,16 @@ export async function saveVehicle(formData: FormData) {
     fuelType: str('fuelType') as typeof t.fuelTypeEnum.enumValues[number],
     mpgCity: int('mpgCity'),
     mpgHwy: int('mpgHwy'),
+    /* Null when blank, like `transmission` and for the same reason: a zero here
+     * would read as "sleeps nobody" and "no slide-outs", both of which are
+     * claims. `int()` already returns null for an empty field. */
+    rvLengthFt: int('rvLengthFt'),
+    rvSleeps: int('rvSleeps'),
+    rvSlideouts: int('rvSlideouts'),
+    rvDryWeightLbs: int('rvDryWeightLbs'),
+    rvGvwrLbs: int('rvGvwrLbs'),
+    rvAxles: int('rvAxles'),
+    rvAcUnits: int('rvAcUnits'),
     exteriorColor: str('exteriorColor'),
     exteriorColorHex: str('exteriorColorHex') || '#9ca3af',
     interiorColor: str('interiorColor'),
@@ -205,14 +221,6 @@ export async function saveVehicle(formData: FormData) {
     const rooftopId = str('rooftopId');
     const scope = await sessionScope();
     if (!scope.rooftopIds.includes(rooftopId)) return;
-    /* Which vertical this unit is. Read only on create; the edit path does not
-     * post it yet, and defaulting it there would silently reset an RV to AUTO
-     * on every save. Unrecognised or absent falls back to the column default. */
-    const vtRaw = str('vehicleType');
-    const vehicleType = (t.vehicleTypeEnum.enumValues as readonly string[]).includes(vtRaw)
-      ? (vtRaw as typeof t.vehicleTypeEnum.enumValues[number])
-      : 'AUTO';
-
     /* An RV does not get a synthesised VIN.
      *
      * `buildVin` returns a structurally valid string — real WMI, correct check
@@ -224,7 +232,7 @@ export async function saveVehicle(formData: FormData) {
      * seventeen characters that fail any decoder a shopper or a marketplace
      * runs them through. Null is the honest answer and the column now allows it. */
     const vin = str('vin')
-      || (vehicleType === 'AUTO'
+      || (base.vehicleType === 'AUTO'
         ? buildVin(base.make, base.year, base.stockNumber || String(Date.now()))
         : null);
     const acquired = str('acquiredDate') ? new Date(str('acquiredDate')) : new Date();
@@ -233,7 +241,6 @@ export async function saveVehicle(formData: FormData) {
       .values({
         ...base,
         rooftopId,
-        vehicleType,
         vin,
         acquiredDate: acquired,
         frontLineDate: base.status === 'FRONT_LINE_READY' ? new Date() : null,
@@ -259,7 +266,7 @@ export async function saveVehicle(formData: FormData) {
       vehicleId: v.id,
       url: generatedPhotoUrl({
         scene: PHOTO_SET[0]!,
-        body: v.bodyStyle,
+        body: photoBody(v.bodyStyle),
         hex: v.exteriorColorHex,
         label: photoLabel,
         sublabel: `STK ${v.stockNumber}`,
@@ -744,7 +751,7 @@ export async function addPhoto(formData: FormData) {
     vehicleId,
     url: generatedPhotoUrl({
       scene: scene as (typeof PHOTO_SET)[number],
-      body: v.bodyStyle,
+      body: photoBody(v.bodyStyle),
       hex: v.exteriorColorHex,
       label: photoLabel,
       sublabel: `STK ${v.stockNumber}`,

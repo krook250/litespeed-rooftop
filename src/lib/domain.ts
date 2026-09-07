@@ -300,7 +300,56 @@ export const TRANSMISSION_LABEL: Record<string, string> = {
 export const BODY_LABEL: Record<string, string> = {
   SEDAN: 'Sedan', SUV: 'SUV', TRUCK: 'Truck', COUPE: 'Coupe',
   HATCHBACK: 'Hatchback', WAGON: 'Wagon', VAN: 'Minivan', CONVERTIBLE: 'Convertible',
+  TRAVEL_TRAILER: 'Travel Trailer', FIFTH_WHEEL: 'Fifth Wheel', TOY_HAULER: 'Toy Hauler',
+  POP_UP: 'Pop-Up', TRUCK_CAMPER: 'Truck Camper',
+  CLASS_A: 'Class A', CLASS_B: 'Class B', CLASS_C: 'Class C',
 };
+
+/* ---------------------------------------------------------------------- RV */
+
+/**
+ * Which body styles are RV, and which kind.
+ *
+ * The single source of truth for `vehicles.vehicleType`, which is never chosen
+ * by hand. A dealer picks one thing — "Fifth Wheel" — and the discriminator
+ * that gates vPIC precedence and feed eligibility follows from it. Two controls
+ * would be two chances to disagree, and a row claiming AUTO with a body style of
+ * CLASS_A is a row that gets a chassis make written over its coach make.
+ *
+ * TRUCK_CAMPER is filed as towable on the only axis that matters here: it has no
+ * drivetrain of its own, so none of the motorized carve-outs apply to it.
+ */
+export const RV_BODY: Record<string, 'RV_TOWABLE' | 'RV_MOTORIZED'> = {
+  TRAVEL_TRAILER: 'RV_TOWABLE',
+  FIFTH_WHEEL: 'RV_TOWABLE',
+  TOY_HAULER: 'RV_TOWABLE',
+  POP_UP: 'RV_TOWABLE',
+  TRUCK_CAMPER: 'RV_TOWABLE',
+  CLASS_A: 'RV_MOTORIZED',
+  CLASS_B: 'RV_MOTORIZED',
+  CLASS_C: 'RV_MOTORIZED',
+};
+
+export type VehicleTypeValue = 'AUTO' | 'RV_TOWABLE' | 'RV_MOTORIZED';
+
+/** The discriminator implied by a body style. Anything unrecognised is a car. */
+export function vehicleTypeForBody(bodyStyle: string): VehicleTypeValue {
+  return RV_BODY[bodyStyle] ?? 'AUTO';
+}
+
+export function isRvBody(bodyStyle: string): boolean {
+  return bodyStyle in RV_BODY;
+}
+
+/**
+ * Whether an odometer reading means anything. A travel trailer has no engine and
+ * no odometer, so a mileage of 0 on one is not "brand new", it is "not a
+ * measurement" — and printing "0 mi" under a fifth wheel on a search card is the
+ * kind of small wrongness a shopper reads as a broken site.
+ */
+export function hasOdometer(bodyStyle: string): boolean {
+  return RV_BODY[bodyStyle] !== 'RV_TOWABLE';
+}
 
 export const FUEL_LABEL: Record<string, string> = {
   GAS: 'Gasoline', DIESEL: 'Diesel', HYBRID: 'Hybrid',

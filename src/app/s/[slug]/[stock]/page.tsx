@@ -31,6 +31,8 @@ import {
   daysInStock,
   isFreshAir,
   shouldBadgeFreshAir,
+  hasOdometer,
+  isRvBody,
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
@@ -437,21 +439,80 @@ export default async function VehicleDetailPage({ params }: Params) {
           <section className="mt-7">
             <h2 className="text-sm font-semibold text-[var(--text)]">Specifications</h2>
             <dl className="mt-2 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
-              <SpecRow label="Mileage">
-                <span className="tnum">{miles(vehicle.mileage)}</span>
-              </SpecRow>
-              <SpecRow label="Drivetrain">{DRIVETRAIN_LABEL[vehicle.drivetrain]}</SpecRow>
-              {vehicle.transmission && (
-                <SpecRow label="Transmission">{TRANSMISSION_LABEL[vehicle.transmission]}</SpecRow>
+              {/* An RV answers a different set of questions.
+                  A towable has no odometer, no drivetrain, no engine and no EPA
+                  figure — those rows are absent rather than dashed, because a
+                  spec table full of em-dashes reads as a half-filled listing.
+                  A motorhome keeps mileage, engine and fuel; its drivetrain and
+                  MPG belong to the chassis and no coach is advertised on them.
+                  What replaces them is what an RV shopper actually filters on. */}
+              {hasOdometer(vehicle.bodyStyle) ? (
+                <SpecRow label="Mileage">
+                  <span className="tnum">{miles(vehicle.mileage)}</span>
+                </SpecRow>
+              ) : null}
+
+              {isRvBody(vehicle.bodyStyle) ? (
+                <>
+                  {vehicle.rvLengthFt ? (
+                    <SpecRow label="Length">
+                      <span className="tnum">{vehicle.rvLengthFt} ft</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvSleeps ? (
+                    <SpecRow label="Sleeps">
+                      <span className="tnum">{vehicle.rvSleeps}</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvSlideouts != null ? (
+                    <SpecRow label="Slide-outs">
+                      <span className="tnum">{vehicle.rvSlideouts}</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvDryWeightLbs ? (
+                    <SpecRow label="Dry weight">
+                      <span className="tnum">{vehicle.rvDryWeightLbs.toLocaleString('en-US')} lbs</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvGvwrLbs ? (
+                    <SpecRow label="GVWR">
+                      <span className="tnum">{vehicle.rvGvwrLbs.toLocaleString('en-US')} lbs</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvAcUnits ? (
+                    <SpecRow label="Air conditioners">
+                      <span className="tnum">{vehicle.rvAcUnits}</span>
+                    </SpecRow>
+                  ) : null}
+                  {vehicle.rvAxles ? (
+                    <SpecRow label="Axles">
+                      <span className="tnum">{vehicle.rvAxles}</span>
+                    </SpecRow>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <SpecRow label="Drivetrain">{DRIVETRAIN_LABEL[vehicle.drivetrain]}</SpecRow>
+                  {vehicle.transmission && (
+                    <SpecRow label="Transmission">{TRANSMISSION_LABEL[vehicle.transmission]}</SpecRow>
+                  )}
+                </>
               )}
-              <SpecRow label="Engine">
-                {vehicle.engine || '—'}
-                {vehicle.cylinders ? ` · ${vehicle.cylinders} cyl` : ''}
-              </SpecRow>
-              <SpecRow label="Fuel">{FUEL_LABEL[vehicle.fuelType]}</SpecRow>
-              <SpecRow label="EPA MPG">
-                <span className="tnum">{mpg}</span>
-              </SpecRow>
+
+              {hasOdometer(vehicle.bodyStyle) ? (
+                <SpecRow label="Engine">
+                  {vehicle.engine || '—'}
+                  {vehicle.cylinders ? ` · ${vehicle.cylinders} cyl` : ''}
+                </SpecRow>
+              ) : null}
+              {hasOdometer(vehicle.bodyStyle) ? (
+                <SpecRow label="Fuel">{FUEL_LABEL[vehicle.fuelType]}</SpecRow>
+              ) : null}
+              {!isRvBody(vehicle.bodyStyle) ? (
+                <SpecRow label="EPA MPG">
+                  <span className="tnum">{mpg}</span>
+                </SpecRow>
+              ) : null}
               <SpecRow label="Exterior">
                 <span className="inline-flex items-center gap-1.5">
                   <span
@@ -463,9 +524,11 @@ export default async function VehicleDetailPage({ params }: Params) {
                 </span>
               </SpecRow>
               <SpecRow label="Interior">{vehicle.interiorColor || '—'}</SpecRow>
-              <SpecRow label="Body style">
+              <SpecRow label={isRvBody(vehicle.bodyStyle) ? 'RV type' : 'Body style'}>
                 {BODY_LABEL[vehicle.bodyStyle]}
-                <span className="tnum text-[var(--text-3)]"> · {vehicle.doors} door</span>
+                {isRvBody(vehicle.bodyStyle) ? null : (
+                  <span className="tnum text-[var(--text-3)]"> · {vehicle.doors} door</span>
+                )}
               </SpecRow>
               <SpecRow label="Stock number">
                 <span className="tnum">{vehicle.stockNumber}</span>
