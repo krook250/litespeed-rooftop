@@ -304,8 +304,10 @@ footer a:hover{color:#fff}
 .adtext p{margin-top:14px;color:var(--ink2)}
 .adnote{margin-top:20px;font-size:14px;color:var(--ink3);border-left:2px solid var(--line);
   padding-left:14px;line-height:1.55}
-.adlabel{font-family:var(--fm);font-size:11px;letter-spacing:1.3px;text-transform:uppercase;
-  color:var(--ink4);margin-bottom:11px}
+.adlabel{display:inline-flex;align-items:center;background:var(--brand-wash);color:var(--brand-dk);
+  border:1px solid var(--brand-lt);border-radius:999px;padding:8px 16px;margin-bottom:15px;
+  font-family:var(--fh);font-weight:800;font-size:13.5px;letter-spacing:1.4px;text-transform:uppercase}
+@media(max-width:400px){.adlabel{font-size:12px;letter-spacing:1px;padding:7px 13px}}
 
 /* a Facebook / Instagram feed post */
 .fbpost{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
@@ -349,7 +351,7 @@ footer a:hover{color:#fff}
 .gwrap{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);
   gap:clamp(30px,4.5vw,58px);align-items:start;margin-top:84px}
 @media(max-width:940px){.gwrap{grid-template-columns:minmax(0,1fr);gap:32px;margin-top:64px}}
-.gunits{display:flex;flex-direction:column;gap:22px}
+.gunits{display:flex;flex-direction:column;gap:30px}
 .gunit{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
   box-shadow:0 16px 42px rgba(15,22,32,.13)}
 .gbar{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--wash);
@@ -773,6 +775,8 @@ fill="#3D8BFF" stroke="none">
       </div>
     </div>
     <div class="gunits">
+      <div class="gitem">
+      <div class="adlabel">Google Search &middot; vehicle ads</div>
       <div class="gunit">
         <div class="gbar"><span class="gq">used subaru outback vancouver wa</span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9aa4b1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/></svg></div>
         <div class="gsp">Sponsored</div>
@@ -803,6 +807,9 @@ fill="#3D8BFF" stroke="none">
           </a>
         </div>
       </div>
+      </div>
+      <div class="gitem">
+      <div class="adlabel">Google Search &middot; text ad</div>
       <div class="gunit">
         <div class="gtxt">
           <div class="gsp" style="padding:0">Sponsored</div>
@@ -820,6 +827,7 @@ fill="#3D8BFF" stroke="none">
             <a href="demo/">Get Pre-Approved</a>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>
