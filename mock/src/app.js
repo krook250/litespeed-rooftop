@@ -28,7 +28,7 @@ const MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2
 ============================================================== */
 const NAV = [
   { href: '#/lotwalk', label: 'Lot Walk', live: true },
-  { href: '#/dashboard', label: 'Dashboard' },
+  { href: '#/dashboard', label: 'Dashboard', live: true },
   { href: '#/inventory', label: 'Inventory', live: true },
   { href: '#/inventory?f=b2', label: 'At-risk list', live: true, match: 'f=b2' },
   { href: '#/syndication', label: 'Syndication', live: true },
@@ -892,6 +892,191 @@ function viewVDP(id) {
 }
 
 /* ============================ router ============================ */
+/* ============================ Dashboard ============================
+   The traditional dashboard, and a deliberate copy of the real screen at
+   `src/app/admin/dashboard/page.tsx`: the same four stats, the same aging
+   bar, at-risk table, recon board, syndication rail and activity list.
+
+   It used to be a stub. A prospect who clicks Dashboard and is told the
+   screen exists somewhere else is left wondering what it looks like, which
+   is the one question a demo should never leave open. Same rule as the rest
+   of the chrome — show the product, not a promise of it.
+   ================================================================= */
+
+/** Stacked aging bar plus its legend. `AgingBar` in the real app. */
+function agingBar(inv) {
+  const total = inv.length || 1;
+  const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
+  return `<div class="agbar">${dist.filter(d => d.n).map(d =>
+      `<i style="width:${(d.n / total) * 100}%;background:var(--${d.b.cls})"></i>`).join('')}</div>
+    <div class="aglegend">${dist.map(d =>
+      `<span><i style="background:var(--${d.b.cls})"></i>${d.b.label}<b class="num">${d.n}</b></span>`).join('')}</div>`;
+}
+
+/** Card header with an optional subtitle and an optional right-hand action. */
+function cardHead(title, sub, action) {
+  return `<div class="hd">
+    <div><h3>${title}</h3>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
+    <div class="grow"></div>${action || ''}</div>`;
+}
+
+/**
+ * The activity list is derived from listing state rather than scripted, so it
+ * cannot claim something the syndication screen would contradict. Errors sort
+ * to the top for the same reason they do in the product: they are the only
+ * rows anybody is reading this card for.
+ */
+function recentSync() {
+  const inv = scoped();
+  const short = (id) => (CHANNELS.find(c => c.id === id) || {}).short || id;
+  const when = (s) => (!s || s === '—' || s === '0d ago') ? 'Today' : s;
+  const rows = [];
+  // One row per unit, not one per channel: a unit held off every channel for the
+  // same reason would otherwise fill the card with six copies of itself.
+  inv.forEach(v => {
+    const bad = Object.entries(v.listings).find(([, l]) => l.error);
+    if (bad) rows.push({ ch: short(bad[0]), v, msg: bad[1].error, w: when(bad[1].pushedAt) });
+  });
+  const say = [
+    (v) => ({ ch: 'Website', msg: 'Marked front-line ready — listing everywhere',
+              w: when(`${Math.max(1, v.daysInStock - v.reconDays)}d ago`) }),
+    (v) => ({ ch: 'Meta', msg: `Catalog updated · ${money(v.price)}`, w: when(v.listings.meta.pushedAt) }),
+    (v) => ({ ch: 'Google VA', msg: 'Vehicle feed accepted', w: when(v.listings.gva.pushedAt) }),
+    (v) => ({ ch: 'Marketplace', msg: `${v.photoCount} photos published`, w: when(v.listings.mkt.pushedAt) }),
+  ];
+  [...inv].filter(v => v.frontLineReady)
+    .sort((a, b) => a.daysInStock - b.daysInStock)
+    .slice(0, 12)
+    .forEach((v, i) => rows.push({ v, ...say[i % say.length](v) }));
+  return rows.slice(0, 12);
+}
+
+function viewDashboard() {
+  const inv = scoped();
+  const m = metrics();
+  const nRt = state.rooftop === 'all' ? SEED.rooftops.length : 1;
+
+  const atRisk = inv.filter(isAtRisk).sort((a, b) => b.daysInStock - a.daysInStock);
+  const notReady = inv.filter(v => !v.frontLineReady).sort((a, b) => b.daysInStock - a.daysInStock);
+  const water = inv.filter(v => v.isWater);
+  const errs = inv.reduce((a, v) => a + Object.values(v.listings).filter(l => l.status === 'error').length, 0);
+  const inFlight = inv.reduce((a, v) => a + Object.values(v.listings).filter(l => l.status === 'queued').length, 0);
+  const done = inv.filter(v => v.frontLineReady);
+  const avgRecon = done.length
+    ? Math.round((done.reduce((a, v) => a + v.reconDays, 0) / done.length) * 10) / 10 : '—';
+  const statusLabel = (v) => v.reconStatus === 'in_recon' ? 'In recon' : 'Photos pending';
+
+  const tile = (k, v, n, bm) => `<div class="metric">
+    <div class="k">${k}</div><div class="v num">${v}</div><div class="n">${n}</div>
+    ${bm ? `<div class="bm">${bm}</div>` : ''}</div>`;
+
+  return `<div class="wrap"><div class="stack">
+    <div class="dhead">
+      <div>
+        <h1>Cascade Motors</h1>
+        <p>${nRt === 1 ? 'One rooftop' : nRt + ' rooftops'} &middot; ${inv.length} units in stock
+          &middot; ${money(m.invValue)} of inventory money on the ground</p>
+      </div>
+      <div class="acts">
+        <span class="dpill">Make this my home screen</span>
+        <span class="dpill"><i></i>Sync worker running</span>
+      </div>
+    </div>
+
+    <div class="metrics four">
+      ${tile('Front-line ready', `${m.frontLine} / ${inv.length}`, `${notReady.length} still in recon or photos`)}
+      ${tile('Average days in stock', m.avgDis + 'd', `${atRisk.length} at risk &middot; ${m.aged} aged`)}
+      ${tile('Days supply', m.daysSupply, 'Retail pace, trailing 90 days', 'Healthy range 45&ndash;60')}
+      ${tile('Turn rate', m.turn + '&times;', 'Annualised, trailing 90 days',
+             '12&ndash;15&times; is strong &middot; top operators run 22')}
+    </div>
+
+    <div class="cols dashcols" style="grid-template-columns:minmax(0,1fr) minmax(0,340px)">
+      <div class="stack">
+
+        <div class="card">
+          ${cardHead('Aging', 'Measured from date in. Switch the clock on the inventory screen.',
+                     '<a class="lnk" href="#/inventory">Open inventory &rarr;</a>')}
+          <div class="pad">${agingBar(inv)}</div>
+        </div>
+
+        <div class="card">
+          ${cardHead('At-risk list',
+            'Units between 30 and 45 days. This is the window where a price move still works.',
+            `<span class="chip ${atRisk.length ? 'b2' : 'ok'}">${atRisk.length} units</span>`)}
+          ${atRisk.length === 0 ? `<div class="empty"><h4>Nothing at risk</h4>
+            <p>No unit is sitting in the 30&ndash;45 day window.</p></div>` : `
+          <div style="overflow:auto"><table class="tbl"><thead><tr>
+            <th>Unit</th><th>Days</th><th class="r">Price</th><th class="r">In it</th>
+            <th class="r">VDP 7d</th><th class="r">Market</th>
+          </tr></thead><tbody>
+          ${atRisk.map(v => {
+            const pct = v.market ? Math.round((v.price / v.market) * 100) : null;
+            const cls = pct == null ? '' : pct <= 98 ? 'up' : pct >= 103 ? 'down' : '';
+            return `<tr data-act="veh" data-id="${v.id}">
+              <td><div style="font-weight:750">${esc(vfull(v))}</div>
+                <div class="tiny muted mono">${esc(v.stock)} &middot; ${v.mileage.toLocaleString()} mi</div></td>
+              <td><span class="chip ${bucketOf(v.daysInStock).cls}">${v.daysInStock}d</span></td>
+              <td class="r num" style="font-weight:800">${money(v.price)}</td>
+              <td class="r num muted">${money(v.totalCost)}</td>
+              <td class="r num">${v.vdpViews7 || '—'}</td>
+              <td class="r num ${cls}" style="font-weight:750">${pct == null ? '—' : pct + '%'}</td>
+            </tr>`;
+          }).join('')}
+          </tbody></table></div>`}
+        </div>
+
+        <div class="card">
+          ${cardHead('Recon board',
+            `Target is 7 days from date in to front line. Running at ${avgRecon}d.`)}
+          ${notReady.length === 0 ? `<div class="empty"><h4>Nothing in recon</h4>
+            <p>Every unit on the ground is front-line ready.</p></div>` :
+            notReady.map(v => `<a class="rrow" href="#/vehicle/${v.id}">
+              <img class="thumb" src="${v.hero}" alt="">
+              <div class="grow"><div class="sm trunc" style="font-weight:750">${esc(vfull(v))}</div>
+                <div class="tiny muted mono">${esc(v.stock)}</div></div>
+              <span class="chip ${v.reconStatus === 'in_recon' ? 'b1' : 'warn'}">${statusLabel(v)}</span>
+              <span class="chip ${bucketOf(v.daysInStock).cls}">${v.daysInStock}d</span>
+            </a>`).join('')}
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card pad">
+          <div style="font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink3)">
+            Syndication</div>
+          <div style="margin-top:8px">
+            <div class="synrow"><span>Changes in flight</span><b class="num">${inFlight}</b></div>
+            <div class="synrow"><span>Listing errors</span>
+              <b class="num" style="${errs ? 'color:var(--err)' : ''}">${errs}</b></div>
+            <div class="synrow"><span>VDP views &middot; 7d</span><b class="num">${m.vdp7.toLocaleString()}</b></div>
+          </div>
+          <a class="btn dark" style="width:100%;justify-content:center;margin-top:12px" href="#/syndication">Open syndication</a>
+        </div>
+
+        ${water.length ? `<div class="card">
+          ${cardHead('Water units', 'Total cost is above what the market will pay.',
+                     `<span class="chip err">${water.length}</span>`)}
+          ${water.map(v => `<a class="rrow" style="display:block" href="#/vehicle/${v.id}">
+            <div class="sm trunc" style="font-weight:750">${esc(vfull(v))}</div>
+            <div class="tiny muted row" style="justify-content:space-between;margin-top:2px">
+              <span>In it ${money(v.totalCost)}</span>
+              <b class="down">${money(v.totalCost - v.market)} under water</b></div>
+          </a>`).join('')}
+        </div>` : ''}
+
+        <div class="card">
+          ${cardHead('Recent activity')}
+          ${recentSync().map(r => `<div class="actrow">
+            <div class="t"><b>${esc(r.ch)}</b> &middot; ${esc(vname(r.v))}</div>
+            <div class="m"><span class="trunc">${esc(r.msg)}</span><span class="w">${esc(r.w)}</span></div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
 const RIBBON = `<div class="ribbon">
   <a href="../index.html" class="rb-back">&#9664; rooftopauto.com</a>
   <span class="rb-tag">LIVE DEMO</span>
@@ -917,7 +1102,7 @@ function render() {
   else if (r.startsWith('#/syndication')) html = viewSyndication();
   else if (r.startsWith('#/reporting')) html = viewReporting();
   else if (r.startsWith('#/log')) html = viewActivityLog();
-  else if (r.startsWith('#/dashboard')) html = viewStub('Dashboard');
+  else if (r.startsWith('#/dashboard')) html = viewDashboard();
   else if (r.startsWith('#/ad-desk')) html = viewStub('Ad Desk');
   else if (r.startsWith('#/website')) html = viewStub('Website');
   else if (r.startsWith('#/lots')) html = viewStub('Lots');
