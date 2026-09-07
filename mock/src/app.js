@@ -32,7 +32,7 @@ const NAV = [
   { href: '#/inventory', label: 'Inventory', live: true },
   { href: '#/inventory?f=b2', label: 'At-risk list', live: true, match: 'f=b2' },
   { href: '#/syndication', label: 'Syndication', live: true },
-  { href: '#/ad-desk', label: 'Ad Desk' },
+  { href: '#/ad-desk', label: 'Ad Desk', live: true },
   { href: '#/website', label: 'Website' },
   { href: '#/lots', label: 'Lots' },
   { href: '#/reporting', label: 'Reporting', live: true },
@@ -1077,6 +1077,150 @@ function viewDashboard() {
   </div></div>`;
 }
 
+/* ============================ Ad Desk ============================
+   Three steps, in the order a dealer actually does them: connect the
+   Page and the ad account, sync the inventory into a catalog, push the
+   ads. Then the ads themselves, because "catalog ads" means nothing to
+   somebody who has never seen one.
+
+   Deliberately simpler than the real screen at
+   `src/app/admin/ad-desk/page.tsx`, which carries asset pickers, feed
+   eligibility and a campaign builder per lot. Those are the settings you
+   touch once; this is the shape of the thing. Every number below is read
+   off the same demo inventory as the rest of the walkthrough, so it
+   cannot disagree with the syndication screen.
+   ================================================================ */
+
+function adPreviewCards(units) {
+  return units.map(v => `<a class="adcd" href="#/vehicle/${v.id}">
+    <img src="${v.hero}" alt="">
+    <div class="b">
+      <div class="p">${money(v.price)}</div>
+      <div class="t">${esc(vfull(v))}</div>
+      <div class="s">${v.mileage.toLocaleString()} mi &middot; ${esc(v.drivetrain)}</div>
+      <div class="c">Learn more</div>
+    </div></a>`).join('');
+}
+
+function viewAdDesk() {
+  const inv = scoped();
+  const ready = inv.filter(v => v.frontLineReady);
+  const held = inv.filter(v => !v.frontLineReady);
+  const soldToday = SALES.filter(s => s.when === 0).length;
+  const fresh = [...ready].sort((a, b) => a.daysInStock - b.daysInStock);
+  const lots = state.rooftop === 'all' ? SEED.rooftops : SEED.rooftops.filter(r => r.id === state.rooftop);
+  const hero = fresh[2] || fresh[0] || inv[0];   // a different unit from the one leading the carousel
+
+  const step = (n, t, s) => `<div class="step"><i>${n}</i><div><b>${t}</b><span>${s}</span></div></div>`;
+
+  return `<div class="wrap"><div class="stack">
+    <div class="dhead">
+      <div>
+        <h1>Ad Desk</h1>
+        <p>Put every car on the lot into a Facebook and Instagram ad, and take it back out when it sells.</p>
+      </div>
+      <div class="acts"><span class="dpill"><i></i>Campaigns delivering</span></div>
+    </div>
+
+    <div class="steps">
+      ${step('&#10003;', 'Connect', 'Page and ad account')}
+      ${step('&#10003;', 'Sync inventory', `${inv.length} units in the catalog`)}
+      ${step('&#10003;', 'Push ads', `${lots.length} campaign${lots.length === 1 ? '' : 's'} live`)}
+    </div>
+
+    <div class="card">
+      ${cardHead('1 &middot; Connect your Page and ad account',
+        'Once for the business, then pick the Page and ad account for each lot.',
+        '<span class="chip ok">Connected</span>')}
+      <div class="pad">
+        <div class="adkv">
+          <div><div class="k">Facebook business</div><div class="v">Cascade Motors Group</div></div>
+          <div><div class="k">Connected as</div><div class="v">System user</div></div>
+        </div>
+        <div class="tiny muted" style="margin-top:9px">The catalog, the pixel and the ad account stay
+          in your own Facebook business. Rooftop only holds access &mdash; and a system user does not
+          break when the person who set it up leaves.</div>
+      </div>
+      ${lots.map(rt => `<div class="adlot">
+        <div class="n">${esc(rt.name)}</div>
+        <div class="adkv">
+          <div><div class="k">Page</div><div class="v">${esc(rt.name)}</div></div>
+          <div><div class="k">Ad account</div><div class="v mono">act_4471029</div></div>
+          <div><div class="k">Catalog</div><div class="v">${esc(rt.short)} vehicles</div></div>
+          <div><div class="k">Pixel</div><div class="v">Cascade Motors &#10003;</div></div>
+        </div>
+      </div>`).join('')}
+    </div>
+
+    <div class="card">
+      ${cardHead('2 &middot; Sync inventory',
+        'The catalog is your inventory. Nobody keeps a second list.',
+        `<span class="chip ok">${inv.length} in the catalog</span>`)}
+      <div class="adline"><span class="l">Eligible and advertising</span><b class="num">${ready.length}</b></div>
+      <div class="adline"><span class="l">Held back</span>
+        <b class="num" style="${held.length ? 'color:var(--warn)' : ''}">${held.length}${held.length ? ' &middot; needs 8+ photos' : ''}</b></div>
+      <div class="adline"><span class="l">Pulled out today &mdash; sold</span><b class="num">${soldToday}</b></div>
+      <div class="adline"><span class="l">Catalog last rebuilt</span><b>6 minutes ago</b></div>
+      <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+        Enter a unit this morning and it is advertisable this morning. Sold at four o'clock, out of
+        the catalog by four. Nobody opens Business Manager.
+      </div>
+    </div>
+
+    <div class="card">
+      ${cardHead('3 &middot; Push ads',
+        'One campaign per lot. Rooftop builds it and keeps it pointed at what you have.',
+        '<span class="chip ok">Live</span>')}
+      <div class="adline"><span class="l">Campaign</span><b>Cascade Motors &mdash; Vehicle ads</b></div>
+      <div class="adline"><span class="l">Ad set</span><b>Vancouver + 40 mi &middot; $45/day</b></div>
+      <div class="adline"><span class="l">Ad</span><b>Catalog &mdash; all ${ready.length} available units</b></div>
+      <div class="adline"><span class="l">Placements</span><b>Facebook feed, Instagram feed, Marketplace</b></div>
+      <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+        No creative to build and nothing to re-upload. The ad reads the catalog, and the catalog
+        reads the lot.
+      </div>
+    </div>
+
+    <div class="card">
+      ${cardHead('What runs', 'Assembled from the inventory record. Nobody writes these.')}
+      <div class="adprevs">
+        <div>
+          <span class="adlabel2">Facebook feed</span>
+          <div class="adp">
+            <div class="h"><span class="av2">CM</span>
+              <div><b>Cascade Motors</b><span>Sponsored</span></div></div>
+            <p class="cp">Just landed in Vancouver. Every unit priced, photographed and ready to
+              drive today.</p>
+            <div class="adcar">${adPreviewCards(fresh.slice(0, 5))}</div>
+            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+          </div>
+        </div>
+        <div>
+          <span class="adlabel2">Instagram feed</span>
+          <div class="adp">
+            <div class="h"><span class="av2">CM</span>
+              <div><b>cascademotorswa</b><span>Sponsored</span></div></div>
+            <div class="big"><img src="${hero.hero}" alt=""></div>
+            <div class="lk">
+              <div>
+                <div class="d">cascademotorswa.com</div>
+                <div class="t">${esc(vfull(hero))}</div>
+                <div class="s">${money(hero.price)} &middot; ${hero.mileage.toLocaleString()} mi &middot; ${esc(hero.drivetrain)}</div>
+              </div>
+              <span class="btn2">Learn more</span>
+            </div>
+            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+        The shopper who looked at a unit sees that unit again. Cut the price and the card carries the
+        new one. Sell it and the card is gone.
+      </div>
+    </div>
+  </div></div>`;
+}
+
 const RIBBON = `<div class="ribbon">
   <a href="../index.html" class="rb-back">&#9664; rooftopauto.com</a>
   <span class="rb-tag">LIVE DEMO</span>
@@ -1103,7 +1247,7 @@ function render() {
   else if (r.startsWith('#/reporting')) html = viewReporting();
   else if (r.startsWith('#/log')) html = viewActivityLog();
   else if (r.startsWith('#/dashboard')) html = viewDashboard();
-  else if (r.startsWith('#/ad-desk')) html = viewStub('Ad Desk');
+  else if (r.startsWith('#/ad-desk')) html = viewAdDesk();
   else if (r.startsWith('#/website')) html = viewStub('Website');
   else if (r.startsWith('#/lots')) html = viewStub('Lots');
   else html = viewLotWalk();
