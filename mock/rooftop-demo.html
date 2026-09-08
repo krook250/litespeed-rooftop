@@ -15,7 +15,14 @@
   --ink:#0f1620; --ink2:#39434f; --ink3:#6d7886; --ink4:#9aa4b1;
   --line:#e3e7ec; --line2:#eef1f4;
   --bg:#f1f3f6; --card:#fff; --card2:#f8fAfc;
-  --brand:#2C6FD8; --brand2:#3D8BFF; --brand-dk:#1F55A8; --brand-wash:#E9F2FF;
+  /* Litespeed brand blue — same values as the marketing site's tokens.
+     Two extras the site does not need:
+       --brand-ink  text sitting ON --brand-wash. --brand-dk is 4.1:1 there,
+                    which fails AA for the 10-13px uppercase labels this UI is
+                    full of; --brand-ink is 6.3:1. Never use it as a fill.
+       --brand-dk2  the hover step under a --brand-dk button. */
+  --brand:#3D8BFF; --brand2:#6BA6FF; --brand-dk:#1F6FEA; --brand-wash:#EAF2FF;
+  --brand-lt:#8FBCFF; --brand-ink:#1653B8; --brand-dk2:#1858C4;
 
   --b0:#15a34a; --b0w:#e6f6ec;   /* 0-15  fresh air   */
   --b1:#0e8fa8; --b1w:#e3f4f8;   /* 16-30             */
@@ -47,7 +54,7 @@ input,select,textarea{font:inherit;color:inherit}
 .brand{display:flex;align-items:center;font-family:var(--fh);font-style:italic;font-weight:900;letter-spacing:-.5px;font-size:18px;line-height:1;white-space:nowrap;margin-right:16px}
 .brand i{position:relative;display:inline-block;width:.363em;height:0;vertical-align:baseline;font-style:normal}
 .brand i svg{position:absolute;left:0;bottom:-.218em;width:.476em;height:1.089em;fill:#3D8BFF;overflow:visible}
-.brandmark{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk));
+.brandmark{width:26px;height:26px;border-radius:7px;background:linear-gradient(140deg,var(--brand),var(--brand-dk));
   display:grid;place-items:center;flex:0 0 auto}
 .brandmark svg{width:15px;height:15px}
 .brand small{font-weight:600;font-size:10px;letter-spacing:1.6px;color:#8e97a6;
@@ -82,8 +89,8 @@ input,select,textarea{font:inherit;color:inherit}
 .tiny{font-size:11.5px}
 .sm{font-size:12.5px}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;font-weight:700;font-size:13px;
-  background:var(--brand);color:#fff;box-shadow:var(--sh);white-space:nowrap}
-.btn:hover{background:var(--brand-dk)}
+  background:var(--brand-dk);color:#fff;box-shadow:var(--sh);white-space:nowrap}
+.btn:hover{background:var(--brand-dk2)}
 .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line)}
 .btn.ghost:hover{background:var(--card2);color:var(--ink)}
 .btn.dark{background:var(--ink)}.btn.dark:hover{background:#1e2734}
@@ -94,7 +101,7 @@ input,select,textarea{font:inherit;color:inherit}
 .chip.b0{background:var(--b0w);color:var(--b0)}.chip.b1{background:var(--b1w);color:var(--b1)}
 .chip.b2{background:var(--b2w);color:var(--b2)}.chip.b3{background:var(--b3w);color:var(--b3)}
 .chip.b4{background:var(--b4w);color:var(--b4)}
-.chip.brand{background:var(--brand-wash);color:var(--brand-dk)}
+.chip.brand{background:var(--brand-wash);color:var(--brand-ink)}
 .chip.ok{background:var(--b0w);color:var(--b0)}
 .chip.err{background:var(--b4w);color:var(--b4)}
 .chip.warn{background:var(--b2w);color:var(--b2)}
@@ -120,10 +127,10 @@ hr.sep{border:0;border-top:1px solid var(--line2);margin:0}
 /* ===== left rail ===== */
 .railL .lnk{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-weight:650;font-size:13.5px;color:var(--ink2)}
 .railL .lnk:hover{background:#e7eaef}
-.railL .lnk.on{background:var(--brand-wash);color:var(--brand-dk);font-weight:800}
+.railL .lnk.on{background:var(--brand-wash);color:var(--brand-ink);font-weight:800}
 .railL .lnk .ic{width:26px;height:26px;border-radius:7px;background:var(--card);border:1px solid var(--line);
   display:grid;place-items:center;font-size:13px;flex:0 0 auto}
-.railL .lnk.on .ic{background:var(--brand);border-color:var(--brand);color:#fff}
+.railL .lnk.on .ic{background:var(--brand-dk);border-color:var(--brand-dk);color:#fff}
 .railL .grp{font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink4);padding:14px 11px 6px}
 
 /* ===== feed ===== */
@@ -139,7 +146,7 @@ hr.sep{border:0;border-top:1px solid var(--line2);margin:0}
 .post{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--sh);overflow:hidden}
 .post .top{display:flex;gap:11px;padding:14px 16px 10px}
 .av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12.5px;color:#fff;flex:0 0 auto}
-.av.sys{border-radius:10px;background:linear-gradient(140deg,var(--brand2),var(--brand-dk))}
+.av.sys{border-radius:10px;background:linear-gradient(140deg,var(--brand),var(--brand-dk))}
 .av.sys svg{width:19px;height:19px}
 .post .who{font-weight:800;font-size:14px}
 .post .when{font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:5px;margin-top:1px}
@@ -156,7 +163,7 @@ hr.sep{border:0;border-top:1px solid var(--line2);margin:0}
 .react{display:flex;align-items:center;gap:4px;padding:7px 10px;border-top:1px solid var(--line2)}
 .rbtn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:700;color:var(--ink3)}
 .rbtn:hover{background:var(--card2)}
-.rbtn.on{color:var(--brand-dk);background:var(--brand-wash)}
+.rbtn.on{color:var(--brand-ink);background:var(--brand-wash)}
 .cmts{border-top:1px solid var(--line2);background:var(--card2);padding:11px 15px;display:flex;flex-direction:column;gap:10px}
 .cmt{display:flex;gap:9px}
 .cmt .av{width:28px;height:28px;font-size:10.5px}
@@ -330,11 +337,11 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
 .spark{width:100%;height:78px;display:block}
 
 /* ===== demo ribbon (only present in the hosted demo build) ===== */
-.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#1F55A8;color:#fff;
+.ribbon{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--brand-dk);color:#fff;
   padding:7px 18px;font-size:12px;font-weight:600;letter-spacing:.1px}
 .rb-back{font-weight:800;padding:3px 10px;border-radius:7px;background:rgba(255,255,255,.16);white-space:nowrap}
 .rb-back:hover{background:rgba(255,255,255,.28)}
-.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:#1F55A8}
+.rb-tag{font-weight:900;font-size:10px;letter-spacing:1.4px;padding:3px 8px;border-radius:5px;background:#fff;color:var(--brand-ink)}
 .rb-txt{color:#cfe0f7}
 @media(max-width:640px){.rb-txt{display:none}}
 
@@ -478,12 +485,12 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
 .adprevs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,440px));gap:20px;
   padding:16px;justify-content:start;align-items:start}
 .adlabel2{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
-  color:var(--brand-dk);background:var(--brand-wash);border-radius:999px;padding:5px 11px;
+  color:var(--brand-ink);background:var(--brand-wash);border-radius:999px;padding:5px 11px;
   display:inline-block;margin-bottom:9px}
 .adp{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
 .adp .h{display:flex;align-items:center;gap:9px;padding:11px 12px 8px}
 .adp .h .av2{width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
-  background:linear-gradient(140deg,var(--brand2),var(--brand-dk));color:#fff;font-size:11.5px;font-weight:800}
+  background:linear-gradient(140deg,var(--brand),var(--brand-dk));color:#fff;font-size:11.5px;font-weight:800}
 .adp .h b{display:block;font-size:13px;font-weight:800;line-height:1.2}
 .adp .h span{font-size:11.5px;color:var(--ink3)}
 .adp .cp{padding:0 12px 10px;font-size:13px;line-height:1.45}
@@ -1584,7 +1591,7 @@ function viewReporting() {
   const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
   const maxN = Math.max(...dist.map(d => d.n), 1);
   const mix = ['Pickup', 'SUV', 'Sedan', 'Wagon'].map((k, i) => ({
-    k, n: inv.filter(v => v.body === k).length, c: ['#2C6FD8', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
+    k, n: inv.filter(v => v.body === k).length, c: ['#3D8BFF', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
   const total = mix.reduce((a, x) => a + x.n, 0) || 1;
   const top = [...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7).slice(0, 6);
   const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
@@ -1709,7 +1716,7 @@ function storeHeader() {
     <span>📍 Two locations in Vancouver, WA</span>
     <span>·</span><span>Fourth Plain</span><span>·</span><span>Orchards</span>
     <div style="flex:1"></div>
-    <a href="#/lotwalk" style="color:#8fbcff;font-weight:700">← back to Rooftop admin</a>
+    <a href="#/lotwalk" style="color:var(--brand-lt);font-weight:700">← back to Rooftop admin</a>
   </div></div></header>`;
 }
 
@@ -2218,8 +2225,8 @@ function viewWebsite() {
         <div class="swatches">
           <div class="swatch"><i style="background:#0f1620"></i>
             <div><b>Brand</b><span>#0F1620</span></div></div>
-          <div class="swatch"><i style="background:#2C6FD8"></i>
-            <div><b>Accent</b><span>#2C6FD8</span></div></div>
+          <div class="swatch"><i style="background:#3D8BFF"></i>
+            <div><b>Accent</b><span>#3D8BFF</span></div></div>
           <div class="swatch"><i style="background:#f5f7fa"></i>
             <div><b>Page</b><span>#F5F7FA</span></div></div>
         </div>

@@ -622,7 +622,7 @@ function viewReporting() {
   const dist = BUCKETS.map(b => ({ b, n: inv.filter(v => bucketOf(v.daysInStock).id === b.id).length }));
   const maxN = Math.max(...dist.map(d => d.n), 1);
   const mix = ['Pickup', 'SUV', 'Sedan', 'Wagon'].map((k, i) => ({
-    k, n: inv.filter(v => v.body === k).length, c: ['#2C6FD8', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
+    k, n: inv.filter(v => v.body === k).length, c: ['#3D8BFF', '#0e8fa8', '#c9760a', '#15a34a'][i] }));
   const total = mix.reduce((a, x) => a + x.n, 0) || 1;
   const top = [...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7).slice(0, 6);
   const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
@@ -747,7 +747,7 @@ function storeHeader() {
     <span>📍 Two locations in Vancouver, WA</span>
     <span>·</span><span>Fourth Plain</span><span>·</span><span>Orchards</span>
     <div style="flex:1"></div>
-    <a href="#/lotwalk" style="color:#8fbcff;font-weight:700">← back to Rooftop admin</a>
+    <a href="#/lotwalk" style="color:var(--brand-lt);font-weight:700">← back to Rooftop admin</a>
   </div></div></header>`;
 }
 
@@ -1256,8 +1256,8 @@ function viewWebsite() {
         <div class="swatches">
           <div class="swatch"><i style="background:#0f1620"></i>
             <div><b>Brand</b><span>#0F1620</span></div></div>
-          <div class="swatch"><i style="background:#2C6FD8"></i>
-            <div><b>Accent</b><span>#2C6FD8</span></div></div>
+          <div class="swatch"><i style="background:#3D8BFF"></i>
+            <div><b>Accent</b><span>#3D8BFF</span></div></div>
           <div class="swatch"><i style="background:#f5f7fa"></i>
             <div><b>Page</b><span>#F5F7FA</span></div></div>
         </div>
