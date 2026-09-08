@@ -2063,7 +2063,21 @@ function viewAdDesk() {
   const soldToday = SALES.filter(s => s.when === 0).length;
   const fresh = [...ready].sort((a, b) => a.daysInStock - b.daysInStock);
   const lots = state.rooftop === 'all' ? SEED.rooftops : SEED.rooftops.filter(r => r.id === state.rooftop);
-  const hero = fresh[2] || fresh[0] || inv[0];   // a different unit from the one leading the carousel
+
+  /*
+   * These previews crop 1:1, and a square crop of a landscape photo throws away
+   * the ends of the car. On a front 3/4 that is fine — the car sits in the
+   * middle of the frame. On a rear 3/4 shot of a long-bed truck you get a bed
+   * and one wheel, which is what the 2021 Ram was doing here. So the ad units
+   * only ever draw from units whose lead photo is a front 3/4; 22 of the 28
+   * front-line units qualify, and the rest still appear everywhere else in the
+   * demo where the tile is landscape.
+   */
+  const frontOn = (v) => /front/i.test((v.photoFiles && v.photoFiles[0] && v.photoFiles[0][1]) || '');
+  const square = fresh.filter(frontOn);
+  const carousel = (square.length >= 3 ? square : fresh).slice(0, 5);
+  // A truck for the single-image ad, so it is not a third wagon next to the carousel.
+  const hero = square.find(v => v.body === 'Pickup') || square[2] || fresh[0] || inv[0];
 
   const step = (n, t, s) => `<div class="step"><i>${n}</i><div><b>${t}</b><span>${s}</span></div></div>`;
 
@@ -2145,7 +2159,7 @@ function viewAdDesk() {
               <div><b>Cascade Motors</b><span>Sponsored</span></div></div>
             <p class="cp">Just landed in Vancouver. Every unit priced, photographed and ready to
               drive today.</p>
-            <div class="adcar">${adPreviewCards(fresh.slice(0, 5))}</div>
+            <div class="adcar">${adPreviewCards(carousel)}</div>
             <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
           </div>
         </div>
