@@ -499,3 +499,18 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
   border-radius:7px;padding:7px 11px;font-size:11.5px;font-weight:800;color:var(--ink2)}
 .adp .bar{display:flex;border-top:1px solid var(--line2)}
 .adp .bar span{flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;color:var(--ink3)}
+
+/* ===== website + lots ===== */
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatch{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;
+  padding:8px 12px 8px 8px}
+.swatch i{width:30px;height:30px;border-radius:7px;flex:0 0 auto;border:1px solid rgba(0,0,0,.1)}
+.swatch b{display:block;font-size:12.5px;font-weight:800}
+.swatch span{display:block;font-size:11px;color:var(--ink3);font-family:var(--fm)}
+.pagechips{display:flex;flex-wrap:wrap;gap:6px}
+.pagechip{font-size:12px;font-weight:700;color:var(--ink2);background:var(--card2);
+  border:1px solid var(--line);border-radius:7px;padding:5px 10px}
+.hours{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:2px 22px;max-width:580px}
+.hours div{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:2px 0}
+.hours .d{color:var(--ink3);font-weight:650}
+.hours b{font-weight:750}

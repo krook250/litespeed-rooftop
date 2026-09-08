@@ -22,9 +22,11 @@ const MARK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2
    sets a dealer up to be disappointed in week one — and this demo already got
    that wrong once, with a light icon rail and a top bar the app never had.
 
-   Four screens are real in here. The rest are in the nav because leaving them
-   out would misrepresent the product in the other direction, and they say so
-   when you click them rather than pretending to be broken.
+   Every screen in the nav now renders. Dashboard, Ad Desk, Website and Lots
+   were stubs until 7 Sep 2026 and said so when you clicked them, which was
+   honest but left a prospect wondering what they looked like. The three built
+   last are deliberately lighter than their real counterparts — see
+   `claude/demo-dashboard.md` and `claude/demo-ad-desk.md`.
 ============================================================== */
 const NAV = [
   { href: '#/lotwalk', label: 'Lot Walk', live: true },
@@ -33,8 +35,8 @@ const NAV = [
   { href: '#/inventory?f=b2', label: 'At-risk list', live: true, match: 'f=b2' },
   { href: '#/syndication', label: 'Syndication', live: true },
   { href: '#/ad-desk', label: 'Ad Desk', live: true },
-  { href: '#/website', label: 'Website' },
-  { href: '#/lots', label: 'Lots' },
+  { href: '#/website', label: 'Website', live: true },
+  { href: '#/lots', label: 'Lots', live: true },
   { href: '#/reporting', label: 'Reporting', live: true },
 ];
 
@@ -101,23 +103,6 @@ const FEED_FILTERS = [
 function filterChips() {
   return `<div class="fchips">${FEED_FILTERS.map(f =>
     `<a class="fchip ${f.k === 'all' ? 'on' : ''}" href="#/lotwalk">${f.label}</a>`).join('')}</div>`;
-}
-
-/** The screens that are not in the demo say so. */
-function viewStub(name) {
-  return `<div class="wrap"><div class="cols one">
-    <div class="stack">
-      ${pageHead(esc(name), 'Not part of this demo.')}
-      <div class="card pad" style="text-align:center;padding:56px 24px">
-        <div style="font-size:15px;font-weight:750">${esc(name)} is in the product, not in this demo.</div>
-        <div class="sm muted" style="margin-top:8px;max-width:460px;margin-inline:auto">
-          This walkthrough covers Lot Walk, the activity log, inventory, syndication and
-          reporting. ${esc(name)} is a live screen &mdash; ask for it on the call.
-        </div>
-        <a class="btn" style="margin-top:18px;display:inline-block" href="#/lotwalk">Back to Lot Walk</a>
-      </div>
-    </div>
-  </div></div>`;
 }
 
 function metricStrip() {
@@ -1221,6 +1206,154 @@ function viewAdDesk() {
   </div></div>`;
 }
 
+/* ============================ Website ============================
+   A watered-down stand-in for the real three-tab section (Content,
+   Design, Analytics — `src/app/admin/website/`). The dealer-facing
+   point is one sentence: you get a real site on your own domain and it
+   is fed by the same record as everything else. Three cards say that;
+   the tabs, the colour picker and the DNS walkthrough are settings a
+   prospect does not need to see to believe it.
+
+   `View the site` goes to the storefront that is already in this demo,
+   which is the whole argument made better than any screenshot of a
+   settings page.
+   ================================================================ */
+function viewWebsite() {
+  const inv = scoped();
+  const live = inv.filter(v => v.frontLineReady).length;
+  const m = metrics();
+  const rt = SEED.virtualRooftop;
+
+  return `<div class="wrap"><div class="stack">
+    <div class="dhead">
+      <div>
+        <h1>Website</h1>
+        <p>Your own site, on your own domain, running off the same inventory record as your ads.</p>
+      </div>
+      <div class="acts"><span class="dpill"><i></i>${esc(rt.domain)} &middot; live</span></div>
+    </div>
+
+    <div class="card">
+      ${cardHead('Content', 'Cascade Motors &mdash; your address, your story, your hours.',
+        '<a class="lnk" href="#/store">View the site &#8599;</a>')}
+      <div class="adline"><span class="l">Domain</span><b>${esc(rt.domain)}</b></div>
+      <div class="adline"><span class="l">Interim address</span>
+        <b class="mono" style="font-size:12.5px">app.rooftopauto.com/s/cascade-motors</b></div>
+      <div class="adline"><span class="l">Vehicle pages live right now</span><b class="num">${live}</b></div>
+      <div class="pad" style="border-top:1px solid var(--line2)">
+        <div class="pagechips">
+          ${['Home', 'Inventory', 'Vehicle pages', 'Financing', 'Trade-in', 'About', 'Contact']
+            .map(p => `<span class="pagechip">${p}</span>`).join('')}
+        </div>
+        <div class="tiny muted" style="margin-top:11px">A vehicle page goes up the day the unit
+          does and comes down the hour it sells. Nobody publishes anything.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      ${cardHead('Design', 'Logo, colours and layout. Set once.')}
+      <div class="pad">
+        <div class="swatches">
+          <div class="swatch"><i style="background:#0f1620"></i>
+            <div><b>Brand</b><span>#0F1620</span></div></div>
+          <div class="swatch"><i style="background:#2C6FD8"></i>
+            <div><b>Accent</b><span>#2C6FD8</span></div></div>
+          <div class="swatch"><i style="background:#f5f7fa"></i>
+            <div><b>Page</b><span>#F5F7FA</span></div></div>
+        </div>
+        <div class="adkv" style="margin-top:14px">
+          <div><div class="k">Logo</div><div class="v">Wordmark &#10003;</div></div>
+          <div><div class="k">Layout</div><div class="v">Photo grid</div></div>
+          <div><div class="k">Vehicle page</div><div class="v">Gallery + payment</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      ${cardHead('Analytics', 'Who is on your site and what they looked at.')}
+      <div class="pad">${sparkline(VDP_TREND)}</div>
+      <div class="adline"><span class="l">VDP views &middot; 7 days</span><b class="num">${m.vdp7.toLocaleString()}</b></div>
+      <div class="adline"><span class="l">Leads &middot; 7 days</span><b class="num">${m.leads7}</b></div>
+      <div class="adline"><span class="l">Busiest unit this week</span>
+        <b>${esc(vname([...inv].sort((a, b) => b.vdpViews7 - a.vdpViews7)[0]))}</b></div>
+      <div class="pad tiny muted" style="border-top:1px solid var(--line2)">
+        Your own pixel, on your own pages. A dealer whose inventory only lives on a marketplace
+        has neither, and cannot tell you which car the money bought.
+      </div>
+    </div>
+  </div></div>`;
+}
+
+/* ============================== Lots ==============================
+   The address screen. It is unglamorous and it is the one that stops a
+   feed being rejected, so the demo says that out loud rather than
+   dressing it up. Trimmed hard from the real form at
+   `src/app/admin/lots/page.tsx` — a prospect needs to see what is
+   collected and why, not seven days of opening-hours inputs.
+
+   ZIP, coordinates and hours are not in `seed.json`; they are here,
+   keyed by rooftop, because a lots screen with blank map pins would
+   demonstrate the exact failure the real screen exists to prevent.
+   ================================================================ */
+const LOT_EXTRA = {
+  rt_fourthplain: { zip: '98662', lat: 45.6387, lng: -122.6021, email: 'sales@cascademotorswa.com' },
+  rt_orchards:    { zip: '98682', lat: 45.6704, lng: -122.5385, email: 'orchards@cascademotorswa.com' },
+};
+const LOT_HOURS = [
+  ['Mon', '9:00 – 7:00'], ['Tue', '9:00 – 7:00'], ['Wed', '9:00 – 7:00'], ['Thu', '9:00 – 7:00'],
+  ['Fri', '9:00 – 7:00'], ['Sat', '9:00 – 6:00'], ['Sun', '11:00 – 5:00'],
+];
+
+function viewLots() {
+  const lots = state.rooftop === 'all' ? SEED.rooftops : SEED.rooftops.filter(r => r.id === state.rooftop);
+
+  return `<div class="wrap"><div class="stack">
+    <div class="dhead">
+      <div>
+        <h1>Your lots</h1>
+        <p>This address goes out on every listing you syndicate. CarGurus will not take a feed
+          without it, and Facebook needs the map pin on every vehicle.</p>
+      </div>
+    </div>
+
+    ${lots.map(rt => {
+      const x = LOT_EXTRA[rt.id] || {};
+      const units = state.vehicles.filter(v => v.rooftop === rt.id).length;
+      return `<div class="card">
+        ${cardHead(esc(rt.name), `${units} units on the ground`,
+          '<span class="chip ok">Ready to syndicate</span>')}
+        <div class="pad">
+          <div class="adkv">
+            <div><div class="k">Street</div><div class="v">${esc(rt.address)}</div></div>
+            <div><div class="k">City</div><div class="v">${esc(rt.city)}, ${esc(rt.state)} ${esc(x.zip)}</div></div>
+            <div><div class="k">Phone</div><div class="v">${esc(rt.phone)}</div></div>
+            <div><div class="k">Leads go to</div><div class="v">${esc(x.email)}</div></div>
+          </div>
+        </div>
+        <div class="adline"><span class="l">Map pin</span>
+          <b class="mono" style="font-size:12.5px">${x.lat}, ${x.lng}</b></div>
+        <div class="pad" style="border-top:1px solid var(--line2)">
+          <div class="k" style="font-size:10.5px;font-weight:800;letter-spacing:.8px;
+            text-transform:uppercase;color:var(--ink4);margin-bottom:6px">Opening hours</div>
+          <div class="hours">${LOT_HOURS.map(([d, h]) =>
+            `<div><span class="d">${d}</span><b>${h}</b></div>`).join('')}</div>
+        </div>
+      </div>`;
+    }).join('')}
+
+    <div class="card pad">
+      <div class="sm" style="font-weight:750">Why the coordinates</div>
+      <div class="tiny muted" style="margin-top:5px;max-width:74ch">
+        Facebook wants exact coordinates on every vehicle &mdash; a street address on its own is
+        not enough, and without them your cars do not run on Marketplace. Right-click the lot in
+        Google Maps and the first item in the menu is the pair of numbers. There is no geocoder
+        behind this on purpose: a wrong pin quietly mis-targets every ad the lot runs, and a
+        dealer would never find out why.
+      </div>
+    </div>
+  </div></div>`;
+}
+
 const RIBBON = `<div class="ribbon">
   <a href="../index.html" class="rb-back">&#9664; rooftopauto.com</a>
   <span class="rb-tag">LIVE DEMO</span>
@@ -1248,8 +1381,8 @@ function render() {
   else if (r.startsWith('#/log')) html = viewActivityLog();
   else if (r.startsWith('#/dashboard')) html = viewDashboard();
   else if (r.startsWith('#/ad-desk')) html = viewAdDesk();
-  else if (r.startsWith('#/website')) html = viewStub('Website');
-  else if (r.startsWith('#/lots')) html = viewStub('Lots');
+  else if (r.startsWith('#/website')) html = viewWebsite();
+  else if (r.startsWith('#/lots')) html = viewLots();
   else html = viewLotWalk();
 
   document.body.innerHTML =
