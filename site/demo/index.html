@@ -482,19 +482,27 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
   padding:9px 16px;border-top:1px solid var(--line2);font-size:13px}
 .adline .l{color:var(--ink3)}
 .adline b{font-weight:750}
-.adprevs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,440px));gap:20px;
+.adprevs{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,400px));gap:22px;
   padding:16px;justify-content:start;align-items:start}
 .adlabel2{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
   color:var(--brand-ink);background:var(--brand-wash);border-radius:999px;padding:5px 11px;
   display:inline-block;margin-bottom:9px}
-.adp{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+.adp{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  box-shadow:var(--sh);max-width:400px}
+.adp.ig{max-width:378px}
 .adp .h{display:flex;align-items:center;gap:9px;padding:11px 12px 8px}
 .adp .h .av2{width:32px;height:32px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
   background:linear-gradient(140deg,var(--brand),var(--brand-dk));color:#fff;font-size:11.5px;font-weight:800}
 .adp .h b{display:block;font-size:13px;font-weight:800;line-height:1.2}
 .adp .h span{font-size:11.5px;color:var(--ink3)}
 .adp .cp{padding:0 12px 10px;font-size:13px;line-height:1.45}
-.adcar{display:flex;gap:7px;overflow-x:auto;padding:0 12px 12px}
+.carwrap{position:relative}
+.cnext{position:absolute;right:9px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.94);
+  box-shadow:0 1px 4px rgba(16,24,40,.28);display:grid;place-items:center;color:#39434f;
+  font-size:15px;font-weight:800;line-height:1;padding-bottom:2px;pointer-events:none}
+.carwrap > .cnext{top:71px;transform:translateY(-50%)}
+.adcar{display:flex;gap:7px;overflow-x:auto;padding:0 12px 12px;scrollbar-width:none}
+.adcar::-webkit-scrollbar{display:none}
 .adcar:after{content:"";flex:0 0 2px}
 .adcd{flex:0 0 142px;border:1px solid var(--line);border-radius:9px;overflow:hidden;
   display:flex;flex-direction:column}
@@ -514,7 +522,28 @@ select.sel{background:#fff;border:1px solid var(--line);border-radius:9px;paddin
 .adp .lk .btn2{margin-left:auto;flex:0 0 auto;background:#fff;border:1px solid var(--line);
   border-radius:7px;padding:7px 11px;font-size:11.5px;font-weight:800;color:var(--ink2)}
 .adp .bar{display:flex;border-top:1px solid var(--line2)}
-.adp .bar span{flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:700;color:var(--ink3)}
+.adp .bar span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 0;font-size:12.5px;font-weight:650;color:var(--ink3)}
+.adp .bar svg{width:15px;height:15px;flex:0 0 auto}
+
+/* instagram */
+.igimg{position:relative}
+.igimg img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--line2)}
+.igimg .cnext{top:50%;transform:translateY(-50%)}
+.igcount{position:absolute;top:10px;right:10px;background:rgba(15,22,32,.62);color:#fff;
+  border-radius:999px;padding:2px 9px;font-size:11px;font-weight:750}
+.igcta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;
+  background:var(--card2);border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);
+  font-size:13.5px;font-weight:800}
+.igcta span{color:var(--ink4);font-weight:700}
+.igdots{display:flex;justify-content:center;gap:5px;padding:9px 0 3px}
+.igdots i{width:5px;height:5px;border-radius:50%;background:#c8cfd8}
+.igdots i.on{background:var(--brand-dk)}
+.igacts{display:flex;align-items:center;gap:14px;padding:2px 13px 8px;color:var(--ink2)}
+.igacts svg{width:21px;height:21px}
+.igacts .sp{flex:1}
+.igcap{padding:0 13px 12px;font-size:12.5px;line-height:1.45;color:var(--ink2)}
+.igcap b{color:var(--ink);font-weight:800}
 
 /* ===== website + lots ===== */
 .swatches{display:flex;gap:10px;flex-wrap:wrap}
@@ -2070,6 +2099,19 @@ function viewDashboard() {
    cannot disagree with the syndication screen.
    ================================================================ */
 
+/* Plain stroke glyphs. Deliberately generic — the platforms' own icons are
+   trademarks, and a recognisable shape is all a mockup needs. */
+const SVG = (d, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  like:    SVG('<path d="M7 10v10H4V10zM7 10l4.5-7a2 2 0 0 1 3.3 2.2L13 10h5.5a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 17 20H7"/>'),
+  comment: SVG('<path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20.5l1.9-5A8 8 0 1 1 21 11.5z"/>'),
+  share:   SVG('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/>'),
+  heart:   SVG('<path d="M20.4 5.6a5 5 0 0 0-7.1 0L12 6.9l-1.3-1.3a5 5 0 1 0-7.1 7.1L12 21l8.4-8.3a5 5 0 0 0 0-7.1z"/>'),
+  send:    SVG('<path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>'),
+  save:    SVG('<path d="M19 21l-7-5-7 5V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1z"/>'),
+};
+
 function adPreviewCards(units) {
   return units.map(v => `<a class="adcd" href="#/vehicle/${v.id}">
     <img src="${v.hero}" alt="">
@@ -2100,9 +2142,24 @@ function viewAdDesk() {
    */
   const frontOn = (v) => /front/i.test((v.photoFiles && v.photoFiles[0] && v.photoFiles[0][1]) || '');
   const square = fresh.filter(frontOn);
-  const carousel = (square.length >= 3 ? square : fresh).slice(0, 5);
-  // A truck for the single-image ad, so it is not a third wagon next to the carousel.
-  const hero = square.find(v => v.body === 'Pickup') || square[2] || fresh[0] || inv[0];
+
+  /*
+   * One unit per make, freshest first. Straight `slice(0,5)` gave three Subarus
+   * in a row, which reads as a Subaru dealer rather than a used lot. Dedupe on
+   * make rather than body, because make is what a shopper scanning a carousel
+   * actually registers.
+   */
+  const makes = new Set();
+  const carousel = [];
+  for (const v of (square.length >= 3 ? square : fresh)) {
+    if (makes.has(v.make)) continue;
+    makes.add(v.make);
+    carousel.push(v);
+    if (carousel.length === 5) break;
+  }
+  // The single-image ad takes a make the carousel did not use, preferring a truck.
+  const spare = square.filter(v => !makes.has(v.make));
+  const hero = spare.find(v => v.body === 'Pickup') || spare[0] || square[0] || inv[0];
 
   const step = (n, t, s) => `<div class="step"><i>${n}</i><div><b>${t}</b><span>${s}</span></div></div>`;
 
@@ -2184,25 +2241,35 @@ function viewAdDesk() {
               <div><b>Cascade Motors</b><span>Sponsored</span></div></div>
             <p class="cp">Just landed in Vancouver. Every unit priced, photographed and ready to
               drive today.</p>
-            <div class="adcar">${adPreviewCards(carousel)}</div>
-            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+            <div class="carwrap">
+              <div class="adcar">${adPreviewCards(carousel)}</div>
+              <span class="cnext">&rsaquo;</span>
+            </div>
+            <div class="bar">
+              <span>${ICON.like} Like</span>
+              <span>${ICON.comment} Comment</span>
+              <span>${ICON.share} Share</span>
+            </div>
           </div>
         </div>
         <div>
           <span class="adlabel2">Instagram feed</span>
-          <div class="adp">
+          <div class="adp ig">
             <div class="h"><span class="av2">CM</span>
-              <div><b>cascademotorswa</b><span>Sponsored</span></div></div>
-            <div class="big"><img src="${hero.hero}" alt=""></div>
-            <div class="lk">
-              <div>
-                <div class="d">cascademotorswa.com</div>
-                <div class="t">${esc(vfull(hero))}</div>
-                <div class="s">${money(hero.price)} &middot; ${hero.mileage.toLocaleString()} mi &middot; ${esc(hero.drivetrain)}</div>
-              </div>
-              <span class="btn2">Learn more</span>
+              <div><b>cascademotorswa</b><span>Sponsored</span></div>
+              <span style="margin-left:auto;color:var(--ink4);letter-spacing:1px">&middot;&middot;&middot;</span></div>
+            <div class="igimg">
+              <img src="${hero.hero}" alt="">
+              <span class="igcount">1/6</span>
+              <span class="cnext">&rsaquo;</span>
             </div>
-            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+            <div class="igcta">Learn more<span>&rsaquo;</span></div>
+            <div class="igdots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="igacts">
+              ${ICON.heart}${ICON.comment}${ICON.send}<span class="sp"></span>${ICON.save}
+            </div>
+            <div class="igcap"><b>cascademotorswa</b> ${esc(vfull(hero))} &mdash;
+              ${money(hero.price)} &middot; ${hero.mileage.toLocaleString()} mi &middot; ${esc(hero.drivetrain)}</div>
           </div>
         </div>
       </div>

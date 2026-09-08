@@ -1076,6 +1076,19 @@ function viewDashboard() {
    cannot disagree with the syndication screen.
    ================================================================ */
 
+/* Plain stroke glyphs. Deliberately generic — the platforms' own icons are
+   trademarks, and a recognisable shape is all a mockup needs. */
+const SVG = (d, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  like:    SVG('<path d="M7 10v10H4V10zM7 10l4.5-7a2 2 0 0 1 3.3 2.2L13 10h5.5a2 2 0 0 1 2 2.4l-1.4 6A2 2 0 0 1 17 20H7"/>'),
+  comment: SVG('<path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20.5l1.9-5A8 8 0 1 1 21 11.5z"/>'),
+  share:   SVG('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/>'),
+  heart:   SVG('<path d="M20.4 5.6a5 5 0 0 0-7.1 0L12 6.9l-1.3-1.3a5 5 0 1 0-7.1 7.1L12 21l8.4-8.3a5 5 0 0 0 0-7.1z"/>'),
+  send:    SVG('<path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>'),
+  save:    SVG('<path d="M19 21l-7-5-7 5V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1z"/>'),
+};
+
 function adPreviewCards(units) {
   return units.map(v => `<a class="adcd" href="#/vehicle/${v.id}">
     <img src="${v.hero}" alt="">
@@ -1106,9 +1119,24 @@ function viewAdDesk() {
    */
   const frontOn = (v) => /front/i.test((v.photoFiles && v.photoFiles[0] && v.photoFiles[0][1]) || '');
   const square = fresh.filter(frontOn);
-  const carousel = (square.length >= 3 ? square : fresh).slice(0, 5);
-  // A truck for the single-image ad, so it is not a third wagon next to the carousel.
-  const hero = square.find(v => v.body === 'Pickup') || square[2] || fresh[0] || inv[0];
+
+  /*
+   * One unit per make, freshest first. Straight `slice(0,5)` gave three Subarus
+   * in a row, which reads as a Subaru dealer rather than a used lot. Dedupe on
+   * make rather than body, because make is what a shopper scanning a carousel
+   * actually registers.
+   */
+  const makes = new Set();
+  const carousel = [];
+  for (const v of (square.length >= 3 ? square : fresh)) {
+    if (makes.has(v.make)) continue;
+    makes.add(v.make);
+    carousel.push(v);
+    if (carousel.length === 5) break;
+  }
+  // The single-image ad takes a make the carousel did not use, preferring a truck.
+  const spare = square.filter(v => !makes.has(v.make));
+  const hero = spare.find(v => v.body === 'Pickup') || spare[0] || square[0] || inv[0];
 
   const step = (n, t, s) => `<div class="step"><i>${n}</i><div><b>${t}</b><span>${s}</span></div></div>`;
 
@@ -1190,25 +1218,35 @@ function viewAdDesk() {
               <div><b>Cascade Motors</b><span>Sponsored</span></div></div>
             <p class="cp">Just landed in Vancouver. Every unit priced, photographed and ready to
               drive today.</p>
-            <div class="adcar">${adPreviewCards(carousel)}</div>
-            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+            <div class="carwrap">
+              <div class="adcar">${adPreviewCards(carousel)}</div>
+              <span class="cnext">&rsaquo;</span>
+            </div>
+            <div class="bar">
+              <span>${ICON.like} Like</span>
+              <span>${ICON.comment} Comment</span>
+              <span>${ICON.share} Share</span>
+            </div>
           </div>
         </div>
         <div>
           <span class="adlabel2">Instagram feed</span>
-          <div class="adp">
+          <div class="adp ig">
             <div class="h"><span class="av2">CM</span>
-              <div><b>cascademotorswa</b><span>Sponsored</span></div></div>
-            <div class="big"><img src="${hero.hero}" alt=""></div>
-            <div class="lk">
-              <div>
-                <div class="d">cascademotorswa.com</div>
-                <div class="t">${esc(vfull(hero))}</div>
-                <div class="s">${money(hero.price)} &middot; ${hero.mileage.toLocaleString()} mi &middot; ${esc(hero.drivetrain)}</div>
-              </div>
-              <span class="btn2">Learn more</span>
+              <div><b>cascademotorswa</b><span>Sponsored</span></div>
+              <span style="margin-left:auto;color:var(--ink4);letter-spacing:1px">&middot;&middot;&middot;</span></div>
+            <div class="igimg">
+              <img src="${hero.hero}" alt="">
+              <span class="igcount">1/6</span>
+              <span class="cnext">&rsaquo;</span>
             </div>
-            <div class="bar"><span>Like</span><span>Comment</span><span>Share</span></div>
+            <div class="igcta">Learn more<span>&rsaquo;</span></div>
+            <div class="igdots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="igacts">
+              ${ICON.heart}${ICON.comment}${ICON.send}<span class="sp"></span>${ICON.save}
+            </div>
+            <div class="igcap"><b>cascademotorswa</b> ${esc(vfull(hero))} &mdash;
+              ${money(hero.price)} &middot; ${hero.mileage.toLocaleString()} mi &middot; ${esc(hero.drivetrain)}</div>
           </div>
         </div>
       </div>
