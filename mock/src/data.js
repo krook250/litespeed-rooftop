@@ -28,10 +28,9 @@ const isFresh  = (v) => v.daysInStock <= 15;
 const CHANNELS = [
   { id:'site',   name:'Cascade Motors website', short:'Website',    logo:'CM', color:'#0f1620', kind:'Owned site',
     cadence:'Instant — writes straight to the site database',           demoMs:[350,650],   realNote:'instant' },
-  { id:'meta',   name:'Meta Catalog',           short:'Meta',       logo:'M',  color:'#1877f2', kind:'Ads',
-    cadence:'Catalog push, then Meta re-crawls — usually under 15 min', demoMs:[1100,1700], realNote:'~15 min' },
-  { id:'mkt',    name:'Facebook Marketplace',   short:'Marketplace',logo:'FB', color:'#0866ff', kind:'Marketplace',
-    cadence:'Partner listing feed, refreshed hourly',                   demoMs:[1500,2200], realNote:'~1 hr' },
+  { id:'meta',   name:'Meta Catalog',           short:'Meta',       logo:'M',  color:'#1877f2', kind:'Ads · incl. Marketplace',
+    cadence:'Catalog push, then Meta re-crawls — under 15 min. Runs on Feed, Marketplace, Reels and Instagram.',
+                                                                        demoMs:[1100,1700], realNote:'~15 min' },
   { id:'gva',    name:'Google Vehicle Ads',     short:'Google VA',  logo:'G',  color:'#ea4335', kind:'Ads',
     cadence:'Vehicle feed to Merchant Center, re-fetched up to 4× a day',demoMs:[2000,2900], realNote:'up to 4 hrs' },
   { id:'cars',   name:'Cars.com',               short:'Cars.com',   logo:'C',  color:'#7b1fa2', kind:'Aggregator',
@@ -90,6 +89,7 @@ const state = {
   const aged = state.vehicles.filter(isAged)[1];
   if (aged) aged.listings.gva = { status:'error', price:aged.price, pushedAt:'1d ago',
     error:'Google: missing "condition" attribute' };
+
 })();
 
 const byId = (id) => state.vehicles.find(v => v.id === id);

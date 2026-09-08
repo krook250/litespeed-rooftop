@@ -927,7 +927,7 @@ function recentSync() {
               w: when(`${Math.max(1, v.daysInStock - v.reconDays)}d ago`) }),
     (v) => ({ ch: 'Meta', msg: `Catalog updated · ${money(v.price)}`, w: when(v.listings.meta.pushedAt) }),
     (v) => ({ ch: 'Google VA', msg: 'Vehicle feed accepted', w: when(v.listings.gva.pushedAt) }),
-    (v) => ({ ch: 'Marketplace', msg: `${v.photoCount} photos published`, w: when(v.listings.mkt.pushedAt) }),
+    (v) => ({ ch: 'Meta', msg: 'Live on Feed, Marketplace and Instagram', w: when(v.listings.meta.pushedAt) }),
   ];
   [...inv].filter(v => v.frontLineReady)
     .sort((a, b) => a.daysInStock - b.daysInStock)
