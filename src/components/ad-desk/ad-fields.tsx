@@ -20,6 +20,7 @@ import {
   type AdCopyFields,
 } from '@/lib/meta/ad-copy-spec';
 import { PREVIEW_FORMATS } from '@/lib/meta/buckets-preview';
+import { money } from './format';
 
 /** A saved ad, as the screens carry it: the copy plus its row identity. */
 export type AdCopyRow = AdCopyFields & {
@@ -30,9 +31,6 @@ export type AdCopyRow = AdCopyFields & {
 
 export const inputCls =
   'mt-1 w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900';
-
-export const money = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 /**
  * The fields of one ad. `prefix` is what lets three of these live on the

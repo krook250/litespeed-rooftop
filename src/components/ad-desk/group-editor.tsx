@@ -19,7 +19,8 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from '../ui';
-import { AdFields, AdPreview, BudgetRadiusFields, money, type AdCopyRow } from './ad-fields';
+import { AdFields, AdPreview, BudgetRadiusFields, type AdCopyRow } from './ad-fields';
+import { money } from './format';
 import { buildGroupAction, setGroupRunningAction } from '@/lib/meta/demo-actions';
 import {
   retireAdCopyAction,

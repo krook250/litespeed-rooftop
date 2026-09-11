@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { Badge, Button } from '../ui';
 import { setGroupRunningAction } from '@/lib/meta/demo-actions';
-import { money } from './ad-fields';
+import { money } from './format';
 import type { LotGroup } from '@/lib/meta/campaigns';
 
 export function GroupRow({

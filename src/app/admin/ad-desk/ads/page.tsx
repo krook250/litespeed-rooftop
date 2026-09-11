@@ -12,7 +12,7 @@
 import Link from 'next/link';
 import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
 import { GroupRow } from '@/components/ad-desk/group-row';
-import { money } from '@/components/ad-desk/ad-fields';
+import { money } from '@/components/ad-desk/format';
 import { requireSection } from '@/lib/auth-guard';
 import { CAMPAIGN_BUCKETS } from '@/lib/meta/buckets';
 import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
