@@ -387,6 +387,7 @@ export default async function AdDeskPage({
                     rooftopId={r.id}
                     rows={copyByRooftop.get(r.id) ?? []}
                     fallback={defaultAdCopy(r.name)}
+                    hasCampaigns={Boolean(campaignsByRooftop.get(r.id)?.length)}
                   />
                 ) : null}
                 {campaignsByRooftop.get(r.id)?.length ? (

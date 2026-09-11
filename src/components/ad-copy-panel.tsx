@@ -16,7 +16,7 @@
 
 import { useActionState, useRef, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { saveAdCopyAction, retireAdCopyAction } from '@/lib/meta/ad-copy-actions';
+import { saveAdCopyAction, retireAdCopyAction, refreshAdsAction } from '@/lib/meta/ad-copy-actions';
 import { CALL_TO_ACTIONS, COPY_LIMITS, VEHICLE_TOKENS } from '@/lib/meta/ad-copy-spec';
 
 export type AdCopyRow = {
@@ -33,13 +33,17 @@ export function AdCopyPanel({
   rooftopId,
   rows,
   fallback,
+  hasCampaigns,
 }: {
   rooftopId: string;
   rows: AdCopyRow[];
   /** What the ads say today when nothing is saved yet. Pre-fills the first editor. */
   fallback: Omit<AdCopyRow, 'id' | 'active'>;
+  /** Whether there is anything on Facebook to push an edit to. */
+  hasCampaigns: boolean;
 }) {
   const [adding, setAdding] = useState(false);
+  const [pushState, pushAction, pushing] = useActionState(refreshAdsAction, null);
   const live = rows.filter((r) => r.active);
   const retired = rows.filter((r) => !r.active);
 
@@ -102,10 +106,44 @@ export function AdCopyPanel({
           </details>
         ) : null}
 
-        <p className="border-t border-ink-200 pt-3 text-[11px] text-ink-500">
-          Saving doesn&apos;t change an ad that&apos;s already running. Build the campaign again to
-          put new words in front of shoppers.
-        </p>
+        {/*
+          THE STEP THAT USED TO BE MISSING. Saving writes to our database and
+          nothing else; until this button existed the only way to get an edit
+          onto Facebook was to scroll past two panels and press something called
+          "Build the campaign", which no dealer would read as "apply what I just
+          wrote". Kept as a separate press rather than folded into Save because
+          it talks to Facebook and takes a few seconds per campaign.
+        */}
+        <div className="space-y-2 border-t border-ink-200 pt-3">
+          {hasCampaigns ? (
+            <>
+              <form action={pushAction}>
+                <input type="hidden" name="rooftopId" value={rooftopId} />
+                <Button type="submit" disabled={pushing}>
+                  {pushing ? 'Updating on Facebook…' : 'Update my ads'}
+                </Button>
+              </form>
+              <p className="text-[11px] text-ink-500">
+                Save first, then this puts the new words on the ads you already have. It won&apos;t
+                start or stop anything — running stays running, stopped stays stopped.
+              </p>
+            </>
+          ) : (
+            <p className="text-[11px] text-ink-500">
+              Nothing to update yet. Build a campaign below and it will use what you&apos;ve written
+              here.
+            </p>
+          )}
+
+          {pushState && !pushState.ok ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{pushState.error}</p>
+          ) : null}
+          {pushState?.ok ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              {pushState.message}
+            </p>
+          ) : null}
+        </div>
       </div>
     </Card>
   );

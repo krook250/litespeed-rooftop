@@ -18,6 +18,8 @@ import * as t from '@/db/schema';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { validateAdCopy, type AdCopyFields } from './ad-copy-spec';
+import { refreshAdsForRooftop } from './campaign-build';
+import { requireGroupId } from '@/lib/auth';
 
 export type CopyResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -98,4 +100,26 @@ export async function retireAdCopyAction(_prev: unknown, formData: FormData): Pr
 
   revalidatePath('/admin/ad-desk');
   return { ok: true, message: 'Turned off. It stops being built from the next build on.' };
+}
+
+/**
+ * Push saved copy onto the campaigns that already exist.
+ *
+ * Separate from saving on purpose. Saving is free, instant and local; this one
+ * talks to Facebook and can take a few seconds per campaign. Merging them would
+ * mean every keystroke-then-save round trip rewrote live ads, and would make an
+ * autosave impossible to add later without a nasty surprise.
+ */
+export async function refreshAdsAction(_prev: unknown, formData: FormData): Promise<CopyResult> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found.' };
+
+  const outcome = await refreshAdsForRooftop({ groupId, rooftop });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+
+  revalidatePath('/admin/ad-desk');
+  return { ok: true, message: outcome.message };
 }

@@ -29,6 +29,7 @@ import { noteFailure, tokenFor } from './connect';
 import {
   campaignNamePrefix,
   createDemoCampaign,
+  listLotCampaigns,
   setCampaignRunning,
   type DemoCampaignResult,
   type RunOutcome,
@@ -261,4 +262,94 @@ async function inventoryUrlFor(rooftopId: string): Promise<string> {
   const live = rows.find((r) => r.domain && r.status === 'LIVE');
   if (live?.domain) return `https://${live.domain}`;
   return `${origin}/s/${rows[0]!.slug}`;
+}
+
+/* ------------------------------------------------------- pushing an edit */
+
+export type RefreshOutcome =
+  | { ok: true; updated: number; message: string }
+  | { ok: false; error: string };
+
+/**
+ * Put the lot's current ad copy onto every campaign it already has.
+ *
+ * WHY THIS EXISTS RATHER THAN "PRESS BUILD AGAIN". Build already does the right
+ * thing — it adopts the campaign, updates the ad set, and repoints the ads at
+ * fresh creatives — but it lives in a different panel, under a word that means
+ * "make something new", and asks for a shelf, a budget and a radius the dealer
+ * already chose. Somebody who just rewrote a headline should not have to
+ * re-answer three questions to see it go live, and will not connect "Build" with
+ * "apply my edit".
+ *
+ * So this reads each existing campaign's shelf, budget and radius back FROM
+ * META and rebuilds with exactly those, changing only what the copy changed.
+ * Nothing is stored on our side to drift out of sync, and a campaign whose name
+ * no longer matches our convention — one the dealer renamed and took over in Ads
+ * Manager — is skipped rather than rewritten.
+ *
+ * **It does not start or stop anything.** A running campaign keeps running with
+ * new words; a stopped one stays stopped. Editing text must never be the thing
+ * that changes what is spending.
+ */
+export async function refreshAdsForRooftop(input: {
+  groupId: string;
+  rooftop: typeof t.rooftops.$inferSelect;
+}): Promise<RefreshOutcome> {
+  const { groupId, rooftop } = input;
+
+  const conn = await tokenFor(groupId);
+  if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
+
+  const rows = await db
+    .select()
+    .from(t.metaRooftopAssets)
+    .where(eq(t.metaRooftopAssets.rooftopId, rooftop.id))
+    .limit(1);
+  const asset = rows[0];
+  if (!asset?.adAccountId) return { ok: false, error: 'This lot has no ad account.' };
+
+  let campaigns;
+  try {
+    campaigns = await listLotCampaigns(conn.token, asset.adAccountId, rooftop.name);
+  } catch (err) {
+    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
+    throw err;
+  }
+
+  const rebuildable = campaigns.filter((c) => c.bucketKey);
+  if (!rebuildable.length) {
+    return {
+      ok: false,
+      error:
+        'There is no campaign to update yet. Build one below and it will use what you just wrote.',
+    };
+  }
+
+  let updated = 0;
+  let lastError: string | null = null;
+
+  for (const c of rebuildable) {
+    const outcome = await buildCampaignForRooftop({
+      groupId,
+      rooftop,
+      bucket: c.bucketKey!,
+      // Read back rather than defaulted: a dealer who set $75 a day does not
+      // want an edit to their headline quietly resetting it to $25.
+      dailyBudgetUsd: c.dailyBudgetUsd ?? 25,
+      radiusMiles: c.radiusMiles ?? 25,
+    });
+    if (outcome.ok) updated += 1;
+    else lastError = outcome.error;
+  }
+
+  if (!updated) return { ok: false, error: lastError ?? 'Facebook would not accept the update.' };
+
+  return {
+    ok: true,
+    updated,
+    message:
+      updated === 1
+        ? 'Your ad is updated. Check it under See the ad.'
+        : `${updated} campaigns updated. Check them under See the ad.`,
+  };
 }

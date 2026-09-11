@@ -74,7 +74,14 @@
 
 import 'server-only';
 import { MetaApiError, graph, graphEdge } from './graph';
-import { DEFAULT_BUCKET, bucketByKey, bucketFilter, type BucketKey, type CampaignBucket } from './buckets';
+import {
+  CAMPAIGN_BUCKETS,
+  DEFAULT_BUCKET,
+  bucketByKey,
+  bucketFilter,
+  type BucketKey,
+  type CampaignBucket,
+} from './buckets';
 import type { PreviewFormat } from './buckets-preview';
 import type { AdCopy } from './ad-copy';
 import { defaultAdCopy as defaultAdCopyFor } from './ad-copy-spec';
@@ -1008,6 +1015,18 @@ export type LotCampaign = {
    */
   adId: string | null;
   creativeId: string | null;
+  /**
+   * Enough to rebuild this campaign without asking the dealer to retype what
+   * they already chose. Derived from what Meta holds, not from anything we
+   * stored — we never persisted budget, radius or shelf, and reading them back
+   * is both simpler and immune to our copy drifting from the live campaign.
+   *
+   * `bucketKey` comes from the campaign NAME, which is the same convention
+   * `campaignNamePrefix` writes. Null when a dealer renamed it in Ads Manager,
+   * and a campaign we cannot place on a shelf is one we decline to rebuild.
+   */
+  bucketKey: BucketKey | null;
+  radiusMiles: number | null;
 };
 
 /** The prefix `createDemoCampaign` gives everything it builds for a lot. */
@@ -1050,11 +1069,16 @@ export async function listLotCampaigns(
        * ad sets were deleted in Ads Manager legitimately has none.
        */
       const [adSets, insights, ads] = await Promise.all([
-        graphEdge<{ daily_budget?: string }>(`/${c.id}/adsets`, {
-          token,
-          fields: 'daily_budget',
-          maxPages: 1,
-        }).catch(() => [] as { daily_budget?: string }[]),
+        graphEdge<{ daily_budget?: string; targeting?: { geo_locations?: { custom_locations?: { radius?: number }[] } } }>(
+          `/${c.id}/adsets`,
+          { token, fields: 'daily_budget,targeting', maxPages: 1 },
+        ).catch(
+          () =>
+            [] as {
+              daily_budget?: string;
+              targeting?: { geo_locations?: { custom_locations?: { radius?: number }[] } };
+            }[],
+        ),
         graphEdge<InsightsRow>(`/${c.id}/insights`, {
           token,
           fields: 'spend,impressions,clicks',
@@ -1077,6 +1101,19 @@ export async function listLotCampaigns(
       const minor = adSets.find((a) => a.daily_budget)?.daily_budget;
       const row = insights[0];
       const liveAd = ads.find((a) => !DEAD_STATUSES.has(a.status ?? ''));
+      const radius = adSets
+        .map((a) => a.targeting?.geo_locations?.custom_locations?.[0]?.radius)
+        .find((r) => typeof r === 'number');
+
+      /*
+       * `${bucket.label} inventory` is the tail of every name this file writes.
+       * Matching on it rather than storing a key keeps one source of truth, at
+       * the cost of losing the link if somebody renames the campaign by hand —
+       * which is the correct thing to lose, since a renamed campaign is one the
+       * dealer has taken over.
+       */
+      const tail = (c.name ?? '').slice(prefix.length);
+      const bucket = CAMPAIGN_BUCKETS.find((b) => tail.startsWith(b.label));
 
       return {
         id: c.id,
@@ -1091,6 +1128,8 @@ export async function listLotCampaigns(
         clicks: Number(row?.clicks ?? 0),
         adId: liveAd?.id ?? null,
         creativeId: liveAd?.creative?.id ?? null,
+        bucketKey: bucket?.key ?? null,
+        radiusMiles: radius ?? null,
       };
     }),
   );
