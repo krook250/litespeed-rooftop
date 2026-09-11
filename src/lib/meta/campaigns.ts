@@ -75,6 +75,7 @@
 import 'server-only';
 import { MetaApiError, graph, graphEdge } from './graph';
 import { DEFAULT_BUCKET, bucketByKey, bucketFilter, type BucketKey, type CampaignBucket } from './buckets';
+import type { PreviewFormat } from './buckets-preview';
 
 /* -------------------------------------------------------------- objective */
 
@@ -975,6 +976,15 @@ export type LotCampaign = {
   spend: number;
   impressions: number;
   clicks: number;
+  /**
+   * The creative to preview, and whether there is an Ad at all.
+   *
+   * `adId` null means this campaign predates ads being created — everything
+   * built before 11 Sep 2026 is in that state — and it can never deliver
+   * whatever its status says. The screen offers Build rather than Start for it.
+   */
+  adId: string | null;
+  creativeId: string | null;
 };
 
 /** The prefix `createDemoCampaign` gives everything it builds for a lot. */
@@ -1016,7 +1026,7 @@ export async function listLotCampaigns(
        * optimisation. So it has to be read from the child, and a campaign whose
        * ad sets were deleted in Ads Manager legitimately has none.
        */
-      const [adSets, insights] = await Promise.all([
+      const [adSets, insights, ads] = await Promise.all([
         graphEdge<{ daily_budget?: string }>(`/${c.id}/adsets`, {
           token,
           fields: 'daily_budget',
@@ -1028,10 +1038,22 @@ export async function listLotCampaigns(
           params: { date_preset: 'maximum' },
           maxPages: 1,
         }).catch(() => [] as InsightsRow[]),
+        /*
+         * The campaign's ads edge rather than walking adsets: one call, and it
+         * carries the creative id the preview needs. A campaign with no live ad
+         * here is one that cannot deliver, which is worth knowing on the screen
+         * rather than after someone presses Start and nothing happens.
+         */
+        graphEdge<{ id: string; status?: string; creative?: { id?: string } }>(`/${c.id}/ads`, {
+          token,
+          fields: 'id,status,creative{id}',
+          maxPages: 1,
+        }).catch(() => [] as { id: string; status?: string; creative?: { id?: string } }[]),
       ]);
 
       const minor = adSets.find((a) => a.daily_budget)?.daily_budget;
       const row = insights[0];
+      const liveAd = ads.find((a) => !DEAD_STATUSES.has(a.status ?? ''));
 
       return {
         id: c.id,
@@ -1044,6 +1066,8 @@ export async function listLotCampaigns(
         spend: Number(row?.spend ?? 0),
         impressions: Number(row?.impressions ?? 0),
         clicks: Number(row?.clicks ?? 0),
+        adId: liveAd?.id ?? null,
+        creativeId: liveAd?.creative?.id ?? null,
       };
     }),
   );
@@ -1186,4 +1210,74 @@ export async function readInsights(
     params: { date_preset: 'maximum' },
   });
   return { rows, emptyByDesign: rows.length === 0 };
+}
+
+/* ---------------------------------------------------------------- preview */
+
+/**
+ * What the ad actually looks like, per placement.
+ *
+ * `GET /{creative_id}/previews?ad_format=...` returns a chunk of HTML holding
+ * an `<iframe>` whose `src` renders the ad as Facebook will show it. One call
+ * per format; Meta has no multi-format endpoint.
+ *
+ * THE SRC CARRIES AN ACCESS TOKEN, AND OURS IS THE ONE THAT NEVER EXPIRES.
+ * That is the whole reason this returns URLs to the server rather than markup
+ * to the browser. Embedding Meta's iframe directly — which is what most ad
+ * tools do — would put a non-expiring Business Integration System User token
+ * into the dealer's page source, where any employee with devtools has Rooftop's
+ * API access to that business until somebody notices and revokes it. The route
+ * that consumes this fetches the src server-side and serves the result from our
+ * own origin, so the token never leaves the server.
+ *
+ * Formats are the ones this product actually runs (see the ad set's
+ * `publisher_platforms`). Asking for a placement the ad set does not target
+ * returns a preview of something the dealer will never see.
+ */
+export { PREVIEW_FORMATS, type PreviewFormat } from './buckets-preview';
+
+/**
+ * The preview URL for one creative in one format, or null.
+ *
+ * Null rather than throwing: a placement Meta declines to render is a missing
+ * tab, not a broken screen, and `INSTAGRAM_STANDARD` legitimately fails on an
+ * ad set with no Instagram placement.
+ */
+export async function previewUrlForCreative(
+  token: string,
+  creativeId: string,
+  format: PreviewFormat,
+): Promise<string | null> {
+  try {
+    const res = await graphEdge<{ body?: string }>(`/${creativeId}/previews`, {
+      token,
+      params: { ad_format: format },
+      maxPages: 1,
+    });
+
+    const body = res[0]?.body;
+    if (!body) return null;
+
+    /*
+     * Meta returns markup, not a URL, so the src has to come out of it. A
+     * regex over an HTML fragment is ordinarily a bad idea; here the fragment
+     * is a single iframe generated by a template and the alternative is an HTML
+     * parser in a server module for one attribute. The `&amp;` unescape matters
+     * — the body is HTML-escaped and the raw src would 400 on the second param.
+     */
+    const match = body.match(/src="([^"]+)"/);
+    if (!match?.[1]) return null;
+    return match[1].replace(/&amp;/g, '&');
+  } catch (err) {
+    console.warn(
+      '[meta] preview unavailable ' +
+        JSON.stringify({
+          creativeId,
+          format,
+          code: err instanceof MetaApiError ? err.code : null,
+          subcode: err instanceof MetaApiError ? err.subcode : null,
+        }),
+    );
+    return null;
+  }
 }

@@ -28,7 +28,7 @@
  * Manager's job and reimplementing it badly would serve nobody.
  */
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
 import {
   createDemoCampaignAction,
@@ -37,6 +37,7 @@ import {
 } from '@/lib/meta/demo-actions';
 import type { FeedPreview } from '@/lib/meta/feed-preview';
 import type { LotCampaign } from '@/lib/meta/campaigns';
+import { PREVIEW_FORMATS } from '@/lib/meta/buckets-preview';
 import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
 
 /* ------------------------------------------------------------ feed health */
@@ -411,14 +412,32 @@ export function CampaignListPanel({
                 </div>
               </div>
 
-              <form action={action}>
-                <input type="hidden" name="rooftopId" value={rooftopId} />
-                <input type="hidden" name="campaignId" value={c.id} />
-                <input type="hidden" name="running" value={running ? 'false' : 'true'} />
-                <Button type="submit" variant={running ? 'secondary' : 'primary'} size="sm" disabled={busy}>
-                  {busy ? '…' : running ? 'Stop' : 'Start'}
-                </Button>
-              </form>
+              {c.adId ? (
+                <form action={action}>
+                  <input type="hidden" name="rooftopId" value={rooftopId} />
+                  <input type="hidden" name="campaignId" value={c.id} />
+                  <input type="hidden" name="running" value={running ? 'false' : 'true'} />
+                  <Button
+                    type="submit"
+                    variant={running ? 'secondary' : 'primary'}
+                    size="sm"
+                    disabled={busy}
+                  >
+                    {busy ? '…' : running ? 'Stop' : 'Start'}
+                  </Button>
+                </form>
+              ) : (
+                /* No Ad object: it cannot deliver whatever its status says, and
+                   Start would be a switch wired to nothing. Everything built
+                   before 11 Sep 2026 is in this state. */
+                <span className="text-[11px] text-amber-700">
+                  Unfinished — press Build below
+                </span>
+              )}
+
+              {c.creativeId ? (
+                <AdPreview rooftopId={rooftopId} creativeId={c.creativeId} />
+              ) : null}
             </div>
           );
         })}
@@ -428,5 +447,61 @@ export function CampaignListPanel({
         </p>
       </div>
     </Card>
+  );
+}
+
+/* ---------------------------------------------------------------- preview */
+
+/**
+ * What the ad looks like, in the placements it runs in.
+ *
+ * Collapsed behind a disclosure because it is three iframes of somebody else's
+ * HTML: opening one costs a Graph call and a fetch, and a dealer glancing at
+ * "is it running and what has it cost" should not pay for three of them on
+ * every page load.
+ *
+ * The `src` is OUR route, never Meta's. See the note in
+ * `src/app/api/meta/ad-preview/.../route.ts` — Meta's preview URL carries a
+ * non-expiring system-user token and has no business being in a page.
+ */
+function AdPreview({ rooftopId, creativeId }: { rooftopId: string; creativeId: string }) {
+  const [format, setFormat] = useState<string>(PREVIEW_FORMATS[0].key);
+
+  return (
+    <details className="w-full">
+      <summary className="cursor-pointer text-[11px] font-medium text-ink-600 hover:text-ink-900">
+        See the ad
+      </summary>
+
+      <div className="mt-2 space-y-2">
+        <div className="flex flex-wrap gap-1">
+          {PREVIEW_FORMATS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFormat(f.key)}
+              className={`rounded-full px-2.5 py-1 text-[11px] ${
+                format === f.key
+                  ? 'bg-ink-900 text-white'
+                  : 'bg-ink-100 text-ink-700 hover:bg-ink-200'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <iframe
+          key={format}
+          title="Ad preview"
+          src={`/api/meta/ad-preview/${rooftopId}/${creativeId}/${format}`}
+          className="h-[520px] w-full max-w-[420px] rounded-lg border border-ink-200 bg-white"
+        />
+
+        <p className="text-[11px] text-ink-500">
+          Facebook builds this from your live inventory, so the car shown changes as your lot does.
+        </p>
+      </div>
+    </details>
   );
 }
