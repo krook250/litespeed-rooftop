@@ -3,18 +3,25 @@
  *
  * WHAT THIS IS FOR, PLAINLY
  *
- * Three of the eight permissions we are asking Meta to review — `ads_management`,
- * `ads_read` and `pages_manage_ads` — cannot be demonstrated by the connect flow,
- * because the connect flow never creates an ad. App Review requires a screen
- * recording per permission showing the consent dialog, the action that uses the
- * permission, and the resulting state change; and it requires at least one
- * successful API call per permission before the request button un-greys. Neither
- * is satisfiable by code that does not exist.
+ * Written as an App Review harness: three of the eight permissions —
+ * `ads_management`, `ads_read` and `pages_manage_ads` — cannot be demonstrated
+ * by a connect flow that never creates an ad. That job is done; the permissions
+ * are live at `advanced`.
  *
- * So this file builds one campaign, one ad set and one creative, and then reads
- * the result back. It is the *minimum* that is true, not a product. The Lot Walk
- * aging buckets pick the inventory, the dealer's Page carries the creative, and
- * everything lands PAUSED.
+ * **It is now the dealer-facing campaign builder**, which changes two of the
+ * assumptions the rest of this file was written under, and both of them are the
+ * kind that cost money rather than a re-record:
+ *
+ *   1. **The ad account is real and funded.** "It cannot spend" is no longer a
+ *      property of the account, only of the PAUSED status. Every object still
+ *      lands paused and the dealer turns it on in Ads Manager — that is the
+ *      whole safety story now, so do not weaken it.
+ *   2. **Targeting is a radius around the lot**, not `countries: ['US']`. A
+ *      dealer who unpauses a nationwide used-car campaign finds out by invoice.
+ *
+ * One campaign, one ad set, one creative, then read the result back. The Lot
+ * Walk aging buckets pick the inventory, the dealer's Page carries the
+ * creative, and everything lands PAUSED.
  *
  * **It deliberately stops before creating an Ad object.** That is not an
  * oversight and it costs nothing in App Review — see the note at the end of
@@ -48,9 +55,10 @@
  * bet the demo on which one the API accepts today, we send the modern value and
  * fall back once. Which one worked is reported back and is worth knowing.
  *
- * **Everything is PAUSED and the ad account has no payment method.** A paused
- * campaign in an unfunded account cannot deliver, so this costs nothing and
- * cannot accidentally spend a dealer's money.
+ * **Everything is PAUSED.** That is the only thing standing between this code
+ * and a dealer's money now that the ad account is a real one — the unfunded
+ * account this was built against is gone. Nothing here may create an object in
+ * any other status, and nothing here may unpause one.
  *
  * We deliberately do NOT use a Marketing API sandbox account, despite it being
  * the obvious choice: Meta's 2023 note on the re-enabled sandbox says Insights
@@ -233,7 +241,7 @@ export async function ensureProductSet(
 
 export type DemoCampaignInput = {
   token: string;
-  /** `act_<id>`. An ad account with no payment method, so it cannot deliver. */
+  /** `act_<id>`. The dealer's real ad account — assume it can spend. */
   adAccountId: string;
   catalogId: string;
   /** The dealer's Page. This is the field that exercises `pages_manage_ads`. */
@@ -245,6 +253,22 @@ export type DemoCampaignInput = {
   specialAdCategoryCountry?: string;
   /** Where clicks land. The VDP list for the lot, from the storefront. */
   landingUrl: string;
+  /**
+   * The lot's coordinates. When present the ad set targets a radius around the
+   * lot instead of the whole country — which is the difference between a
+   * demonstration and a campaign a dealer can actually turn on.
+   *
+   * Nullable because `rooftops.latitude` / `longitude` arrived in migration
+   * `0007_odd_big_bertha` as NULL columns and there is still no UI to fill
+   * them. A lot without coordinates falls back to country targeting and the
+   * caller is expected to say so on screen rather than let it pass quietly.
+   */
+  lat?: number | null;
+  lng?: number | null;
+  /** Radius in miles around the lot. Clamped to Meta's 1–50 for custom locations. */
+  radiusMiles?: number;
+  /** Daily budget in whole dollars, on the ad set. */
+  dailyBudgetUsd?: number;
 };
 
 export type DemoCampaignResult = {
@@ -260,11 +284,11 @@ export type DemoCampaignResult = {
   adSetId: string;
   creativeId: string;
   /**
-   * Every unit is PAUSED. Stated in the result so a screencast can show it.
+   * Every unit is PAUSED. Stated in the result because it is the safety
+   * guarantee, not a detail — the dealer reads it before going to Ads Manager.
    *
-   * There is no `adId`: the tree deliberately stops at the creative, because an
-   * unfunded ad account cannot create an Ad object and funding it would destroy
-   * the "cannot spend" guarantee. See the long note in `createDemoCampaign`.
+   * There is no `adId`: the tree stops at the creative. See the long note in
+   * `createDemoCampaign`.
    */
   status: 'PAUSED';
   /**
@@ -298,7 +322,20 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     landingUrl,
     specialAdCategory = 'NONE',
     specialAdCategoryCountry = 'US',
+    lat = null,
+    lng = null,
   } = input;
+
+  /*
+   * Clamps, not validation errors. Both numbers arrive off a form the dealer
+   * typed into, and the failure mode we are avoiding is a Meta 400 three calls
+   * later that names neither field. Meta's custom-location radius is 1–50
+   * miles; the floor here is 5 because a 1-mile radius around a car lot is not
+   * a campaign, it is a typo.
+   */
+  const radiusMiles = Math.min(50, Math.max(5, Math.round(input.radiusMiles ?? 25)));
+  const dailyBudgetUsd = Math.min(1000, Math.max(10, Math.round(input.dailyBudgetUsd ?? 25)));
+  const dailyBudgetMinor = String(dailyBudgetUsd * 100);
 
   const act = actPath(input.adAccountId);
   const bucketKey = input.bucket ?? 'age_46_60';
@@ -446,8 +483,25 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * is not proof they are safe, but removing them on suspicion would be
    * guessing, and guessing is what this project keeps paying for.
    */
+  /*
+   * A radius around the lot when we know where the lot is, and the whole
+   * country when we do not.
+   *
+   * The fallback is deliberately loud rather than clever: `countries: ['US']`
+   * on a used-car lot is a mistake a dealer would notice only after paying for
+   * it, so `createDemoCampaignAction` refuses to build until the coordinates
+   * exist. This branch stays because the type allows null and a silent
+   * nationwide campaign is the one outcome worth being paranoid about.
+   */
   const targeting: Record<string, unknown> = {
-    geo_locations: { countries: ['US'] },
+    geo_locations:
+      lat !== null && lng !== null
+        ? {
+            custom_locations: [
+              { latitude: lat, longitude: lng, radius: radiusMiles, distance_unit: 'mile' },
+            ],
+          }
+        : { countries: ['US'] },
     publisher_platforms: ['facebook', 'instagram'],
     facebook_positions: ['feed', 'marketplace', 'search'],
     instagram_positions: ['stream'],
@@ -463,6 +517,27 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     'id,name,status',
     adSetName,
   );
+
+  /*
+   * An adopted ad set is NOT left as it was found.
+   *
+   * Adoption-by-name was written for screencast takes, where pressing the
+   * button twice must not duplicate the tree. The moment budget and radius
+   * became fields the dealer types, that same guard turned into a silent
+   * no-op: change the budget, press Build again, watch it report success and
+   * keep the old number. So the update below is what makes the form mean
+   * anything on the second press.
+   */
+  if (priorAdSet) {
+    await graph<{ success?: boolean }>(`/${priorAdSet.id}`, {
+      method: 'POST',
+      token,
+      params: {
+        daily_budget: dailyBudgetMinor,
+        targeting: JSON.stringify(targeting),
+      },
+    });
+  }
 
   const adSet = priorAdSet ?? await graph<{ id: string }>(`${act}/adsets`, {
     method: 'POST',
@@ -508,7 +583,7 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
        * sharing is on, and we send it false.
        */
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      daily_budget: '1000', // $10.00, in account currency minor units. Never spent.
+      daily_budget: dailyBudgetMinor, // Account currency minor units.
       promoted_object: JSON.stringify({ product_set_id: productSet.id }),
       targeting: JSON.stringify(targeting),
       status: 'PAUSED',
@@ -700,8 +775,8 @@ export type InsightsRow = {
 export type InsightsResult = {
   rows: InsightsRow[];
   /**
-   * True when the read succeeded and returned nothing, which for a paused
-   * campaign in an unfunded account is the *expected* outcome rather than a
+   * True when the read succeeded and returned nothing, which for a campaign
+   * that has never been unpaused is the *expected* outcome rather than a
    * failure. The distinction matters: "we read your spend and it is zero
    * because these ads have never run" and "we could not read your spend" are
    * different sentences, and only one of them is honest.

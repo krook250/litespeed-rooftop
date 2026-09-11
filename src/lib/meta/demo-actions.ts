@@ -1,12 +1,13 @@
 'use server';
 
 /**
- * Server actions for the two things App Review needs to *see*.
+ * Server actions for building a campaign and reading it back.
  *
- * Kept out of `actions.ts` deliberately. That file is the connect flow, which is
- * product; this file is a demonstration harness that exists because Meta
- * requires a working screencast of every permission it reviews. Mixing them
- * would make it hard to tell later which code a dealer actually depends on.
+ * Kept out of `actions.ts` deliberately: that file is the connect flow. This
+ * file started as the App Review demonstration harness and is now the campaign
+ * builder a dealer uses, which means the ad account it points at is real and
+ * funded. Everything it creates lands PAUSED and the dealer turns it on in Ads
+ * Manager; that is the only thing preventing spend.
  *
  * Same tenant rule as everything else here: the group comes from the session,
  * the rooftop id arrives off a form and is therefore checked against
@@ -44,12 +45,23 @@ export async function createDemoCampaignAction(
   const groupId = await requireGroupId();
   const rooftopId = String(formData.get('rooftopId') ?? '');
   const bucket = String(formData.get('bucket') ?? 'age_46_60') as BucketKey;
+  const dailyBudgetUsd = Number(formData.get('dailyBudget') ?? 25);
+  const radiusMiles = Number(formData.get('radiusMiles') ?? 25);
 
   const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
   if (!rooftop) return { ok: false, error: 'That lot was not found.' };
 
   if (!CAMPAIGN_BUCKETS.some((b) => b.key === bucket)) {
     return { ok: false, error: 'Pick one of the aging buckets.' };
+  }
+  if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd < 10) {
+    return { ok: false, error: 'Daily budget has to be at least $10.' };
+  }
+  if (!Number.isFinite(radiusMiles) || radiusMiles < 5 || radiusMiles > 50) {
+    return {
+      ok: false,
+      error: 'Radius has to be between 5 and 50 miles. That is Facebook’s range, not ours.',
+    };
   }
 
   const conn = await tokenFor(groupId);
@@ -73,6 +85,25 @@ export async function createDemoCampaignAction(
   if (!asset.pageId) {
     return { ok: false, error: 'Pick this lot’s Facebook Page first — the ad runs from it.' };
   }
+  /*
+   * No coordinates, no campaign.
+   *
+   * `createDemoCampaign` falls back to `countries: ['US']` when the lot has no
+   * lat/long, which was harmless against an ad account that could not spend and
+   * is not harmless now. A nationwide used-car campaign is a mistake the dealer
+   * discovers on an invoice, so it is refused here rather than built and
+   * explained. Coordinates arrived as NULL columns in `0007_odd_big_bertha` and
+   * there is still no screen for them — see the app review runbook §3.2.
+   * Until there is, this is a concierge fix in the database.
+   */
+  if (rooftop.latitude === null || rooftop.longitude === null) {
+    return {
+      ok: false,
+      error:
+        'This lot has no map coordinates yet, and without them the ad would target the whole country. ' +
+        'Contact us and we’ll set them — it takes a minute.',
+    };
+  }
 
   try {
     const result = await createDemoCampaign({
@@ -82,6 +113,10 @@ export async function createDemoCampaignAction(
       pageId: asset.pageId,
       dealerName: rooftop.name,
       bucket,
+      lat: rooftop.latitude,
+      lng: rooftop.longitude,
+      radiusMiles,
+      dailyBudgetUsd,
       landingUrl: await inventoryUrlFor(rooftopId),
     });
 
@@ -90,9 +125,10 @@ export async function createDemoCampaignAction(
       ok: true,
       data: result,
       message:
-        `Created a paused campaign for ${rooftop.name} targeting the ` +
-        `${CAMPAIGN_BUCKETS.find((b) => b.key === bucket)?.label} shelf. ` +
-        'Nothing is running and nothing will spend until you turn it on in Ads Manager.',
+        `Built a paused campaign for ${rooftop.name} targeting the ` +
+        `${CAMPAIGN_BUCKETS.find((b) => b.key === bucket)?.label} shelf — ` +
+        `$${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
+        'It is paused, so nothing is running and nothing will spend until you turn it on in Ads Manager.',
     };
   } catch (err) {
     await noteFailure(groupId, err);
@@ -105,6 +141,8 @@ export async function createDemoCampaignAction(
           JSON.stringify({
             rooftopId,
             bucket,
+            dailyBudgetUsd,
+            radiusMiles,
             adAccountId: asset.adAccountId,
             catalogId: asset.catalogId,
             pageId: asset.pageId,
@@ -142,7 +180,7 @@ export async function readCampaignInsightsAction(
       ok: true,
       data: result,
       message: result.emptyByDesign
-        ? 'Read back from Facebook: no spend, impressions or clicks. Expected — this campaign is paused and the ad account has no payment method, so it has never delivered.'
+        ? 'Read back from Facebook: no spend, impressions or clicks. Expected — this campaign has not been turned on yet, so it has never delivered.'
         : `Read back ${result.rows.length} row(s) of delivery from Facebook.`,
     };
   } catch (err) {

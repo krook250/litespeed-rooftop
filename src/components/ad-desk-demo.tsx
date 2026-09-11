@@ -11,13 +11,15 @@
  * in this category drops those seven units silently; that is the complaint
  * `claude/meta-marketplace.md` §3 is about, and this panel is the answer to it.
  *
- * `CampaignDemoPanel` is scaffolding, and is labelled as such on screen. It
- * exists because three of the permissions under App Review — `ads_management`,
- * `ads_read`, `pages_manage_ads` — cannot be shown working by a connect flow
- * that never creates an ad. It builds one paused campaign against an ad account
- * with no payment method and reads the result back. It is deliberately not dressed up as a
- * campaign manager, because it isn't one, and a reviewer who feels oversold is
- * a reviewer looking harder.
+ * `CampaignDemoPanel` was scaffolding for App Review and is now the thing a
+ * dealer builds a campaign with. The ad account is theirs and it can spend, so
+ * the two claims this panel used to make on screen — unfunded account, cannot
+ * deliver — are gone. What replaces them is the truth: it lands PAUSED and they
+ * turn it on themselves in Ads Manager.
+ *
+ * It is still not a campaign manager. Budget, radius and which shelf are the
+ * three decisions worth making here; everything else belongs in Ads Manager and
+ * pretending otherwise would mean reimplementing it badly.
  */
 
 import { useActionState } from 'react';
@@ -133,16 +135,17 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
   return (
     <Card>
       <CardHeader
-        title="Campaign demo"
-        subtitle="One paused campaign off the Lot Walk aging buckets, in an unfunded ad account."
-        action={<Badge tone="neutral">Demo</Badge>}
+        title="Build a campaign"
+        subtitle="One catalog campaign off the Lot Walk aging buckets, aimed at the cars that have sat longest."
+        action={<Badge tone="neutral">Paused on build</Badge>}
       />
 
       <div className="space-y-4 px-5 py-4">
         <p className="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600">
-          This builds a real campaign, ad set and creative through the Marketing API and then reads
-          the result back — against an ad account with <strong>no payment method</strong>, so it
-          cannot deliver. Everything lands paused. It costs nothing and cannot spend.
+          This builds the campaign, ad set and creative in your own ad account and points them at
+          your catalog. <strong>Everything lands paused</strong> — nothing runs and nothing spends
+          until you turn it on in Ads Manager. Build it again with different numbers and it updates
+          what is there rather than making a second one.
         </p>
 
         {!row.ready ? (
@@ -169,8 +172,44 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               </span>
             </label>
 
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs font-medium text-ink-700">Daily budget</span>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-sm text-ink-500">$</span>
+                  <input
+                    type="number"
+                    name="dailyBudget"
+                    defaultValue={25}
+                    min={10}
+                    max={1000}
+                    step={5}
+                    className="w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
+                  />
+                </div>
+                <span className="mt-1 block text-[11px] text-ink-500">Per day, on the ad set.</span>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-medium text-ink-700">Radius</span>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    name="radiusMiles"
+                    defaultValue={25}
+                    min={5}
+                    max={50}
+                    step={5}
+                    className="w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
+                  />
+                  <span className="text-sm text-ink-500">mi</span>
+                </div>
+                <span className="mt-1 block text-[11px] text-ink-500">Around the lot. 5–50.</span>
+              </label>
+            </div>
+
             <Button type="submit" disabled={busy}>
-              {busy ? 'Building…' : 'Build the demo campaign'}
+              {busy ? 'Building…' : 'Build the campaign'}
             </Button>
           </form>
         )}
@@ -190,16 +229,20 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <Row k="creative" v={state.data.creativeId} />
               <Row k="status" v={state.data.status} />
             </dl>
+            <p className="text-[11px] text-emerald-800">
+              Open it in Ads Manager to review the targeting and turn it on. Until you do, it is
+              paused.
+            </p>
             {state.data.adopted.campaign || state.data.adopted.adSet ? (
               <p className="text-[11px] text-emerald-800">
-                Reused what was already there rather than duplicating it:{' '}
+                Updated what was already there rather than duplicating it:{' '}
                 {[
                   state.data.adopted.campaign && 'campaign',
                   state.data.adopted.adSet && 'ad set',
                 ]
                   .filter(Boolean)
                   .join(', ')}
-                . Delete them in Ads Manager if you want this built fresh.
+                . Budget and radius were applied to it.
               </p>
             ) : null}
           </div>
