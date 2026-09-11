@@ -183,7 +183,14 @@ export function BudgetRadiusFields({
               onChange={(e) => setB(Number(e.target.value))}
               min={10}
               max={1000}
-              step={5}
+              /*
+               * Step 1, not 5. A `step` on a number input is a VALIDATION rule,
+               * not a suggestion — typing 33 gets "please enter a valid value,
+               * the two nearest valid values are 30 and 35" and the form will
+               * not submit. Facebook takes any whole dollar; the arrows were
+               * never worth refusing a budget over.
+               */
+              step={1}
               className="w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
             />
           </div>
@@ -200,7 +207,8 @@ export function BudgetRadiusFields({
               onChange={(e) => setR(Number(e.target.value))}
               min={5}
               max={50}
-              step={5}
+              /* Same reason as the budget above — whole miles, any of them. */
+              step={1}
               className="w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
             />
             <span className="text-sm text-ink-500">mi</span>
