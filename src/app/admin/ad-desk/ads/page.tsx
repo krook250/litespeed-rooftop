@@ -155,6 +155,7 @@ export default async function AdsPage() {
                       shelfCount={
                         shelfCounts && g.bucketKey ? shelfCounts[g.bucketKey] : null
                       }
+                      adoptable={unbuilt.map((b) => ({ key: b.key, label: b.label }))}
                     />
                   ))}
               </div>

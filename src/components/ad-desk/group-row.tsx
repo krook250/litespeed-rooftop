@@ -12,7 +12,7 @@
 import Link from 'next/link';
 import { useActionState } from 'react';
 import { Badge, Button } from '../ui';
-import { setGroupRunningAction } from '@/lib/meta/demo-actions';
+import { adoptGroupAction, setGroupRunningAction } from '@/lib/meta/demo-actions';
 import { money } from './format';
 import type { LotGroup } from '@/lib/meta/campaigns';
 
@@ -21,6 +21,7 @@ export function GroupRow({
   group,
   adCount,
   shelfCount,
+  adoptable,
 }: {
   rooftopId: string;
   group: LotGroup;
@@ -28,8 +29,11 @@ export function GroupRow({
   adCount: number;
   /** Cars the shelf holds right now, or null when inventory could not be read. */
   shelfCount: number | null;
+  /** Shelves with no group yet — what an unmapped ad set may be taken over as. */
+  adoptable: { key: string; label: string }[];
 }) {
   const [state, action, switching] = useActionState(setGroupRunningAction, null);
+  const [adoptState, adoptAction, adopting] = useActionState(adoptGroupAction, null);
   const running = group.effectiveStatus === 'ACTIVE';
   const bucket = group.bucketKey;
   const href = bucket ? `/admin/ad-desk/ads/${rooftopId}/${bucket}` : null;
@@ -95,10 +99,50 @@ export function GroupRow({
         than showing controls that would build against the wrong thing.
       */}
       {!bucket ? (
-        <p className="border-t border-ink-200 px-4 py-2.5 text-[11px] text-amber-700">
-          This one was renamed in Ads Manager, so Rooftop can no longer tell which shelf it is.
-          Manage it there, or rename it back to one of the shelf names.
-        </p>
+        <div className="space-y-2 border-t border-ink-200 bg-amber-50 px-4 py-3">
+          <p className="text-[11px] text-amber-900">
+            Rooftop can’t tell which shelf this one is — its name at Facebook isn’t one of the shelf
+            names. Say which shelf it should be and Rooftop will rename it and put its targeting,
+            budget and vehicle list back.
+          </p>
+          {adoptable.length ? (
+            <form action={adoptAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="rooftopId" value={rooftopId} />
+              <input type="hidden" name="adSetId" value={group.id} />
+              <input type="hidden" name="dailyBudget" value={group.dailyBudgetUsd ?? 25} />
+              <input type="hidden" name="radiusMiles" value={group.radiusMiles ?? 25} />
+              <select
+                name="bucket"
+                defaultValue={adoptable[0]!.key}
+                className="rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-xs text-ink-900"
+              >
+                {adoptable.map((b) => (
+                  <option key={b.key} value={b.key}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" size="sm" disabled={adopting}>
+                {adopting ? 'Taking it over…' : 'Take it over'}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-[11px] text-amber-900">
+              Every shelf already has a group, so there is nothing left for this one to become.
+              Stop it here and delete it in Ads Manager.
+            </p>
+          )}
+          {adoptState && !adoptState.ok ? (
+            <p className="rounded bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
+              {adoptState.error}
+            </p>
+          ) : null}
+          {adoptState?.ok ? (
+            <p className="rounded bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800">
+              {adoptState.message}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {state && !state.ok ? (

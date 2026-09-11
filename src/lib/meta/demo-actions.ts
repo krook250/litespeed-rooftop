@@ -22,7 +22,12 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import type { DemoCampaignResult } from './campaigns';
 import { DEFAULT_BUCKET, type BucketKey } from './buckets';
-import { buildCampaignForRooftop, runGroupForRooftop, validateCampaignInput } from './campaign-build';
+import {
+  adoptGroupForRooftop,
+  buildCampaignForRooftop,
+  runGroupForRooftop,
+  validateCampaignInput,
+} from './campaign-build';
 import { readAdFields, validateAdCopy } from './ad-copy-spec';
 import { upsertAdCopy } from './ad-copy';
 
@@ -94,6 +99,46 @@ export async function buildGroupAction(
   // Saved rows are on screen either way — a build that failed at Facebook
   // should still show the dealer the words they wrote.
   // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
+  return outcome;
+}
+
+/* ------------------------------------------------------------- take over */
+
+/**
+ * Adopt an ad set that no longer maps to a shelf, and repair it.
+ *
+ * The list can see such a group and stop it, but nothing else — every other
+ * action is keyed on the shelf. This renames it back over the API and rebuilds
+ * it, which is the only route out when Ads Manager refuses to publish the
+ * rename because the ad set already has errors.
+ */
+export async function adoptGroupAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<DemoCampaignResult>> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const adSetId = String(formData.get('adSetId') ?? '').trim();
+  const bucket = String(formData.get('bucket') ?? DEFAULT_BUCKET) as BucketKey;
+  const dailyBudgetUsd = Number(formData.get('dailyBudget') ?? 25);
+  const radiusMiles = Number(formData.get('radiusMiles') ?? 25);
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found.' };
+
+  const invalid = validateCampaignInput(bucket, dailyBudgetUsd, radiusMiles);
+  if (invalid) return { ok: false, error: invalid };
+
+  const outcome = await adoptGroupForRooftop({
+    groupId,
+    rooftop,
+    bucket,
+    adSetId,
+    dailyBudgetUsd,
+    radiusMiles,
+  });
+
   revalidatePath('/admin/ad-desk', 'layout');
   return outcome;
 }

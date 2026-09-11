@@ -77,6 +77,52 @@ export function validateCampaignInput(
  * was passed, and every ad is repointed at a fresh creative carrying the
  * group's current saved copy. Never starts anything.
  */
+/**
+ * Take over an ad set Rooftop did not build — or one somebody renamed.
+ *
+ * THE NAME IS THE ONLY KEY WE HAVE, AND THAT IS THE WHOLE PROBLEM THIS SOLVES.
+ * `listLotGroups` maps an ad set back to a shelf by matching its name exactly,
+ * so an ad set renamed in Ads Manager becomes an object Rooftop can see, report
+ * and stop, but cannot edit, rebuild or repair. The advice that follows from
+ * that — "go and rename it back in Ads Manager" — fails exactly when it is most
+ * needed: Ads Manager will not publish a rename on an ad set that has any
+ * validation error, and the errors it refuses to publish past (a missing
+ * location, a dead product set) are the very things a rebuild would fix. A real
+ * dealer account reached that deadlock the day the groups list shipped.
+ *
+ * So the rename happens over the API, by id, where no draft validation stands
+ * in the way, and the ordinary build runs immediately afterwards to put the
+ * targeting, the budget and a live product set back on it.
+ *
+ * Renaming first is deliberate: `buildCampaignForRooftop` adopts by name, so
+ * without this the build would leave the renamed ad set alone and create a
+ * second one beside it, which is how a lot ends up paying for two.
+ */
+export async function adoptGroupForRooftop(
+  input: BuildCampaignInput & { adSetId: string },
+): Promise<BuildCampaignOutcome> {
+  const { adSetId, ...build } = input;
+  if (!adSetId) return { ok: false, error: 'No ad set to take over.' };
+
+  const conn = await tokenFor(build.groupId);
+  if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
+
+  const name = bucketByKey(build.bucket).label;
+
+  try {
+    await graph<{ success?: boolean }>(`/${adSetId}`, {
+      method: 'POST',
+      token: conn.token,
+      params: { name },
+    });
+  } catch (err) {
+    const detail = err instanceof MetaApiError ? err.message : 'Facebook did not say why.';
+    return { ok: false, error: `Facebook would not rename that ad set. ${detail}` };
+  }
+
+  return buildCampaignForRooftop(build);
+}
+
 export async function buildCampaignForRooftop(input: BuildCampaignInput): Promise<BuildCampaignOutcome> {
   const { groupId, rooftop, bucket, dailyBudgetUsd, radiusMiles } = input;
 
