@@ -171,7 +171,29 @@ export type CampaignDemoRow = {
   blocker: string | null;
 };
 
-export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
+/** Just enough of a copy variant to show what the button is about to send. */
+export type CopyPreview = { name: string; message: string; headline: string };
+
+export function CampaignDemoPanel({
+  row,
+  copies,
+}: {
+  row: CampaignDemoRow;
+  /**
+   * The variants this build will produce, shown BEFORE the button.
+   *
+   * Writing the words used to be something a dealer discovered after launching:
+   * the copy editor sits above this panel, nothing connected them, and nobody
+   * reads a panel they were not sent to. So the first campaign went out saying
+   * "Now at {lot}." — words the dealer had never seen — and the editor read as
+   * a thing you go and fix afterwards.
+   *
+   * Showing it here rather than duplicating the fields keeps ONE place to edit
+   * copy. Two editors would mean deciding which one wins when they disagree,
+   * which is a question with no good answer.
+   */
+  copies: CopyPreview[];
+}) {
   const [state, action, busy] = useActionState(createDemoCampaignAction, null);
   const [insights, readAction, reading] = useActionState(readCampaignInsightsAction, null);
 
@@ -256,6 +278,31 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               </label>
             </div>
 
+            {/* What the button is about to send. */}
+            <div className="rounded-lg border border-ink-200 bg-white px-3 py-2.5">
+              <p className="text-xs font-medium text-ink-700">
+                {copies.length > 1
+                  ? `Your ${copies.length} versions will say`
+                  : 'Your ad will say'}
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {copies.map((c) => (
+                  <li key={c.name} className="text-[11px] leading-snug">
+                    <span className="text-ink-900">{c.message}</span>
+                    <span className="block text-ink-500">
+                      {/* Rendered as written, tokens and all. Meta fills these
+                          in per car, and showing a fake car here would be a
+                          nicer screen that teaches the wrong thing. */}
+                      {c.headline}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-ink-500">
+                Change these under <span className="font-medium">What your ads say</span> above.
+              </p>
+            </div>
+
             <Button type="submit" disabled={busy}>
               {busy ? 'Building…' : 'Build the campaign'}
             </Button>
@@ -283,7 +330,13 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               </p>
             ) : (
               <p className="text-[11px] text-emerald-800">
-                Built and stopped. Start it from Your campaigns above when you&apos;re ready.
+                Built and stopped
+                {state.data.ads.length
+                  ? ` — ${state.data.ads.length === 1 ? 'one ad' : `${state.data.ads.length} ads`}, ${state.data.ads
+                      .map((a) => a.name.replace(/^.*? — /, ''))
+                      .join(' and ')}`
+                  : ''}
+                . Start it from Your campaigns above when you&apos;re ready.
               </p>
             )}
             {state.data.adopted.campaign || state.data.adopted.adSet ? (

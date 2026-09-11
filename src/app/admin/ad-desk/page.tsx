@@ -399,6 +399,23 @@ export default async function AdDeskPage({
                 {a?.catalogId ? (
                   <CampaignDemoPanel
                     row={{ rooftopId: r.id, name: r.name, ready: blocker === null, blocker }}
+                    /* Active variants only, falling back to the same default the
+                       build itself falls back to — so the panel cannot promise
+                       words the build will not send. */
+                    copies={(() => {
+                      const active = (copyByRooftop.get(r.id) ?? []).filter((c) => c.active);
+                      return active.length
+                        ? active.map((c) => ({
+                            name: c.name,
+                            message: c.message,
+                            headline: c.headline,
+                          }))
+                        : [defaultAdCopy(r.name)].map((c) => ({
+                            name: c.name,
+                            message: c.message,
+                            headline: c.headline,
+                          }));
+                    })()}
                   />
                 ) : null}
               </div>
