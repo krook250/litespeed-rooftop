@@ -22,7 +22,8 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { MetaApiError } from './graph';
 import { tokenFor } from './connect';
-import { readInsights, type BucketKey, type DemoCampaignResult, type InsightsResult } from './campaigns';
+import { readInsights, type DemoCampaignResult, type InsightsResult } from './campaigns';
+import { DEFAULT_BUCKET, type BucketKey } from './buckets';
 import { buildCampaignForRooftop, validateCampaignInput } from './campaign-build';
 
 export type ActionResult<T = undefined> =
@@ -37,7 +38,7 @@ export async function createDemoCampaignAction(
 ): Promise<ActionResult<DemoCampaignResult>> {
   const groupId = await requireGroupId();
   const rooftopId = String(formData.get('rooftopId') ?? '');
-  const bucket = String(formData.get('bucket') ?? 'age_46_60') as BucketKey;
+  const bucket = String(formData.get('bucket') ?? DEFAULT_BUCKET) as BucketKey;
   const dailyBudgetUsd = Number(formData.get('dailyBudget') ?? 25);
   const radiusMiles = Number(formData.get('radiusMiles') ?? 25);
 

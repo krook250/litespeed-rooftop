@@ -25,7 +25,8 @@ import { revalidatePath } from 'next/cache';
 import { requireStaff } from '@/lib/ops/guard';
 import { opsRooftopInGroup } from '@/lib/ops/ad-desk-queries';
 import { buildCampaignForRooftop, validateCampaignInput } from '@/lib/meta/campaign-build';
-import type { BucketKey, DemoCampaignResult } from '@/lib/meta/campaigns';
+import type { DemoCampaignResult } from '@/lib/meta/campaigns';
+import { DEFAULT_BUCKET, type BucketKey } from '@/lib/meta/buckets';
 
 export type OpsActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -39,7 +40,7 @@ export async function opsBuildCampaignAction(
 
   const groupId = String(formData.get('groupId') ?? '');
   const rooftopId = String(formData.get('rooftopId') ?? '');
-  const bucket = String(formData.get('bucket') ?? 'age_46_60') as BucketKey;
+  const bucket = String(formData.get('bucket') ?? DEFAULT_BUCKET) as BucketKey;
   const dailyBudgetUsd = Number(formData.get('dailyBudget') ?? 25);
   const radiusMiles = Number(formData.get('radiusMiles') ?? 25);
 

@@ -26,6 +26,7 @@ import { useActionState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
 import { createDemoCampaignAction, readCampaignInsightsAction } from '@/lib/meta/demo-actions';
 import type { FeedPreview } from '@/lib/meta/feed-preview';
+import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
 
 /* ------------------------------------------------------------ feed health */
 
@@ -158,12 +159,6 @@ export type CampaignDemoRow = {
   blocker: string | null;
 };
 
-const BUCKETS = [
-  { key: 'age_31_45', label: '31–45 days' },
-  { key: 'age_46_60', label: '46–60 days' },
-  { key: 'age_61_plus', label: '61+ days' },
-];
-
 export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
   const [state, action, busy] = useActionState(createDemoCampaignAction, null);
   const [insights, readAction, reading] = useActionState(readCampaignInsightsAction, null);
@@ -195,18 +190,18 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <span className="text-xs font-medium text-ink-700">Which shelf</span>
               <select
                 name="bucket"
-                defaultValue="age_46_60"
+                defaultValue={DEFAULT_BUCKET}
                 className="mt-1 w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
               >
-                {BUCKETS.map((b) => (
+                {CAMPAIGN_BUCKETS.map((b) => (
                   <option key={b.key} value={b.key}>
                     {b.label}
                   </option>
                 ))}
               </select>
               <span className="mt-1 block text-[11px] text-ink-500">
-                The same buckets the Lot Walk uses. The vehicle set is built from days on lot, so the
-                ad targets exactly the units the Monday meeting is about.
+                Start with all of them. The day ranges are the same buckets the Lot Walk uses, for
+                when you want to push only the cars that have been sitting.
               </span>
             </label>
 

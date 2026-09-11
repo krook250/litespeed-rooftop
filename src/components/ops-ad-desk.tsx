@@ -19,12 +19,7 @@ import { Badge, Button, Card, CardHeader } from './ui';
 import { opsBuildCampaignAction } from '@/lib/ops/ad-desk-actions';
 import type { OpsAdDeskLot } from '@/lib/ops/ad-desk-queries';
 import type { LotCampaign } from '@/lib/meta/campaigns';
-
-const BUCKETS = [
-  { key: 'age_31_45', label: '31–45 days' },
-  { key: 'age_46_60', label: '46–60 days' },
-  { key: 'age_61_plus', label: '61+ days' },
-];
+import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -211,10 +206,10 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
                   <span className="text-xs font-medium text-ink-700">Shelf</span>
                   <select
                     name="bucket"
-                    defaultValue="age_46_60"
+                    defaultValue={DEFAULT_BUCKET}
                     className="mt-1 w-full rounded-lg border border-ink-300 bg-white px-2.5 py-2 text-sm text-ink-900"
                   >
-                    {BUCKETS.map((b) => (
+                    {CAMPAIGN_BUCKETS.map((b) => (
                       <option key={b.key} value={b.key}>
                         {b.label}
                       </option>

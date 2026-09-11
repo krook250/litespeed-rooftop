@@ -74,6 +74,7 @@
 
 import 'server-only';
 import { MetaApiError, graph, graphEdge } from './graph';
+import { DEFAULT_BUCKET, bucketByKey, bucketFilter, type BucketKey, type CampaignBucket } from './buckets';
 
 /* -------------------------------------------------------------- objective */
 
@@ -137,12 +138,19 @@ export type SpecialAdCategory = 'NONE' | 'FINANCIAL_PRODUCTS_SERVICES';
 /* ---------------------------------------------------------- product sets */
 
 /**
- * The aging buckets, as catalog filters.
+ * The shelves, as catalog filters. Defined in `./buckets.ts` and re-exported
+ * here so every existing import site keeps working.
  *
- * These are the same boundaries `AGING_BUCKETS` in `src/lib/domain.ts` uses, and
- * that is the whole point of the exercise: the lot already argues about the
- * 46–60 shelf every Monday, so the ad set that spends money on it should be
- * defined by the same number rather than by a marketer's guess.
+ * That file is pure and not `server-only` precisely so the dealer panel and the
+ * ops panel can import the list instead of each keeping a hardcoded copy, which
+ * is what they did until Sep 2026 — and those copies had already drifted from
+ * the filter they were supposed to describe.
+ *
+ * The aging boundaries match `AGING_BUCKETS` in `src/lib/domain.ts`, which is
+ * the point: the lot already argues about the 46–60 shelf every Monday, so the
+ * ad set that spends money on it should be defined by the same number rather
+ * than by a marketer's guess. What changed is that aging is no longer the only
+ * way to choose — see the note in `buckets.ts` on why `all` is the default.
  *
  * Filtering on `days_on_lot` rather than on `custom_label_0` is deliberate.
  * Both are in the feed and both are filterable, but `days_on_lot` is numeric,
@@ -150,27 +158,15 @@ export type SpecialAdCategory = 'NONE' | 'FINANCIAL_PRODUCTS_SERVICES';
  * re-ingest. `custom_label_0` carries the same information as a readable label
  * for the human looking at Commerce Manager.
  */
-export const CAMPAIGN_BUCKETS = [
-  { key: 'age_31_45', label: '31–45 days', min: 31, max: 45 },
-  { key: 'age_46_60', label: '46–60 days', min: 46, max: 60 },
-  { key: 'age_61_plus', label: '61+ days', min: 61, max: null },
-] as const;
-
-export type BucketKey = (typeof CAMPAIGN_BUCKETS)[number]['key'];
-
-export function bucketFilter(bucket: (typeof CAMPAIGN_BUCKETS)[number]) {
-  const clauses: Record<string, unknown>[] = [
-    { availability: { eq: 'available' } },
-    // Only units the feed marked Marketplace-clean. Without this the ad set
-    // happily targets vehicles Meta will refuse to show on the surface the
-    // dealer actually asked for, and the money goes somewhere they did not
-    // choose. See `src/lib/meta/feed-spec.ts`.
-    { custom_label_1: { eq: 'mkt_ok' } },
-    { days_on_lot: { gte: bucket.min } },
-  ];
-  if (bucket.max != null) clauses.push({ days_on_lot: { lte: bucket.max } });
-  return { and: clauses };
-}
+export {
+  CAMPAIGN_BUCKETS,
+  DEFAULT_BUCKET,
+  bucketByKey,
+  bucketFilter,
+  isBucketKey,
+  type BucketKey,
+  type CampaignBucket,
+} from './buckets';
 
 export type ProductSetResult = { id: string; name: string; adopted: boolean };
 
@@ -217,7 +213,7 @@ async function findLiveByName<T extends { id: string; name?: string; status?: st
 export async function ensureProductSet(
   token: string,
   catalogId: string,
-  bucket: (typeof CAMPAIGN_BUCKETS)[number],
+  bucket: CampaignBucket,
   dealerName: string,
 ): Promise<ProductSetResult> {
   const name = `Rooftop — ${dealerName} — ${bucket.label}`.slice(0, 90);
@@ -338,8 +334,7 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
   const dailyBudgetMinor = String(dailyBudgetUsd * 100);
 
   const act = actPath(input.adAccountId);
-  const bucketKey = input.bucket ?? 'age_46_60';
-  const bucket = CAMPAIGN_BUCKETS.find((b) => b.key === bucketKey) ?? CAMPAIGN_BUCKETS[1];
+  const bucket = bucketByKey(input.bucket ?? DEFAULT_BUCKET);
 
   const productSet = await ensureProductSet(token, catalogId, bucket, dealerName);
 

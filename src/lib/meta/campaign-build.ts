@@ -26,7 +26,8 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { MetaApiError } from './graph';
 import { noteFailure, tokenFor } from './connect';
-import { CAMPAIGN_BUCKETS, createDemoCampaign, type BucketKey, type DemoCampaignResult } from './campaigns';
+import { createDemoCampaign, type DemoCampaignResult } from './campaigns';
+import { bucketByKey, isBucketKey, type BucketKey } from './buckets';
 
 export type BuildCampaignOutcome =
   | { ok: true; data: DemoCampaignResult; message: string }
@@ -47,7 +48,7 @@ export function validateCampaignInput(
   dailyBudgetUsd: number,
   radiusMiles: number,
 ): string | null {
-  if (!CAMPAIGN_BUCKETS.some((b) => b.key === bucket)) return 'Pick one of the aging buckets.';
+  if (!isBucketKey(bucket)) return 'Pick one of the shelves.';
   if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd < 10) return 'Daily budget has to be at least $10.';
   if (!Number.isFinite(radiusMiles) || radiusMiles < 5 || radiusMiles > 50) {
     return 'Radius has to be between 5 and 50 miles. That is Facebook’s range, not ours.';
@@ -118,7 +119,7 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
       data: result,
       message:
         `Built a paused campaign for ${rooftop.name} targeting the ` +
-        `${CAMPAIGN_BUCKETS.find((b) => b.key === bucket)?.label} shelf — ` +
+        `${bucketByKey(bucket).label} shelf — ` +
         `$${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
         'It is paused, so nothing is running and nothing will spend until it is turned on in Ads Manager.',
     };
