@@ -34,6 +34,7 @@ import {
   type RunOutcome,
 } from './campaigns';
 import { bucketByKey, isBucketKey, type BucketKey } from './buckets';
+import { adCopyForRooftop } from './ad-copy';
 
 export type BuildCampaignOutcome =
   | { ok: true; data: DemoCampaignResult; message: string }
@@ -117,6 +118,9 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
       lng: rooftop.longitude,
       radiusMiles,
       dailyBudgetUsd,
+      // One ad per active variant, all inside the one ad set. Falls back to the
+      // hardcoded default when the dealer has never opened the copy editor.
+      adCopies: await adCopyForRooftop(rooftop.id, rooftop.name),
       landingUrl: await inventoryUrlFor(rooftop.id),
     });
 

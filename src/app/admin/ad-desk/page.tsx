@@ -23,6 +23,9 @@ import { CampaignDemoPanel, CampaignListPanel, FeedHealthPanel } from '@/compone
 import { disconnectMetaForm, startMetaConnect } from '@/lib/meta/actions';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
 import { listLotCampaigns, type LotCampaign } from '@/lib/meta/campaigns';
+import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
+import { defaultAdCopy } from '@/lib/meta/ad-copy-spec';
+import { AdCopyPanel, type AdCopyRow } from '@/components/ad-copy-panel';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
 import { previewFeed, type FeedPreview } from '@/lib/meta/feed-preview';
 import { requireSection } from '@/lib/auth-guard';
@@ -129,6 +132,32 @@ export default async function AdDeskPage({
    * should. Failures are swallowed per lot — Facebook being slow is not a
    * reason to take the setup half of the page down with it.
    */
+  /*
+   * Saved ad copy per lot. A database read, not a Meta one — the words belong to
+   * the dealer and Facebook only ever receives a copy of them at build time.
+   * Empty means the lot has never opened the editor, and the panel pre-fills
+   * with the same default the build falls back to.
+   */
+  const copyByRooftop = new Map<string, AdCopyRow[]>();
+  if (connected) {
+    const provisioned = rooftops.filter((r) => byRooftop.get(r.id)?.catalogId);
+    const results = await Promise.all(provisioned.map((r) => allAdCopyForRooftop(r.id)));
+    results.forEach((rows, i) => {
+      copyByRooftop.set(
+        provisioned[i]!.id,
+        rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          message: r.message,
+          headline: r.headline,
+          description: r.description,
+          callToAction: r.callToAction,
+          active: r.active,
+        })),
+      );
+    });
+  }
+
   const campaignsByRooftop = new Map<string, LotCampaign[]>();
   if (connected) {
     const conn = await tokenFor(groupId);
@@ -351,6 +380,13 @@ export default async function AdDeskPage({
                     metaProductCount={
                       a?.catalogId && discoveryOk ? (metaCatalogCounts.get(a.catalogId) ?? null) : null
                     }
+                  />
+                ) : null}
+                {a?.catalogId ? (
+                  <AdCopyPanel
+                    rooftopId={r.id}
+                    rows={copyByRooftop.get(r.id) ?? []}
+                    fallback={defaultAdCopy(r.name)}
                   />
                 ) : null}
                 {campaignsByRooftop.get(r.id)?.length ? (

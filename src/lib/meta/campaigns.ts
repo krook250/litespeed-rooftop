@@ -76,6 +76,8 @@ import 'server-only';
 import { MetaApiError, graph, graphEdge } from './graph';
 import { DEFAULT_BUCKET, bucketByKey, bucketFilter, type BucketKey, type CampaignBucket } from './buckets';
 import type { PreviewFormat } from './buckets-preview';
+import type { AdCopy } from './ad-copy';
+import { defaultAdCopy as defaultAdCopyFor } from './ad-copy-spec';
 
 /* -------------------------------------------------------------- objective */
 
@@ -362,6 +364,16 @@ export type DemoCampaignInput = {
   lng?: number | null;
   /** Radius in miles around the lot. Clamped to Meta's 1–50 for custom locations. */
   radiusMiles?: number;
+  /**
+   * One ad per entry, all inside the single ad set.
+   *
+   * Several ads in one ad set share a learning phase and Meta shifts delivery
+   * toward whichever wins. Several campaigns would each learn from nothing and
+   * split the budget — which is why creative testing lives here and not in more
+   * shelves. Empty falls back to the hardcoded default, so a lot that has never
+   * opened the copy editor keeps running exactly what it ran before.
+   */
+  adCopies?: AdCopy[];
   /** Daily budget in whole dollars, on the ad set. */
   dailyBudgetUsd?: number;
 };
@@ -397,8 +409,10 @@ export type DemoCampaignResult = {
    * start button without this would have shipped a switch wired to nothing.
    */
   adId: string | null;
+  /** Every ad in the set, one per copy variant. `adId` is the first of these. */
+  ads: { id: string; name: string }[];
   /**
-   * Set when the Ad could not be created and why, in the dealer's words. Today
+   * Set when an Ad could not be created and why, in the dealer's words. Today
    * there is exactly one cause worth naming — see `AD_NEEDS_PAYMENT`.
    */
   adCannotRun: string | null;
@@ -753,103 +767,108 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * They are invisible, unattached, and cannot deliver. That is a much cheaper
    * problem than an unresettable demo.
    */
-  const creativeName = `Rooftop — ${dealerName} — dynamic vehicle creative`.slice(0, 100);
-
-  const creative = await graph<{ id: string }>(`${act}/adcreatives`, {
-    method: 'POST',
-    token,
-    params: {
-      name: creativeName,
-      product_set_id: productSet.id,
-      object_story_spec: JSON.stringify({
-        page_id: pageId,
-        /*
-         * The field 1772103 asks for. Omitted entirely when there is no
-         * identity — sending null is not the same as sending nothing.
-         *
-         * `instagram_user_id` is the current name. Meta's own announcement of
-         * PBIAs calls it `instagram_actor_id`; that spelling is deprecated and
-         * still all over older docs and forum answers.
-         */
-        ...(instagramId ? { instagram_user_id: instagramId } : {}),
-        template_data: {
-          link: landingUrl,
-          message: `Now at ${dealerName}.`,
-          name: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}',
-          description: '{{vehicle.price}}',
-          call_to_action: { type: 'LEARN_MORE' },
-        },
-      }),
-      template_url_spec: JSON.stringify({
-        web: { url: `${landingUrl}?utm_source=meta&utm_medium=aia&stock={{vehicle.stock_number}}` },
-      }),
-    },
-  });
-
-  /* ------------------------------------------------------------- 4. the ad */
-
   /*
-   * THE AD IS BACK, AND THE COMMENT THAT SAID NOT TO ADD IT IS WORTH KEEPING IN
-   * MIND RATHER THAN DELETING.
+   * ONE CREATIVE AND ONE AD PER COPY VARIANT, ALL IN THE SAME AD SET.
    *
-   * It was tried on 7 Aug 2026 and Meta refused:
+   * This loop replaced a single hardcoded creative in Sep 2026. The shape is
+   * the answer to "does each new ad need its own campaign": no, and it should
+   * not have one. Meta's optimisation and its learning phase live at the AD
+   * SET. Several ads inside one share that learning and delivery moves toward
+   * whichever is winning; several campaigns each start from nothing and split
+   * the budget between them. Creative testing therefore goes inside, which is
+   * why `metaAdCopy` is a table of rows per lot rather than four columns.
    *
-   *     code 100 / subcode 1359188 / OAuthException / "Invalid parameter"
-   *     "Update payment method: Visit the Billing and payment center to add a
-   *      valid payment method."
-   *
-   * Campaign, ad set and creative all create happily on an unfunded account. The
-   * **Ad** is the first object Meta refuses without a payment method on file.
-   * (Meta's own Ad Account reference says the opposite — "it will still be
-   * possible to create ads but these ads will get no delivery." That is stale.
-   * 1359188 appears in no published error table. On this surface the API is
-   * authoritative and the docs are not.)
-   *
-   * So the demo stopped here, deliberately, and its honesty claim was
-   * structural: an account with no payment method *cannot* spend.
-   *
-   * That premise died when this became the dealer campaign builder. A real
-   * dealer's account is funded, and a tree with no Ad object delivers nothing no
-   * matter what status anything carries — so the demo's tidiest property was
-   * also the thing that made every campaign it built inert. The refusal is now
-   * a message rather than a design: if Meta says there is no payment method, we
-   * say exactly that, because it is a five-minute fix the dealer can do and
-   * nothing else about their setup is wrong.
-   *
-   * Created PAUSED like everything else. `setCampaignRunning` is the only code
-   * in this file that sets ACTIVE, and it is reached only from a button.
+   * A lot with no saved copy gets one entry — the hardcoded default — so
+   * nothing about an existing dealer's ads changes until they edit something.
    */
-  const adName = `${bucket.label} — ad`.slice(0, 100);
+  const copies = input.adCopies?.length
+    ? input.adCopies
+    : [{ id: null, ...defaultAdCopyFor(dealerName) }];
 
-  const priorAd = await findLiveByName<{ id: string; name?: string; status?: string }>(
-    `/${adSet.id}/ads`,
-    token,
-    'id,name,status',
-    adName,
-  );
-
-  let adId: string | null = priorAd?.id ?? null;
+  const ads: { id: string; name: string }[] = [];
   let adCannotRun: string | null = null;
+  let lastCreativeId = '';
 
-  if (!adId) {
+  for (const copy of copies) {
+    const creativeName = `Rooftop — ${dealerName} — ${copy.name}`.slice(0, 100);
+
+    const creative = await graph<{ id: string }>(`${act}/adcreatives`, {
+      method: 'POST',
+      token,
+      params: {
+        name: creativeName,
+        product_set_id: productSet.id,
+        object_story_spec: JSON.stringify({
+          page_id: pageId,
+          /*
+           * The field 1772103 asks for. Omitted entirely when there is no
+           * identity — sending null is not the same as sending nothing.
+           *
+           * `instagram_user_id` is the current name. Meta's own announcement of
+           * PBIAs calls it `instagram_actor_id`; that spelling is deprecated and
+           * still all over older docs and forum answers.
+           */
+          ...(instagramId ? { instagram_user_id: instagramId } : {}),
+          template_data: {
+            link: landingUrl,
+            message: copy.message,
+            name: copy.headline,
+            description: copy.description,
+            call_to_action: { type: copy.callToAction },
+          },
+        }),
+        template_url_spec: JSON.stringify({
+          web: { url: `${landingUrl}?utm_source=meta&utm_medium=aia&stock={{vehicle.stock_number}}` },
+        }),
+      },
+    });
+
+    const adName = `${bucket.label} — ${copy.name}`.slice(0, 100);
+
+    const priorAd = await findLiveByName<{ id: string; name?: string; status?: string }>(
+      `/${adSet.id}/ads`,
+      token,
+      'id,name,status',
+      adName,
+    );
+
     try {
-      const ad = await graph<{ id: string }>(`${act}/ads`, {
-        method: 'POST',
-        token,
-        params: {
-          name: adName,
-          adset_id: adSet.id,
-          creative: JSON.stringify({ creative_id: creative.id }),
-          status: 'PAUSED',
-        },
-      });
-      adId = ad.id;
+      if (priorAd) {
+        /*
+         * Point the existing ad at the new creative rather than making a second
+         * ad with the same name. The old creative is orphaned — invisible in Ads
+         * Manager, unable to deliver, removable only by a direct DELETE — which
+         * the long note above accepts as the cheaper problem. What matters is
+         * that the AD id survives an edit, because its delivery history is
+         * attached to it: recreating it would throw away the learning the
+         * dealer is paying for every time they fix a typo.
+         */
+        await graph<{ success?: boolean }>(`/${priorAd.id}`, {
+          method: 'POST',
+          token,
+          params: { creative: JSON.stringify({ creative_id: creative.id }) },
+        });
+        ads.push({ id: priorAd.id, name: adName });
+      } else {
+        const ad = await graph<{ id: string }>(`${act}/ads`, {
+          method: 'POST',
+          token,
+          params: {
+            name: adName,
+            adset_id: adSet.id,
+            creative: JSON.stringify({ creative_id: creative.id }),
+            status: 'PAUSED',
+          },
+        });
+        ads.push({ id: ad.id, name: adName });
+      }
     } catch (err) {
       /*
-       * Not fatal to the build. Everything above this line is real and correct,
-       * and a dealer who adds a card gets a working campaign by pressing Build
-       * again — no re-setup, no reconnect. Throwing here would discard a
-       * campaign, ad set, product set and creative over a billing detail.
+       * Not fatal, and the loop continues. Everything above this line is real
+       * and correct, and a dealer who adds a card gets working ads by pressing
+       * Build again — no re-setup, no reconnect. One variant failing should not
+       * cost the others, and throwing here would discard a campaign, ad set,
+       * product set and every creative over a billing detail.
        */
       if (err instanceof MetaApiError && err.subcode === AD_NO_INSTAGRAM) {
         // Should be unreachable now a PBIA is created on demand. If it fires,
@@ -872,12 +891,15 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
           JSON.stringify({
             adSetId: adSet.id,
             creativeId: creative.id,
+            copyName: copy.name,
             code: err instanceof MetaApiError ? err.code : null,
             subcode: err instanceof MetaApiError ? err.subcode : null,
             trace: err instanceof MetaApiError ? err.traceId : null,
           }),
       );
     }
+
+    lastCreativeId = creative.id;
   }
 
   return {
@@ -885,9 +907,10 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     campaignId,
     productSet,
     adSetId: adSet.id,
-    creativeId: creative.id,
+    creativeId: lastCreativeId,
     status: 'PAUSED',
-    adId,
+    adId: ads[0]?.id ?? null,
+    ads,
     adCannotRun,
     adopted: {
       campaign: Boolean(priorCampaign),
