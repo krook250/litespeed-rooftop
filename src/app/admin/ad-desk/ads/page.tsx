@@ -9,9 +9,9 @@
  * `ads/[rooftopId]/[bucket]`; what is left here is a row per group.
  */
 
-import Link from 'next/link';
-import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
+import { Badge, Card, CardHeader, EmptyState } from '@/components/ui';
 import { GroupRow } from '@/components/ad-desk/group-row';
+import { LinkButton } from '@/components/link-pending';
 import { money } from '@/components/ad-desk/format';
 import { requireSection } from '@/lib/auth-guard';
 import { CAMPAIGN_BUCKETS } from '@/lib/meta/buckets';
@@ -49,9 +49,9 @@ export default async function AdsPage() {
             body="The ads read your inventory out of a Facebook catalog, so the account has to be connected before there is anything to run."
           />
           <div className="flex justify-center pb-8">
-            <Link href="/admin/ad-desk/connect">
-              <Button type="button">Go to Connect</Button>
-            </Link>
+            <LinkButton href="/admin/ad-desk/connect" variant="primary">
+              Go to Connect
+            </LinkButton>
           </div>
         </Card>
       </div>
@@ -98,11 +98,9 @@ export default async function AdsPage() {
                 </p>
               </div>
               {unbuilt.length && !blocker ? (
-                <Link href={`/admin/ad-desk/ads/${r.id}/new`}>
-                  <Button type="button" size="sm">
-                    + New group
-                  </Button>
-                </Link>
+                <LinkButton href={`/admin/ad-desk/ads/${r.id}/new`} variant="primary" size="sm">
+                  + New group
+                </LinkButton>
               ) : null}
             </div>
 
@@ -166,9 +164,9 @@ export default async function AdsPage() {
                   body="A group is one shelf of cars with its own budget, radius and ads. Build the first one and nothing spends until you start it."
                 />
                 <div className="flex justify-center pb-8">
-                  <Link href={`/admin/ad-desk/ads/${r.id}/new`}>
-                    <Button type="button">Build the first group</Button>
-                  </Link>
+                  <LinkButton href={`/admin/ad-desk/ads/${r.id}/new`} variant="primary">
+                    Build the first group
+                  </LinkButton>
                 </div>
               </Card>
             ) : null}
@@ -197,11 +195,9 @@ export default async function AdsPage() {
                           Saved here only. Nothing is at Facebook and nothing is spending.
                         </p>
                       </div>
-                      <Link href={`/admin/ad-desk/ads/${r.id}/${b.key}`}>
-                        <Button type="button" size="sm">
-                          Finish setup ›
-                        </Button>
-                      </Link>
+                      <LinkButton href={`/admin/ad-desk/ads/${r.id}/${b.key}`} variant="primary" size="sm">
+                        Finish setup ›
+                      </LinkButton>
                     </div>
                   ))}
               </div>

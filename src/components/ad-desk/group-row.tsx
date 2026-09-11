@@ -9,7 +9,7 @@
  * unreadable.
  */
 
-import Link from 'next/link';
+import { LinkButton } from '../link-pending';
 import { useActionState } from 'react';
 import { Badge, Button } from '../ui';
 import { adoptGroupAction, setGroupRunningAction } from '@/lib/meta/demo-actions';
@@ -84,11 +84,9 @@ export function GroupRow({
             </form>
           ) : null}
           {href ? (
-            <Link href={href}>
-              <Button type="button" variant="secondary" size="sm">
-                Edit ›
-              </Button>
-            </Link>
+            <LinkButton href={href} size="sm">
+              Edit ›
+            </LinkButton>
           ) : null}
         </div>
       </div>

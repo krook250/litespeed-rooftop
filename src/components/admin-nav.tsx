@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from './ui';
+import { LinkSpinner } from './link-pending';
 import type { Section } from '@/lib/permissions';
 
 /**
@@ -65,7 +66,7 @@ const LINKS: Item[] = [
 ];
 
 const ITEM =
-  'mb-0.5 block rounded-md px-3 py-2 text-sm font-medium transition-colors';
+  'mb-0.5 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors';
 const OFF = 'text-ink-300 hover:bg-ink-800/60 hover:text-white';
 
 export function AdminNav({
@@ -98,6 +99,7 @@ export function AdminNav({
                 className={cn(ITEM, 'mb-0', inside ? 'bg-ink-800/40 text-white' : OFF)}
               >
                 {l.label}
+                <LinkSpinner className="ml-auto" />
               </Link>
               {inside ? (
                 <div className="mb-1 ml-3 border-l border-ink-800 pl-2 pt-0.5">
@@ -106,13 +108,14 @@ export function AdminNav({
                       key={c.href}
                       href={c.href}
                       className={cn(
-                        'mb-0.5 block rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+                        'mb-0.5 flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
                         pathname.startsWith(c.href)
                           ? 'bg-ink-800 text-white'
                           : 'text-ink-400 hover:bg-ink-800/60 hover:text-white',
                       )}
                     >
                       {c.label}
+                      <LinkSpinner className="ml-auto" />
                     </Link>
                   ))}
                 </div>
@@ -125,6 +128,7 @@ export function AdminNav({
         return (
           <Link key={l.href} href={l.href} className={cn(ITEM, active ? 'bg-ink-800 text-white' : OFF)}>
             {l.label}
+            <LinkSpinner className="ml-auto" />
           </Link>
         );
       })}
