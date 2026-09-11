@@ -124,6 +124,7 @@ export async function GET(
    */
   const cols = {
     id: t.vehicles.id,
+    vehicleType: t.vehicles.vehicleType,
     vin: t.vehicles.vin,
     stockNumber: t.vehicles.stockNumber,
     year: t.vehicles.year,

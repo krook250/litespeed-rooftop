@@ -47,6 +47,10 @@ export type FeedPhoto = {
 
 export type FeedVehicle = {
   id: string;
+  /* Which vertical, so the Marketplace checks below can skip the two that ask a
+   * car question. Present on every row `feed-preview.ts` builds (it selects
+   * whole rows) and added explicitly to the projection in the feed route. */
+  vehicleType: string;
   /* Nullable since `vehicles.vin` is. The NO_VIN issue below already guards on
    * falsy, so behaviour is unchanged; the export writes an empty cell, which is
    * what Meta's spec expects for an absent optional field. */
@@ -209,7 +213,12 @@ export function evaluate(
   // every unit here is used and this is close to unconditional — but the check
   // is written the way the rule is written, not the way our inventory happens
   // to look today.
-  if (stateOfVehicle(v) !== 'New' && v.mileage <= MARKETPLACE_MIN_MILEAGE) {
+  /* AUTO only. A travel trailer has no odometer, so `mileage` is 0 on every one
+   * of them — not "nearly new", just "not a measurement". Left ungated this
+   * fires on every unit at an RV lot and buries the issues that mean something.
+   * The rule itself is Meta's and is about cars; it is not being relaxed, it is
+   * being asked only where it applies. */
+  if (v.vehicleType === 'AUTO' && stateOfVehicle(v) !== 'New' && v.mileage <= MARKETPLACE_MIN_MILEAGE) {
     issues.push({
       code: 'UNDER_500_MILES',
       scope: 'MARKETPLACE',
@@ -220,7 +229,13 @@ export function evaluate(
     });
   }
 
-  if (!v.vin || v.vin.trim().length !== 17) {
+  /* AUTO only, same reasoning. RV inventory is routinely VIN-less by nature —
+   * no marketplace publishes one and small lots often have not keyed them — so
+   * on an RV lot this fired once per unit and made a clean ad desk look broken.
+   * RV does not run through Automotive Inventory Ads anyway: its catalog is
+   * car-shaped, and the RV play is a standard product catalog. See
+   * `claude/rv-vertical-fit.md`. */
+  if (v.vehicleType === 'AUTO' && (!v.vin || v.vin.trim().length !== 17)) {
     issues.push({
       code: 'NO_VIN',
       scope: 'MARKETPLACE',

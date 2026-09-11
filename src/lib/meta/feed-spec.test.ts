@@ -55,6 +55,7 @@ const LOT: FeedRooftop = {
 function vehicle(over: Partial<FeedVehicle> = {}): FeedVehicle {
   return {
     id: 'veh_1',
+    vehicleType: 'AUTO',
     vin: '1HGCM82633A004352',
     stockNumber: 'N8990',
     year: 2019,
@@ -222,6 +223,45 @@ describe('Marketplace eligibility', () => {
 
   it('marks a fully clean unit mkt_ok', () => {
     assert.equal(build([vehicle()]).rows[0]!.custom_label_1, 'mkt_ok');
+  });
+
+  /* The two Marketplace checks that ask a car question. Both were firing on
+     every RV at an RV lot — a VIN nobody publishes and an odometer that does
+     not exist — which turned a clean ad desk into nine identical complaints and
+     buried anything real. See `claude/rv-vertical-fit.md`. */
+  it('does not demand a VIN from a towable, which no marketplace publishes', () => {
+    const issues = evaluate(
+      vehicle({ vehicleType: 'RV_TOWABLE', bodyStyle: 'TRAVEL_TRAILER', vin: null }),
+      LOT,
+      NOW,
+    );
+    assert.ok(!issues.some((i) => i.code === 'NO_VIN'));
+  });
+
+  it('does not read a towable’s zero odometer as an under-500-mile car', () => {
+    const issues = evaluate(
+      vehicle({ vehicleType: 'RV_TOWABLE', bodyStyle: 'FIFTH_WHEEL', mileage: 0 }),
+      LOT,
+      NOW,
+    );
+    assert.ok(!issues.some((i) => i.code === 'UNDER_500_MILES'));
+  });
+
+  it('still demands both from a car — the rules are scoped, not relaxed', () => {
+    const issues = evaluate(vehicle({ vin: null, mileage: 0 }), LOT, NOW);
+    assert.ok(issues.some((i) => i.code === 'NO_VIN'));
+    assert.ok(issues.some((i) => i.code === 'UNDER_500_MILES'));
+  });
+
+  it('a motorhome keeps the odometer rule — it has one — but not the VIN rule', () => {
+    const issues = evaluate(
+      vehicle({ vehicleType: 'RV_MOTORIZED', bodyStyle: 'CLASS_A', vin: null, mileage: 0 }),
+      LOT,
+      NOW,
+    );
+    assert.ok(!issues.some((i) => i.code === 'NO_VIN'));
+    assert.ok(!issues.some((i) => i.code === 'UNDER_500_MILES'),
+      'gated on AUTO, so a coach is exempt from both — revisit if motorhome VINs get keyed');
   });
 });
 
