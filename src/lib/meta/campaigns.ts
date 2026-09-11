@@ -87,6 +87,101 @@ const OBJECTIVES = ['OUTCOME_SALES', 'PRODUCT_CATALOG_SALES'] as const;
 
 /** "Update payment method." The only reason an Ad create fails on an otherwise good setup. */
 const AD_NEEDS_PAYMENT = 1359188;
+
+/** "Select an Instagram account or a Facebook Page to represent your business on Instagram." */
+const AD_NO_INSTAGRAM = 1772103;
+
+/**
+ * The Instagram identity to run this Page's ads under, creating one if needed.
+ *
+ * THE PROBLEM. An ad set may ask for Instagram placements and create happily;
+ * the **Ad** is where Meta checks there is an identity to run them under, and
+ * refuses three creates later with
+ *
+ *     code 100 / subcode 1772103 / "Invalid parameter"
+ *     "Select an Instagram account or a Facebook Page to represent your
+ *      business on Instagram."
+ *
+ * Same shape as every other trap in this file: the object that names the
+ * problem is downstream of the object that caused it. Most independent used-car
+ * lots have no Instagram, so this is the common case, not the edge one.
+ *
+ * THE ANSWER IS THE ONE IN THE ERROR TEXT — "or a Facebook Page". Meta's
+ * mechanism for it is a **Page-Backed Instagram Account**: a shadow Instagram
+ * identity that takes the Page's name and profile picture and exists only to
+ * carry ads. It cannot post, comment or like. It is what the "Use Facebook
+ * Page" option in Ads Manager creates, and it means a dealer with no Instagram
+ * still gets the Instagram placement, under their own name.
+ *
+ * The first version of this function dropped Instagram from the placement list
+ * instead. That was a worse product decision dressed up as a safe default, and
+ * it would have quietly cost every Instagram-less dealer half their reach.
+ *
+ * Order matters:
+ *
+ *   1. A real Instagram account linked to the Page wins. It is their actual
+ *      brand with their actual followers, and ads should run from it.
+ *   2. An existing PBIA next — never create a second.
+ *   3. Create a PBIA.
+ *   4. Null, and the caller drops Instagram rather than losing the ad entirely.
+ *
+ * Every step falls through on failure. The worst outcome is a Facebook-only
+ * campaign, which for a used-car lot still includes Marketplace — the placement
+ * that actually matters here.
+ */
+async function instagramIdForPage(token: string, pageId: string): Promise<string | null> {
+  // 1. Their real account, if the Page has one.
+  try {
+    const page = await graph<{
+      instagram_business_account?: { id?: string };
+      connected_instagram_account?: { id?: string };
+    }>(`/${pageId}`, {
+      token,
+      params: { fields: 'instagram_business_account{id},connected_instagram_account{id}' },
+    });
+    const real = page.instagram_business_account?.id ?? page.connected_instagram_account?.id;
+    if (real) return real;
+  } catch {
+    // Reading the link can need `instagram_basic`, which we do not hold. Not
+    // knowing is the same as not having one here — fall through.
+  }
+
+  // 2. A PBIA that already exists. Adopt before creating, as everywhere else in
+  //    this file: a duplicate identity is not an error Meta reports, it is just
+  //    two things nobody can tell apart six months later.
+  try {
+    const existing = await graphEdge<{ id: string }>(`/${pageId}/page_backed_instagram_accounts`, {
+      token,
+      fields: 'id',
+      maxPages: 1,
+    });
+    if (existing.length) return existing[0]!.id;
+  } catch {
+    // fall through to the create
+  }
+
+  // 3. Make one. No parameters beyond the token — the Page supplies the name
+  //    and the picture.
+  try {
+    const created = await graph<{ id: string }>(`/${pageId}/page_backed_instagram_accounts`, {
+      method: 'POST',
+      token,
+    });
+    return created.id ?? null;
+  } catch (err) {
+    console.warn(
+      '[meta] no instagram identity for page ' +
+        JSON.stringify({
+          pageId,
+          code: err instanceof MetaApiError ? err.code : null,
+          subcode: err instanceof MetaApiError ? err.subcode : null,
+          trace: err instanceof MetaApiError ? err.traceId : null,
+        }),
+    );
+    return null;
+  }
+}
+
 export type CampaignObjective = (typeof OBJECTIVES)[number];
 
 /* --------------------------------------------------- ad set budget sharing */
@@ -507,6 +602,12 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * exist. This branch stays because the type allows null and a silent
    * nationwide campaign is the one outcome worth being paranoid about.
    */
+  /*
+   * Resolved before targeting is built, because it decides whether Instagram is
+   * in the placement list at all. See `instagramIdForPage`.
+   */
+  const instagramId = await instagramIdForPage(token, pageId);
+
   const targeting: Record<string, unknown> = {
     geo_locations:
       lat !== null && lng !== null
@@ -516,9 +617,15 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
             ],
           }
         : { countries: ['US'] },
-    publisher_platforms: ['facebook', 'instagram'],
+    /*
+     * Instagram only when there is an identity to run it under — which, with
+     * the Page-Backed Instagram Account above, is nearly always. Reaching the
+     * Facebook-only branch means even the PBIA create failed, and the warning
+     * logged there says why.
+     */
+    publisher_platforms: instagramId ? ['facebook', 'instagram'] : ['facebook'],
     facebook_positions: ['feed', 'marketplace', 'search'],
-    instagram_positions: ['stream'],
+    ...(instagramId ? { instagram_positions: ['stream'] } : {}),
   };
 
   const adSetName = `${bucket.label} — prospecting`;
@@ -655,6 +762,15 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
       product_set_id: productSet.id,
       object_story_spec: JSON.stringify({
         page_id: pageId,
+        /*
+         * The field 1772103 asks for. Omitted entirely when there is no
+         * identity — sending null is not the same as sending nothing.
+         *
+         * `instagram_user_id` is the current name. Meta's own announcement of
+         * PBIAs calls it `instagram_actor_id`; that spelling is deprecated and
+         * still all over older docs and forum answers.
+         */
+        ...(instagramId ? { instagram_user_id: instagramId } : {}),
         template_data: {
           link: landingUrl,
           message: `Now at ${dealerName}.`,
@@ -734,7 +850,14 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
        * again — no re-setup, no reconnect. Throwing here would discard a
        * campaign, ad set, product set and creative over a billing detail.
        */
-      if (err instanceof MetaApiError && err.subcode === AD_NEEDS_PAYMENT) {
+      if (err instanceof MetaApiError && err.subcode === AD_NO_INSTAGRAM) {
+        // Should be unreachable now a PBIA is created on demand. If it fires,
+        // the PBIA create is failing — look for the "no instagram identity for
+        // page" warning logged just above it.
+        adCannotRun =
+          'Facebook would not create the ad because this Page has no Instagram identity yet. ' +
+          'Contact us — we can run Facebook and Marketplace in the meantime.';
+      } else if (err instanceof MetaApiError && err.subcode === AD_NEEDS_PAYMENT) {
         adCannotRun =
           'This ad account has no payment method on file, so Facebook will not let the ad be ' +
           'created. Add a card in Facebook\u2019s billing settings, then press Build again.';
