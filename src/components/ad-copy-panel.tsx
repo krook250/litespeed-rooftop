@@ -9,6 +9,12 @@
  * So "write your ad" is really "write your ads", and the panel is shaped like
  * the thing it produces.
  *
+ * THE WORD IS "AD", NOT "VERSION". Each row here becomes one real Ad object in
+ * the dealer's account, carrying that row's name — so a dealer looking at Ads
+ * Manager sees "All front-line vehicles — Default" and has to be able to trace
+ * it back to the box they typed it in. "Version" described our data model;
+ * "ad" describes the thing that exists at Facebook.
+ *
  * SAVING DOES NOT TOUCH A RUNNING AD, and the panel says so rather than leaving
  * it to be discovered. Editing text should never be the action that changes what
  * a live campaign is spending on.
@@ -54,7 +60,7 @@ export function AdCopyPanel({
         subtitle="Facebook fills in each car. You write the rest."
         action={
           live.length > 1 ? (
-            <Badge tone="neutral">{live.length} versions</Badge>
+            <Badge tone="neutral">{live.length} ads</Badge>
           ) : null
         }
       />
@@ -82,7 +88,7 @@ export function AdCopyPanel({
         ) : rows.length > 0 ? (
           <div>
             <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
-              Add another version
+              Add another ad
             </Button>
             <p className="mt-1.5 text-[11px] text-ink-500">
               Facebook runs them against each other and shows the one people respond to more. Two
@@ -185,7 +191,7 @@ function CopyForm({
 
       <div className="grid gap-2.5 sm:grid-cols-[1fr_auto]">
         <label className="block">
-          <span className="text-xs font-medium text-ink-700">Name this version</span>
+          <span className="text-xs font-medium text-ink-700">Name this ad</span>
           <input
             name="name"
             defaultValue={initial.name}

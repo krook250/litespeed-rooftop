@@ -55,7 +55,7 @@ export async function saveAdCopyAction(_prev: unknown, formData: FormData): Prom
       .set({ ...fields, updatedAt: new Date() })
       .where(and(eq(t.metaAdCopy.id, copyId), eq(t.metaAdCopy.rooftopId, rooftopId)))
       .returning({ id: t.metaAdCopy.id });
-    if (!updated.length) return { ok: false, error: 'That version was not found.' };
+    if (!updated.length) return { ok: false, error: 'That ad was not found.' };
   } else {
     const [{ next }] = await db
       .select({ next: sql<number>`coalesce(max("sortOrder"), -1) + 1` })
@@ -83,14 +83,14 @@ export async function retireAdCopyAction(_prev: unknown, formData: FormData): Pr
   const copyId = String(formData.get('copyId') ?? '').trim();
 
   const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
-  if (!rooftop || !copyId) return { ok: false, error: 'That version was not found.' };
+  if (!rooftop || !copyId) return { ok: false, error: 'That ad was not found.' };
 
   const active = await db
     .select({ id: t.metaAdCopy.id })
     .from(t.metaAdCopy)
     .where(and(eq(t.metaAdCopy.rooftopId, rooftopId), eq(t.metaAdCopy.active, true)));
   if (active.length <= 1) {
-    return { ok: false, error: 'This is your only version — edit it rather than turning it off.' };
+    return { ok: false, error: 'This is your only ad — edit it rather than turning it off.' };
   }
 
   await db

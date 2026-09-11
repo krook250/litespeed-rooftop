@@ -282,7 +282,7 @@ export function CampaignDemoPanel({
             <div className="rounded-lg border border-ink-200 bg-white px-3 py-2.5">
               <p className="text-xs font-medium text-ink-700">
                 {copies.length > 1
-                  ? `Your ${copies.length} versions will say`
+                  ? `Your ${copies.length} ads will say`
                   : 'Your ad will say'}
               </p>
               <ul className="mt-1.5 space-y-1.5">
