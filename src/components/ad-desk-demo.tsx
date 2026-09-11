@@ -30,8 +30,13 @@
 
 import { useActionState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { createDemoCampaignAction, readCampaignInsightsAction } from '@/lib/meta/demo-actions';
+import {
+  createDemoCampaignAction,
+  readCampaignInsightsAction,
+  setCampaignRunningAction,
+} from '@/lib/meta/demo-actions';
 import type { FeedPreview } from '@/lib/meta/feed-preview';
+import type { LotCampaign } from '@/lib/meta/campaigns';
 import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
 
 /* ------------------------------------------------------------ feed health */
@@ -271,9 +276,15 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <Row k="creative" v={state.data.creativeId} />
               <Row k="status" v={state.data.status} />
             </dl>
-            <p className="text-[11px] text-emerald-800">
-              It&apos;s built and paused. Nothing spends until it&apos;s started.
-            </p>
+            {state.data.adCannotRun ? (
+              <p className="rounded bg-amber-100 px-2 py-1.5 text-[11px] font-medium text-amber-900">
+                {state.data.adCannotRun}
+              </p>
+            ) : (
+              <p className="text-[11px] text-emerald-800">
+                Built and stopped. Start it from Your campaigns above when you&apos;re ready.
+              </p>
+            )}
             {state.data.adopted.campaign || state.data.adopted.adSet ? (
               <p className="text-[11px] text-emerald-800">
                 Updated what was already there rather than duplicating it:{' '}
@@ -314,5 +325,108 @@ function Row({ k, v }: { k: string; v: string }) {
       <dt className="opacity-60">{k}</dt>
       <dd className="break-all">{v}</dd>
     </>
+  );
+}
+
+/* ------------------------------------------------------- what is running */
+
+/**
+ * Every Rooftop campaign on one lot, with the switch.
+ *
+ * SEPARATE FROM THE BUILD PANEL ON PURPOSE. Building and running are different
+ * questions and a dealer asks the second one far more often — "are my ads on,
+ * and what have they cost me" is a daily glance; building is a thing you do
+ * once a shelf. Before this existed the only evidence a campaign existed at all
+ * was the result block from the last press, which vanished on reload.
+ *
+ * A lot can hold several: $50 a day across everything and $25 on the cars that
+ * have been sitting is a normal way for a dealer to run, and each is its own
+ * row with its own switch.
+ */
+const money = (n: number) =>
+  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+export function CampaignListPanel({
+  rooftopId,
+  campaigns,
+}: {
+  rooftopId: string;
+  campaigns: LotCampaign[];
+}) {
+  const [state, action, busy] = useActionState(setCampaignRunningAction, null);
+  const anyRunning = campaigns.some((c) => c.effectiveStatus === 'ACTIVE');
+
+  return (
+    <Card>
+      <CardHeader
+        title="Your campaigns"
+        subtitle="What is running right now, and what it has cost."
+        action={
+          anyRunning ? <Badge tone="green">Running</Badge> : <Badge tone="neutral">All stopped</Badge>
+        }
+      />
+
+      <div className="space-y-2 px-5 py-4">
+        {state && !state.ok ? (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{state.error}</p>
+        ) : null}
+        {state?.ok && state.message ? (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            {state.message}
+          </p>
+        ) : null}
+
+        {campaigns.map((c) => {
+          const running = c.effectiveStatus === 'ACTIVE';
+          /* Meta has a dozen effective statuses. The ones a dealer can do
+             something about get their own words; the rest are "not running",
+             which is the only part that matters to them. */
+          const note =
+            c.effectiveStatus === 'WITH_ISSUES' || c.effectiveStatus === 'CAMPAIGN_PAUSED'
+              ? c.effectiveStatus.toLowerCase().replace(/_/g, ' ')
+              : null;
+
+          return (
+            <div
+              key={c.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-ink-200 px-3 py-2.5"
+            >
+              <div className="min-w-[10rem] flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-sm font-medium text-ink-900">
+                    {/* Strip our own prefix — the dealer knows whose product this is. */}
+                    {c.name.replace(/^Rooftop — .*? — /, '')}
+                  </span>
+                  {running ? (
+                    <Badge tone="green">Running</Badge>
+                  ) : (
+                    <Badge tone="slate">Stopped</Badge>
+                  )}
+                  {note ? <span className="text-[11px] text-ink-500">{note}</span> : null}
+                </div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] tabular-nums text-ink-600">
+                  {c.dailyBudgetUsd !== null ? <span>{money(c.dailyBudgetUsd)}/day</span> : null}
+                  <span>{money(c.spend)} spent</span>
+                  <span>{c.clicks.toLocaleString()} clicks</span>
+                </div>
+              </div>
+
+              <form action={action}>
+                <input type="hidden" name="rooftopId" value={rooftopId} />
+                <input type="hidden" name="campaignId" value={c.id} />
+                <input type="hidden" name="running" value={running ? 'false' : 'true'} />
+                <Button type="submit" variant={running ? 'secondary' : 'primary'} size="sm" disabled={busy}>
+                  {busy ? '…' : running ? 'Stop' : 'Start'}
+                </Button>
+              </form>
+            </div>
+          );
+        })}
+
+        <p className="text-[11px] text-ink-500">
+          Starting puts real money behind these. Stopping takes effect straight away.
+        </p>
+      </div>
+    </Card>
   );
 }

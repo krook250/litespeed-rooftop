@@ -16,7 +16,7 @@
 
 import { useActionState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { opsBuildCampaignAction } from '@/lib/ops/ad-desk-actions';
+import { opsBuildCampaignAction, opsSetCampaignRunningAction } from '@/lib/ops/ad-desk-actions';
 import type { OpsAdDeskLot } from '@/lib/ops/ad-desk-queries';
 import type { LotCampaign } from '@/lib/meta/campaigns';
 import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
@@ -125,6 +125,7 @@ export type OpsLotPanelProps = {
 
 export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps) {
   const [state, action, busy] = useActionState(opsBuildCampaignAction, null);
+  const [runState, runAction, running] = useActionState(opsSetCampaignRunningAction, null);
   const error = lot.connectionError ?? lot.assetError;
 
   return (
@@ -166,28 +167,64 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {campaigns.map((c) => (
-                <li key={c.id} className="rounded-lg bg-ink-50 px-3 py-2">
-                  <div className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="text-xs font-medium text-ink-900">{c.name}</span>
-                    <Badge tone={c.effectiveStatus === 'ACTIVE' ? 'green' : 'slate'}>
-                      {c.effectiveStatus}
-                    </Badge>
-                    {c.dailyBudgetUsd !== null ? (
-                      <span className="text-[11px] text-ink-600">
-                        {money(c.dailyBudgetUsd)}/day
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] tabular-nums text-ink-600">
-                    <span>{money(c.spend)} spent</span>
-                    <span>{c.impressions.toLocaleString()} impressions</span>
-                    <span>{c.clicks.toLocaleString()} clicks</span>
-                  </div>
-                </li>
-              ))}
+              {campaigns.map((c) => {
+                const isOn = c.effectiveStatus === 'ACTIVE';
+                return (
+                  <li
+                    key={c.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-ink-50 px-3 py-2"
+                  >
+                    <div className="min-w-[12rem] flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-xs font-medium text-ink-900">{c.name}</span>
+                        <Badge tone={isOn ? 'green' : 'slate'}>{c.effectiveStatus}</Badge>
+                        {c.dailyBudgetUsd !== null ? (
+                          <span className="text-[11px] text-ink-600">
+                            {money(c.dailyBudgetUsd)}/day
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] tabular-nums text-ink-600">
+                        <span>{money(c.spend)} spent</span>
+                        <span>{c.impressions.toLocaleString()} impressions</span>
+                        <span>{c.clicks.toLocaleString()} clicks</span>
+                      </div>
+                    </div>
+
+                    {/*
+                      The operator's switch. This spends a dealer's money from a
+                      screen the dealer cannot see, so every press is logged with
+                      the operator's email before the call runs — see the note at
+                      the top of `src/lib/ops/ad-desk-actions.ts`.
+                    */}
+                    <form action={runAction}>
+                      <input type="hidden" name="groupId" value={lot.groupId} />
+                      <input type="hidden" name="rooftopId" value={lot.rooftopId} />
+                      <input type="hidden" name="campaignId" value={c.id} />
+                      <input type="hidden" name="running" value={isOn ? 'false' : 'true'} />
+                      <Button
+                        type="submit"
+                        variant={isOn ? 'secondary' : 'primary'}
+                        size="sm"
+                        disabled={running}
+                      >
+                        {running ? '…' : isOn ? 'Stop' : 'Start'}
+                      </Button>
+                    </form>
+                  </li>
+                );
+              })}
             </ul>
           )}
+
+          {runState && !runState.ok ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{runState.error}</p>
+          ) : null}
+          {runState?.ok && runState.message ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              {runState.message}
+            </p>
+          ) : null}
         </div>
 
         {/* ----------------------------------------------------- the build */}
@@ -274,9 +311,16 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
                 <Row k="vehicle set" v={state.data.productSet.id} />
                 <Row k="ad set" v={state.data.adSetId} />
                 <Row k="creative" v={state.data.creativeId} />
+                <Row k="ad" v={state.data.adId ?? '— not created —'} />
                 <Row k="status" v={state.data.status} />
               </dl>
-              <p className="text-[11px]">Reload to see it in the list above.</p>
+              {state.data.adCannotRun ? (
+                <p className="rounded bg-amber-100 px-2 py-1.5 text-[11px] font-medium text-amber-900">
+                  {state.data.adCannotRun}
+                </p>
+              ) : (
+                <p className="text-[11px]">Reload to see it in the list above, then Start it.</p>
+              )}
             </div>
           ) : null}
         </div>

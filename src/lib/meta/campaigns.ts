@@ -84,6 +84,9 @@ import { DEFAULT_BUCKET, bucketByKey, bucketFilter, type BucketKey, type Campaig
  * far more cheaply than guessing.
  */
 const OBJECTIVES = ['OUTCOME_SALES', 'PRODUCT_CATALOG_SALES'] as const;
+
+/** "Update payment method." The only reason an Ad create fails on an otherwise good setup. */
+const AD_NEEDS_PAYMENT = 1359188;
 export type CampaignObjective = (typeof OBJECTIVES)[number];
 
 /* --------------------------------------------------- ad set budget sharing */
@@ -280,13 +283,29 @@ export type DemoCampaignResult = {
   adSetId: string;
   creativeId: string;
   /**
-   * Every unit is PAUSED. Stated in the result because it is the safety
-   * guarantee, not a detail — the dealer reads it before going to Ads Manager.
-   *
-   * There is no `adId`: the tree stops at the creative. See the long note in
-   * `createDemoCampaign`.
+   * Every unit is created PAUSED. Stated in the result because it is the safety
+   * guarantee, not a detail: building never spends, starting does, and those
+   * are two separate clicks by design.
    */
   status: 'PAUSED';
+  /**
+   * The Ad object. Null when Meta refused to create it — which in practice means
+   * one thing, `adCannotRun` below.
+   *
+   * This used to be absent on purpose and the whole tree stopped at the
+   * creative, because the demo ran against an ad account with no payment method
+   * and the Ad is the first object Meta refuses without one. That made a
+   * stronger honesty claim for App Review than "paused" did. It is also why
+   * nothing built by this code could ever have run: **a campaign with an ad set
+   * and a creative but no Ad delivers nothing, whatever its status.** Adding a
+   * start button without this would have shipped a switch wired to nothing.
+   */
+  adId: string | null;
+  /**
+   * Set when the Ad could not be created and why, in the dealer's words. Today
+   * there is exactly one cause worth naming — see `AD_NEEDS_PAYMENT`.
+   */
+  adCannotRun: string | null;
   /**
    * Which objects already existed and were reused rather than created again.
    *
@@ -650,46 +669,92 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     },
   });
 
-  /* ----------------------------------------------- 4. the ad we do not build */
+  /* ------------------------------------------------------------- 4. the ad */
 
   /*
-   * THERE IS NO `POST /act_<id>/ads` HERE, ON PURPOSE. Read this before adding
-   * one back — it was tried on 7 Aug 2026 and Meta refused:
+   * THE AD IS BACK, AND THE COMMENT THAT SAID NOT TO ADD IT IS WORTH KEEPING IN
+   * MIND RATHER THAN DELETING.
+   *
+   * It was tried on 7 Aug 2026 and Meta refused:
    *
    *     code 100 / subcode 1359188 / OAuthException / "Invalid parameter"
    *     "Update payment method: Visit the Billing and payment center to add a
    *      valid payment method."
    *
-   * Campaign, ad set and creative all create happily on an ad account with no
-   * funding source. The **Ad** is the first object Meta refuses to create
-   * without a payment method on file.
+   * Campaign, ad set and creative all create happily on an unfunded account. The
+   * **Ad** is the first object Meta refuses without a payment method on file.
+   * (Meta's own Ad Account reference says the opposite — "it will still be
+   * possible to create ads but these ads will get no delivery." That is stale.
+   * 1359188 appears in no published error table. On this surface the API is
+   * authoritative and the docs are not.)
    *
-   * Note that Meta's own Ad Account reference says the opposite — of
-   * `funding_id`: "If the account does not have a payment method it will still
-   * be possible to create ads but these ads will get no delivery." That is the
-   * exact premise this demo was built on, and it is no longer true. `1359188`
-   * appears in no published error table. Same shape as the IG Explore
-   * deprecation above: on this surface the API is authoritative and the
-   * documentation is stale.
+   * So the demo stopped here, deliberately, and its honesty claim was
+   * structural: an account with no payment method *cannot* spend.
    *
-   * WHY WE STOP HERE RATHER THAN FUND THE ACCOUNT. The demo's whole claim is
-   * structural: an account with no payment method *cannot* spend, which is a
-   * stronger and more honest sentence than "will not spend, because everything
-   * is paused." Adding a card to make one more API object appear would trade the
-   * only guarantee this harness actually offers for an object nobody needs.
+   * That premise died when this became the dealer campaign builder. A real
+   * dealer's account is funded, and a tree with no Ad object delivers nothing no
+   * matter what status anything carries — so the demo's tidiest property was
+   * also the thing that made every campaign it built inert. The refusal is now
+   * a message rather than a design: if Meta says there is no payment method, we
+   * say exactly that, because it is a five-minute fix the dealer can do and
+   * nothing else about their setup is wrong.
    *
-   * AND NOBODY NEEDS IT. App Review wants one successful call per permission,
-   * and the Ad is not the registering call for any of them
-   * (`claude/meta-app-review-runbook.md` §7):
-   *
-   *     ads_management    POST /act_<id>/campaigns      ← created above
-   *     pages_manage_ads  POST /act_<id>/adcreatives    ← created above, via page_id
-   *     ads_read          GET  /<campaign_id>/insights  ← readInsights, below
-   *
-   * So the tree stops at the creative: a real campaign, a real ad set built from
-   * the Lot Walk buckets, and a real dynamic creative on the dealer's Page —
-   * none of which can deliver, because there is nothing to bill.
+   * Created PAUSED like everything else. `setCampaignRunning` is the only code
+   * in this file that sets ACTIVE, and it is reached only from a button.
    */
+  const adName = `${bucket.label} — ad`.slice(0, 100);
+
+  const priorAd = await findLiveByName<{ id: string; name?: string; status?: string }>(
+    `/${adSet.id}/ads`,
+    token,
+    'id,name,status',
+    adName,
+  );
+
+  let adId: string | null = priorAd?.id ?? null;
+  let adCannotRun: string | null = null;
+
+  if (!adId) {
+    try {
+      const ad = await graph<{ id: string }>(`${act}/ads`, {
+        method: 'POST',
+        token,
+        params: {
+          name: adName,
+          adset_id: adSet.id,
+          creative: JSON.stringify({ creative_id: creative.id }),
+          status: 'PAUSED',
+        },
+      });
+      adId = ad.id;
+    } catch (err) {
+      /*
+       * Not fatal to the build. Everything above this line is real and correct,
+       * and a dealer who adds a card gets a working campaign by pressing Build
+       * again — no re-setup, no reconnect. Throwing here would discard a
+       * campaign, ad set, product set and creative over a billing detail.
+       */
+      if (err instanceof MetaApiError && err.subcode === AD_NEEDS_PAYMENT) {
+        adCannotRun =
+          'This ad account has no payment method on file, so Facebook will not let the ad be ' +
+          'created. Add a card in Facebook\u2019s billing settings, then press Build again.';
+      } else if (err instanceof MetaApiError) {
+        adCannotRun = err.dealerMessage;
+      } else {
+        throw err;
+      }
+      console.error(
+        '[meta] ad create refused ' +
+          JSON.stringify({
+            adSetId: adSet.id,
+            creativeId: creative.id,
+            code: err instanceof MetaApiError ? err.code : null,
+            subcode: err instanceof MetaApiError ? err.subcode : null,
+            trace: err instanceof MetaApiError ? err.traceId : null,
+          }),
+      );
+    }
+  }
 
   return {
     objectiveUsed,
@@ -698,6 +763,8 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     adSetId: adSet.id,
     creativeId: creative.id,
     status: 'PAUSED',
+    adId,
+    adCannotRun,
     adopted: {
       campaign: Boolean(priorCampaign),
       adSet: Boolean(priorAdSet),
@@ -857,6 +924,104 @@ export async function listLotCampaigns(
       };
     }),
   );
+}
+
+/* --------------------------------------------------------- start and stop */
+
+/**
+ * Turn one campaign on or off.
+ *
+ * WALKS THE WHOLE TREE, AND HAS TO.
+ *
+ * Meta's effective status is the *least* permissive status in the chain, so a
+ * campaign set ACTIVE over a PAUSED ad set over a PAUSED ad still delivers
+ * nothing — and every object this file builds is created PAUSED, so that is the
+ * state of every campaign the first time somebody presses Start. Setting only
+ * the campaign would report success and change nothing a dealer could see,
+ * which is the worst available outcome for a button whose entire job is "is it
+ * running or not".
+ *
+ * Stopping walks the tree too. Pausing only the campaign is what Ads Manager
+ * does and it is enough to halt delivery — but it leaves the children ACTIVE,
+ * so the next Start would appear to work on a tree whose real state nobody can
+ * read off one field. Symmetry is cheaper than that ambiguity.
+ *
+ * A campaign with no Ad cannot run whatever this does. Callers check `adId`
+ * first; `missingAd` is the backstop for a campaign built before ads existed.
+ */
+export type RunOutcome =
+  | { ok: true; running: boolean; adsTouched: number }
+  | { ok: false; error: string; needsPayment?: boolean; missingAd?: boolean };
+
+export async function setCampaignRunning(
+  token: string,
+  campaignId: string,
+  running: boolean,
+): Promise<RunOutcome> {
+  const status = running ? 'ACTIVE' : 'PAUSED';
+
+  try {
+    const adSets = await graphEdge<{ id: string; status?: string }>(`/${campaignId}/adsets`, {
+      token,
+      fields: 'id,status',
+      maxPages: 2,
+    });
+
+    const ads: { id: string }[] = [];
+    for (const set of adSets) {
+      const found = await graphEdge<{ id: string; status?: string }>(`/${set.id}/ads`, {
+        token,
+        fields: 'id,status',
+        maxPages: 2,
+      });
+      ads.push(...found.filter((a) => !DEAD_STATUSES.has(a.status ?? '')));
+    }
+
+    if (running && ads.length === 0) {
+      return {
+        ok: false,
+        missingAd: true,
+        error:
+          'This campaign has no ad in it yet, so it cannot run. Press Build again to finish it, ' +
+          'then start it.',
+      };
+    }
+
+    /*
+     * Order matters on the way up and on the way down. Starting: ad, then ad
+     * set, then campaign — so the campaign never goes ACTIVE over a child that
+     * is still paused, which would read as running while delivering nothing.
+     * Stopping: campaign first, so delivery halts on the first call rather than
+     * after a walk that might fail halfway.
+     */
+    const setStatus = (path: string) =>
+      graph<{ success?: boolean }>(path, { method: 'POST', token, params: { status } });
+
+    if (running) {
+      for (const ad of ads) await setStatus(`/${ad.id}`);
+      for (const set of adSets) await setStatus(`/${set.id}`);
+      await setStatus(`/${campaignId}`);
+    } else {
+      await setStatus(`/${campaignId}`);
+      for (const set of adSets) await setStatus(`/${set.id}`);
+      for (const ad of ads) await setStatus(`/${ad.id}`);
+    }
+
+    return { ok: true, running, adsTouched: ads.length };
+  } catch (err) {
+    if (err instanceof MetaApiError) {
+      return {
+        ok: false,
+        needsPayment: err.subcode === AD_NEEDS_PAYMENT,
+        error:
+          err.subcode === AD_NEEDS_PAYMENT
+            ? 'Facebook needs a payment method on this ad account before ads can run. Add a card ' +
+              'in their billing settings and try again.'
+            : err.dealerMessage,
+      };
+    }
+    throw err;
+  }
 }
 
 /* --------------------------------------------------------------- reading */

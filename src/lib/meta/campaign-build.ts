@@ -24,9 +24,15 @@ import 'server-only';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
-import { MetaApiError } from './graph';
+import { MetaApiError, graph } from './graph';
 import { noteFailure, tokenFor } from './connect';
-import { createDemoCampaign, type DemoCampaignResult } from './campaigns';
+import {
+  campaignNamePrefix,
+  createDemoCampaign,
+  setCampaignRunning,
+  type DemoCampaignResult,
+  type RunOutcome,
+} from './campaigns';
 import { bucketByKey, isBucketKey, type BucketKey } from './buckets';
 
 export type BuildCampaignOutcome =
@@ -153,6 +159,76 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
     console.error('[meta] buildCampaignForRooftop threw a non-Graph error', err);
     throw err;
   }
+}
+
+/* --------------------------------------------------------- start and stop */
+
+export type RunCampaignInput = {
+  groupId: string;
+  /** Already loaded through the caller's own guard, exactly as above. */
+  rooftop: typeof t.rooftops.$inferSelect;
+  campaignId: string;
+  running: boolean;
+};
+
+/**
+ * Start or stop one campaign, for a caller that has already established who is
+ * asking.
+ *
+ * THE CAMPAIGN ID ARRIVES OFF A FORM, so unlike everything else here it cannot
+ * be trusted as given. Two checks before anything is written, and both matter:
+ *
+ *   1. The campaign must live in THIS LOT'S ad account. Without it, a signed-in
+ *      dealer could post any campaign id in the world and toggle somebody
+ *      else's ads. `account_id` comes back bare, so it is compared against the
+ *      stored `act_` id with the prefix stripped from both.
+ *   2. Its name must carry this lot's Rooftop prefix. That keeps us off
+ *      campaigns the dealer built by hand in Ads Manager, which are theirs and
+ *      which we have no business starting or stopping from here.
+ *
+ * A campaign failing either check is reported as not found rather than as
+ * forbidden, because the two are the same fact from the caller's side and the
+ * difference is only useful to somebody probing.
+ */
+export async function runCampaignForRooftop(input: RunCampaignInput): Promise<RunOutcome> {
+  const { groupId, rooftop, campaignId, running } = input;
+
+  if (!/^\d+$/.test(campaignId)) return { ok: false, error: 'That campaign was not found.' };
+
+  const conn = await tokenFor(groupId);
+  if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
+
+  const rows = await db
+    .select()
+    .from(t.metaRooftopAssets)
+    .where(eq(t.metaRooftopAssets.rooftopId, rooftop.id))
+    .limit(1);
+  const asset = rows[0];
+  if (!asset?.adAccountId) return { ok: false, error: 'This lot has no ad account.' };
+
+  let campaign: { id: string; name?: string; account_id?: string };
+  try {
+    campaign = await graph<{ id: string; name?: string; account_id?: string }>(`/${campaignId}`, {
+      token: conn.token,
+      params: { fields: 'id,name,account_id' },
+    });
+  } catch (err) {
+    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
+    throw err;
+  }
+
+  const storedAccount = asset.adAccountId.replace(/^act_/, '');
+  if ((campaign.account_id ?? '') !== storedAccount) {
+    return { ok: false, error: 'That campaign was not found on this lot.' };
+  }
+  if (!(campaign.name ?? '').startsWith(campaignNamePrefix(rooftop.name))) {
+    return {
+      ok: false,
+      error: 'That campaign was not built by Rooftop, so it is not ours to start or stop.',
+    };
+  }
+
+  return setCampaignRunning(conn.token, campaignId, running);
 }
 
 /**

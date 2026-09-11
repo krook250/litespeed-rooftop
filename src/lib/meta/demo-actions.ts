@@ -24,7 +24,7 @@ import { MetaApiError } from './graph';
 import { tokenFor } from './connect';
 import { readInsights, type DemoCampaignResult, type InsightsResult } from './campaigns';
 import { DEFAULT_BUCKET, type BucketKey } from './buckets';
-import { buildCampaignForRooftop, validateCampaignInput } from './campaign-build';
+import { buildCampaignForRooftop, runCampaignForRooftop, validateCampaignInput } from './campaign-build';
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -58,6 +58,40 @@ export async function createDemoCampaignAction(
 
   if (outcome.ok) revalidatePath('/admin/ad-desk');
   return outcome;
+}
+
+/* --------------------------------------------------------- start and stop */
+
+/**
+ * The dealer's own on/off switch.
+ *
+ * This is the click that spends money, and it is deliberately theirs. Building
+ * is safe and reversible; starting is neither, so the two are separate buttons
+ * and nothing in the build path ever sets ACTIVE.
+ */
+export async function setCampaignRunningAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<{ running: boolean }>> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const campaignId = String(formData.get('campaignId') ?? '').trim();
+  const running = String(formData.get('running') ?? '') === 'true';
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found.' };
+
+  const outcome = await runCampaignForRooftop({ groupId, rooftop, campaignId, running });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+
+  revalidatePath('/admin/ad-desk');
+  return {
+    ok: true,
+    data: { running },
+    message: running
+      ? 'Your ads are running. Facebook usually takes a few minutes to start delivering.'
+      : 'Stopped. Nothing more will spend on this campaign.',
+  };
 }
 
 /* ----------------------------------------------------------- the reading */

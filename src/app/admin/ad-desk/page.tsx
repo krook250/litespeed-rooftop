@@ -19,9 +19,10 @@ import { requireGroupId } from '@/lib/auth';
 import { getRooftops } from '@/lib/queries';
 import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
 import { RooftopPanel, type AssetOption, type RooftopRow } from '@/components/ad-desk-panels';
-import { CampaignDemoPanel, FeedHealthPanel } from '@/components/ad-desk-demo';
+import { CampaignDemoPanel, CampaignListPanel, FeedHealthPanel } from '@/components/ad-desk-demo';
 import { disconnectMetaForm, startMetaConnect } from '@/lib/meta/actions';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
+import { listLotCampaigns, type LotCampaign } from '@/lib/meta/campaigns';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
 import { previewFeed, type FeedPreview } from '@/lib/meta/feed-preview';
 import { requireSection } from '@/lib/auth-guard';
@@ -112,6 +113,41 @@ export default async function AdDeskPage({
     results.forEach((p, i) => {
       if (p) previews.set(provisioned[i]!.id, p);
     });
+  }
+
+  /*
+   * What is actually running, read from Facebook.
+   *
+   * A dealer can have several campaigns on one lot — one shelf each — so the
+   * build form is no longer the whole story and a result block from the last
+   * press is not a status screen. This is: every Rooftop campaign on the lot,
+   * with its real status, its budget and what it has spent.
+   *
+   * Costs 1 + 2N calls per lot. Affordable here because it is one dealer's own
+   * account, which is exactly the distinction `src/lib/ops/ad-desk-queries.ts`
+   * draws: the all-dealer roll-up must never do this, a dealer's own screen
+   * should. Failures are swallowed per lot — Facebook being slow is not a
+   * reason to take the setup half of the page down with it.
+   */
+  const campaignsByRooftop = new Map<string, LotCampaign[]>();
+  if (connected) {
+    const conn = await tokenFor(groupId);
+    const withAccount = rooftops.filter((r) => byRooftop.get(r.id)?.adAccountId);
+    if (conn && withAccount.length) {
+      await Promise.all(
+        withAccount.map(async (r) => {
+          try {
+            campaignsByRooftop.set(
+              r.id,
+              await listLotCampaigns(conn.token, byRooftop.get(r.id)!.adAccountId!, r.name),
+            );
+          } catch {
+            // Leave the lot out of the map; the panel renders nothing rather
+            // than an error the dealer cannot act on.
+          }
+        }),
+      );
+    }
   }
 
   /*
@@ -315,6 +351,12 @@ export default async function AdDeskPage({
                     metaProductCount={
                       a?.catalogId && discoveryOk ? (metaCatalogCounts.get(a.catalogId) ?? null) : null
                     }
+                  />
+                ) : null}
+                {campaignsByRooftop.get(r.id)?.length ? (
+                  <CampaignListPanel
+                    rooftopId={r.id}
+                    campaigns={campaignsByRooftop.get(r.id)!}
                   />
                 ) : null}
                 {a?.catalogId ? (

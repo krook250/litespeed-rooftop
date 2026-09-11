@@ -14,17 +14,28 @@
  * in `src/lib/ops/actions.ts` and it matters more here, because these endpoints
  * spend money at Facebook rather than moving a row between states.
  *
- * WHAT IS DELIBERATELY ABSENT: no connect, no disconnect, no pause or unpause.
- * Connecting is the dealer's consent to give and revoke, and turning a campaign
- * on is the decision that starts the spending. An operator who needs either does
- * it in the dealer's own account or in Ads Manager, where it is attributable to
- * a person rather than to "ops".
+ * START AND STOP ARE HERE, AND THEY WERE NOT AT FIRST. The original version
+ * withheld them on the reasoning that starting is the moment money moves and so
+ * should be the dealer's click. That is right as a default and wrong as a
+ * constraint: the operator is onboarding dealers he has no relationship with,
+ * bugs will keep happening, and "I cannot help you from here" is a worse outcome
+ * than an operator with a switch. Every use is logged with the operator's email
+ * before the call runs, which is the accountability the restriction was really
+ * reaching for.
+ *
+ * STILL ABSENT: connect and disconnect. Those are the dealer's consent to give
+ * and to revoke, and an operator doing it on their behalf is a different kind of
+ * act from working on the ads they hired us to run.
  */
 
 import { revalidatePath } from 'next/cache';
 import { requireStaff } from '@/lib/ops/guard';
 import { opsRooftopInGroup } from '@/lib/ops/ad-desk-queries';
-import { buildCampaignForRooftop, validateCampaignInput } from '@/lib/meta/campaign-build';
+import {
+  buildCampaignForRooftop,
+  runCampaignForRooftop,
+  validateCampaignInput,
+} from '@/lib/meta/campaign-build';
 import type { DemoCampaignResult } from '@/lib/meta/campaigns';
 import { DEFAULT_BUCKET, type BucketKey } from '@/lib/meta/buckets';
 
@@ -77,4 +88,44 @@ export async function opsBuildCampaignAction(
     revalidatePath('/admin/ad-desk');
   }
   return outcome;
+}
+
+/**
+ * Start or stop a dealer's campaign on their behalf.
+ *
+ * Logged before the call, like the build, and for a stronger reason: this one
+ * begins or ends live spending on somebody else's card.
+ */
+export async function opsSetCampaignRunningAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<OpsActionResult<{ running: boolean }>> {
+  const me = await requireStaff();
+
+  const groupId = String(formData.get('groupId') ?? '');
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const campaignId = String(formData.get('campaignId') ?? '').trim();
+  const running = String(formData.get('running') ?? '') === 'true';
+
+  const rooftop = await opsRooftopInGroup(groupId, rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found in that dealer group.' };
+
+  console.info(
+    '[ops] campaign ' +
+      (running ? 'START' : 'STOP') +
+      ' ' +
+      JSON.stringify({ by: me.email, groupId, rooftopId, campaignId }),
+  );
+
+  const outcome = await runCampaignForRooftop({ groupId, rooftop, campaignId, running });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+
+  revalidatePath('/ops/ad-desk');
+  revalidatePath(`/ops/accounts/${groupId}`);
+  revalidatePath('/admin/ad-desk');
+  return {
+    ok: true,
+    data: { running },
+    message: running ? 'Started. This is now spending.' : 'Stopped.',
+  };
 }
