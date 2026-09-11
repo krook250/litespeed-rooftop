@@ -1878,3 +1878,60 @@ export const metaRooftopAssets = pgTable(
   },
   (t) => [index('meta_rooftop_assets_connection_idx').on(t.connectionId)],
 );
+
+/**
+ * The words on the ad.
+ *
+ * A TABLE RATHER THAN COLUMNS ON `meta_rooftop_assets`, AND THAT IS THE WHOLE
+ * POINT OF THE SHAPE. Meta's optimisation happens at the **ad set** — several
+ * ads inside one ad set share a learning phase and Meta shifts delivery to
+ * whichever wins, where several campaigns each start learning from nothing and
+ * split the budget. So creative testing means many ads in one ad set, which
+ * means many rows here per lot, which four columns on the assets row could
+ * never express.
+ *
+ * Per lot, not per campaign, because the copy is the dealership's voice and
+ * should not have to be rewritten for each shelf.
+ *
+ * `headline` and `description` carry Meta's `{{vehicle.*}}` template tokens,
+ * interpolated per car at render time — that is what makes one creative cover a
+ * whole product set. They are stored as written, unvalidated: Meta is the only
+ * authority on which tokens exist, its list changes, and a validator we
+ * maintained here would eventually refuse a token that works.
+ */
+export const metaAdCopy = pgTable(
+  'meta_ad_copy',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+
+    /** What the dealer calls this version, e.g. "Default" or "Payment led". */
+    name: text().notNull(),
+
+    /** The text above the card. The one line in a dealership's own voice. */
+    message: text().notNull(),
+    /** Bold line on the card. Defaults to year/make/model. */
+    headline: text().notNull(),
+    /** Grey line under it. Defaults to price. */
+    description: text().notNull(),
+
+    /**
+     * Meta's button enum — LEARN_MORE, SHOP_NOW, GET_QUOTE and so on. Stored as
+     * text rather than a pg enum on purpose: Meta adds and retires values on its
+     * own schedule, and a database enum turns their release into our migration.
+     */
+    callToAction: text().notNull().default('LEARN_MORE'),
+
+    /**
+     * False retires a variant without deleting it. Deleting would orphan the ad
+     * Meta is already running from it, and the dealer would lose the numbers
+     * that told them it was the worse one.
+     */
+    active: boolean().notNull().default(true),
+    sortOrder: integer().notNull().default(0),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('meta_ad_copy_rooftop_idx').on(t.rooftopId)],
+);
