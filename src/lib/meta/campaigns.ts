@@ -666,12 +666,12 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
 
   // Scoped to this campaign's own edge rather than the account's, so the name
   // only has to be unique within the campaign — which it is by construction.
-  const priorAdSet = await findLiveByName<{ id: string; name?: string; status?: string }>(
-    `/${campaignId}/adsets`,
-    token,
-    'id,name,status',
-    adSetName,
-  );
+  const priorAdSet = await findLiveByName<{
+    id: string;
+    name?: string;
+    status?: string;
+    promoted_object?: { product_set_id?: string };
+  }>(`/${campaignId}/adsets`, token, 'id,name,status,promoted_object', adSetName);
 
   /*
    * An adopted ad set is NOT left as it was found.
@@ -683,6 +683,30 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * keep the old number. So the update below is what makes the form mean
    * anything on the second press.
    */
+  /*
+   * AND ITS PRODUCT SET IS REPAIRED WHEN IT HAS DRIFTED.
+   *
+   * The update above was budget and targeting only, which left one failure
+   * permanently unfixable: an ad set whose `promoted_object.product_set_id`
+   * points at a product set that no longer exists. Meta reports that as
+   *
+   *     Your product set is invalid: Your product set cannot be loaded. It may
+   *     be non-existent or inaccessible due to privacy reasons.
+   *
+   * — the ad set keeps delivering nothing, and rebuilding from the Ad Desk
+   * reported success every time while changing none of it. `ensureProductSet`
+   * has already adopted-or-created a LIVE set by name a hundred lines up, so
+   * the repair is simply to point the ad set back at it.
+   *
+   * Only when it has actually drifted. `promoted_object` is not a field Meta
+   * accepts changes to freely once an ad set is delivering, so re-sending it on
+   * every build would trade a rare breakage for a common one. A response with
+   * no `promoted_object` at all is left alone for the same reason — we do not
+   * repair on the strength of a field we did not receive.
+   */
+  const priorProductSetId = priorAdSet?.promoted_object?.product_set_id;
+  const productSetDrifted = Boolean(priorProductSetId) && priorProductSetId !== productSet.id;
+
   if (priorAdSet) {
     await graph<{ success?: boolean }>(`/${priorAdSet.id}`, {
       method: 'POST',
@@ -690,6 +714,9 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
       params: {
         daily_budget: dailyBudgetMinor,
         targeting: JSON.stringify(targeting),
+        ...(productSetDrifted
+          ? { promoted_object: JSON.stringify({ product_set_id: productSet.id }) }
+          : {}),
       },
     });
   }
