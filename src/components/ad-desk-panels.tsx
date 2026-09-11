@@ -189,15 +189,50 @@ export function RooftopPanel({
             emptyLabel="No ad account found"
             hint="Where the spend is billed. Stays in the dealer's name."
           />
-          <Select
-            name="pixelId"
-            label="Pixel"
-            value={pixelId}
-            onChange={setPixelId}
-            options={pixels}
-            emptyLabel="No pixel found"
-            hint="Optional, but retargeting needs it to match shoppers to vehicles."
-          />
+          <div>
+            <Select
+              name="pixelId"
+              label="Retargeting"
+              value={pixelId}
+              onChange={setPixelId}
+              options={pixels}
+              emptyLabel="Not set up yet"
+              hint={
+                pixelId || pixels.length
+                  ? 'Shows your cars again to people who viewed them on your site.'
+                  : undefined
+              }
+            />
+            {/*
+              The button that finishes the half of retargeting nobody else can
+              do for these dealers.
+              A pixel is useless until it is firing on the website, and the
+              reason independent lots have no retargeting is never that pixels
+              are hard to make — it is that nobody could get the tag onto the
+              site. We host the site, so once this exists it is live on every
+              inventory page with the vehicle ids the catalog already uses.
+              Creating it needs one admin sign-in, same as the catalog did,
+              because a system user cannot make a business-owned object.
+            */}
+            {!pixelId && pixels.length === 0 ? (
+              <div className="mt-1.5">
+                <p className="text-[11px] text-ink-500">
+                  Show your cars again to people who looked at them and left. We&apos;ll set it up
+                  and put it on your website — there&apos;s nothing to install.
+                </p>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-1.5"
+                  formAction={startCatalogProvision}
+                  disabled={busy}
+                >
+                  Turn on retargeting
+                </Button>
+              </div>
+            ) : null}
+          </div>
 
           <div className="rounded-lg bg-ink-50 px-3 py-2.5">
             <div className="text-xs font-medium text-ink-700">Vehicle catalog</div>

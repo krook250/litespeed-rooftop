@@ -49,6 +49,7 @@ import {
   waitForCatalogVisibility,
   type Discovery,
 } from './assets';
+import { ensurePixel } from './pixel';
 
 export const STATE_COOKIE = 'rooftop_meta_state';
 
@@ -525,8 +526,35 @@ export async function provisionRooftop(args: {
    */
   if (feed.ok) await triggerFeedUpload(conn.token, feed.feedId, urls.full);
 
-  const pixelLinked = args.pixelId
-    ? await associatePixel(conn.token, catalog.catalogId, args.pixelId)
+  /*
+   * THE PIXEL, CREATED IF THEY HAVEN'T GOT ONE.
+   *
+   * A pixel is what turns prospecting into retargeting — the shopper who looked
+   * at a truck on their site gets that truck back. Independent lots almost never
+   * have working retargeting, and the reason is never that pixels are hard to
+   * make; it is that nobody could get the tag onto the website. We host the
+   * website, so both halves are ours to do.
+   *
+   * Creation needs the admin token for the same reason the catalog create does
+   * (blocker 1: a system user is not a business admin), so it only happens on a
+   * run that already has one in hand. Without it we adopt an existing pixel if
+   * there is one and otherwise do nothing — no error, no `needsAdminGrant`,
+   * because demanding an admin sign-in for the optional half of the feature
+   * would be a worse trade than leaving it off.
+   *
+   * `associatePixel` is what actually lets catalog ads use the events; a pixel
+   * that is not attached to the catalog still collects but cannot target.
+   */
+  let pixelId = args.pixelId;
+  if (!pixelId && conn.row.businessId) {
+    const pixel = await ensurePixel(conn.token, conn.row.businessId, args.dealerName, {
+      createToken: args.createToken,
+    });
+    if (pixel.ok) pixelId = pixel.pixelId;
+  }
+
+  const pixelLinked = pixelId
+    ? await associatePixel(conn.token, catalog.catalogId, pixelId)
     : false;
 
   const values = {
@@ -541,7 +569,7 @@ export async function provisionRooftop(args: {
     catalogSource: catalog.source,
     productFeedId: feed.ok ? feed.feedId : null,
     feedSecret: secret,
-    pixelId: args.pixelId,
+    pixelId,
     // The feed is the one part that can fail while everything else succeeded,
     // and it is the part that matters most, so it is recorded rather than lost.
     errorMessage: feed.ok ? null : feed.message,

@@ -9,6 +9,8 @@ import { OpenNow } from '@/components/store/location';
 import { visitPath, type SeoRooftop } from '@/lib/store/seo';
 import { creditAppFor } from '@/lib/store/credit-app';
 import { isWeekHours } from '@/lib/store/hours';
+import { pixelIdsForRooftops } from '@/lib/meta/pixel';
+import { MetaPixelBase } from '@/components/store/meta-pixel';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -98,6 +100,7 @@ export default async function StorefrontLayout({
    * the number is the storefront's — and the header link goes to the first
    * lot's page, which lists the others.
    */
+  const pixelIds = await pixelIdsForRooftops(sf.rooftopIds);
   const rooftops = sf.rooftops as unknown as SeoRooftop[];
   const primary = rooftops[0] ?? null;
   const single = rooftops.length === 1 ? primary : null;
@@ -217,6 +220,14 @@ export default async function StorefrontLayout({
           </nav>
         </div>
       </header>
+
+      {/*
+        The dealer's own pixel, on the dealer's own site, with no snippet for
+        anyone to paste. `pixelIdsForRooftops` returns every distinct pixel
+        across the lots this storefront fronts — usually one, more when a group
+        bought a second location and kept its ad history.
+      */}
+      <MetaPixelBase pixelIds={pixelIds} />
 
       <main className="flex-1">{children}</main>
 

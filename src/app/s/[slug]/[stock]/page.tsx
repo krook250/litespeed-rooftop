@@ -39,6 +39,7 @@ import { LeadForm, type LeadState } from '@/components/store/lead-form';
 import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
 import { VehicleCard, primaryPhoto } from '@/components/store/vehicle-card';
+import { MetaPixelViewContent } from '@/components/store/meta-pixel';
 
 type Params = { params: Promise<{ slug: string; stock: string }> };
 
@@ -250,6 +251,10 @@ export default async function VehicleDetailPage({ params }: Params) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+      {/* Fires ViewContent with this car's id, which is the same id the
+          catalog feed carries — that match is what lets Meta put THIS truck
+          back in front of the shopper rather than a generic ad. */}
+      <MetaPixelViewContent vehicleId={vehicle.id} price={price} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
       <nav className="text-xs text-[var(--text-3)]">
         <Link href={basePath} className="hover:text-[var(--brand-text)] hover:underline">
