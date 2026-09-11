@@ -93,3 +93,22 @@ export function validateAdCopy(c: AdCopyFields): string | null {
   if (!isCallToAction(c.callToAction)) return 'Pick a button.';
   return null;
 }
+
+/**
+ * A short list of emoji for the main text, car business first.
+ *
+ * DELIBERATELY NOT A PICKER. A full emoji keyboard is a dependency, a search
+ * box and a scroll region on a panel whose job is four text fields — and a
+ * dealer writing "now at the lot 🎄" is not what anybody needed. These are the
+ * ones that actually turn up in used-car ads: the vehicle, the deal, and a bit
+ * of noise to stop the line reading like a form letter.
+ *
+ * Order is by how often a lot would reach for it, not by category tidiness.
+ * Nothing is required — most good ad copy has none of these.
+ */
+export const AD_EMOJI = [
+  '🚗', '🛻', '🚙', '🚐', '🔑', '⛽',
+  '💰', '💵', '🏷️', '🤝', '✅', '📉',
+  '🔥', '⭐', '👀', '⚡', '🎉', '😍',
+  '😮', '👍', '‼️', '📍',
+] as const;

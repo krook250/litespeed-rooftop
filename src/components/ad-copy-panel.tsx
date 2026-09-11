@@ -17,7 +17,7 @@
 import { useActionState, useRef, useState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
 import { saveAdCopyAction, retireAdCopyAction, refreshAdsAction } from '@/lib/meta/ad-copy-actions';
-import { CALL_TO_ACTIONS, COPY_LIMITS, VEHICLE_TOKENS } from '@/lib/meta/ad-copy-spec';
+import { AD_EMOJI, CALL_TO_ACTIONS, COPY_LIMITS, VEHICLE_TOKENS } from '@/lib/meta/ad-copy-spec';
 
 export type AdCopyRow = {
   id: string;
@@ -237,6 +237,26 @@ function CopyForm({
             className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-700 hover:bg-ink-200"
           >
             {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/*
+        Same insert-at-cursor mechanism as the tokens, and a short curated list
+        rather than a picker — see the note on AD_EMOJI. `aria-label` because a
+        row of bare emoji buttons is unreadable to a screen reader.
+      */}
+      <div className="flex flex-wrap items-center gap-0.5">
+        <span className="mr-1 text-[11px] text-ink-500">Emoji:</span>
+        {AD_EMOJI.map((e) => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => insert(e)}
+            aria-label={`Insert ${e}`}
+            className="rounded px-1 py-0.5 text-sm leading-none hover:bg-ink-100"
+          >
+            {e}
           </button>
         ))}
       </div>
