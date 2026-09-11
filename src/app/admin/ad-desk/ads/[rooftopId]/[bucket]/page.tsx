@@ -10,10 +10,11 @@
 import { notFound } from 'next/navigation';
 import { requireSection } from '@/lib/auth-guard';
 import { CAMPAIGN_BUCKETS, isBucketKey, type BucketKey } from '@/lib/meta/buckets';
+import { adGroupsForRooftop } from '@/lib/meta/ad-groups';
 import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
 import { defaultAdCopy } from '@/lib/meta/ad-copy-spec';
 import { previewFeed } from '@/lib/meta/feed-preview';
-import { GroupEditor, NewGroupEditor, type Shelf } from '@/components/ad-desk/group-editor';
+import { GroupEditor, NewGroupEditor } from '@/components/ad-desk/group-editor';
 import type { AdCopyRow } from '@/components/ad-desk/ad-fields';
 import { blockerFor, loadAdDesk, loadLotGroups } from '../../../shared';
 
@@ -34,11 +35,13 @@ export default async function GroupPage({
   if (!rooftop || !data.connected) notFound();
   if (param !== 'new' && !isBucketKey(param)) notFound();
 
-  const [{ groups: byRooftop }, copyRows, preview] = await Promise.all([
+  const [{ groups: byRooftop }, copyRows, preview, localGroups] = await Promise.all([
     loadLotGroups(data, rooftopId),
     allAdCopyForRooftop(rooftopId),
     previewFeed(rooftopId),
+    adGroupsForRooftop(rooftopId),
   ]);
+  const localByBucket = new Map(localGroups.map((g) => [g.bucket, g]));
 
   const groups = byRooftop.get(rooftopId)?.groups ?? [];
   const taken = new Set(groups.map((g) => g.bucketKey).filter(Boolean) as string[]);
@@ -54,12 +57,7 @@ export default async function GroupPage({
     active: r.active,
   }));
 
-  const shelves: Shelf[] = CAMPAIGN_BUCKETS.map((b) => ({
-    key: b.key,
-    label: b.label,
-    count: preview ? preview.shelfCounts[b.key] : null,
-    taken: taken.has(b.key),
-  }));
+  const units = preview?.units ?? [];
 
   const fallback = defaultAdCopy(rooftop.name);
   const city = [rooftop.city, rooftop.state].filter(Boolean).join(', ') || null;
@@ -73,8 +71,10 @@ export default async function GroupPage({
         rooftopId={rooftopId}
         rooftopName={rooftop.name}
         city={city}
-        shelves={shelves}
+        units={units}
+        taken={[...taken]}
         initialBucket={first.key}
+        initialFilters={localByBucket.get(first.key)?.filters ?? {}}
         saved={rows}
         fallback={fallback}
         blocker={blockerFor(data, rooftopId)}
@@ -95,8 +95,10 @@ export default async function GroupPage({
         rooftopId={rooftopId}
         rooftopName={rooftop.name}
         city={city}
-        shelves={shelves}
+        units={units}
+        taken={[...taken]}
         initialBucket={bucket}
+        initialFilters={localByBucket.get(bucket)?.filters ?? {}}
         saved={rows}
         fallback={fallback}
         blocker={blockerFor(data, rooftopId)}
@@ -110,7 +112,9 @@ export default async function GroupPage({
       rooftopName={rooftop.name}
       city={city}
       bucket={bucket}
-      shelves={shelves}
+      units={units}
+      initialFilters={localByBucket.get(bucket)?.filters ?? {}}
+      initialName={localByBucket.get(bucket)?.name ?? ''}
       group={group}
       rows={rows.filter((r) => r.bucket === bucket)}
       fallback={fallback}

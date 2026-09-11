@@ -43,6 +43,7 @@ import {
 } from './campaigns';
 import { bucketByKey, isBucketKey, type BucketKey } from './buckets';
 import { adCopyForGroup } from './ad-copy';
+import { adGroupFor, noteAdGroupBuilt } from './ad-groups';
 
 export type BuildCampaignOutcome =
   | { ok: true; data: DemoCampaignResult; message: string }
@@ -167,6 +168,8 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
   }
 
   try {
+    const group = await adGroupFor(rooftop.id, bucket);
+
     const result = await createDemoCampaign({
       token: conn.token,
       adAccountId: asset.adAccountId,
@@ -181,15 +184,31 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
       // One ad per active row saved for THIS shelf. Falls back to the
       // hardcoded default when nobody has written any — the ops screen builds
       // without a copy editor.
+      // The group's own row is the source of truth for what it targets and
+      // what it is called. Read here rather than passed in, so the set Meta
+      // builds cannot drift from the rule the dealer last saved.
+      filters: group?.filters ?? {},
+      groupName: group?.name ?? null,
       adCopies: await adCopyForGroup(rooftop.id, bucket, rooftop.name),
       landingUrl: await inventoryUrlFor(rooftop.id),
     });
+
+    /*
+     * Remember what it became. Only after success — recording an ad set id the
+     * build did not finish creating is how a later repair points at nothing.
+     */
+    if (group) {
+      await noteAdGroupBuilt(rooftop.id, bucket, {
+        adSetId: result.adSetId,
+        productSetId: result.productSet.id,
+      });
+    }
 
     return {
       ok: true,
       data: result,
       message:
-        `${bucketByKey(bucket).label} — $${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
+        `${group?.name || bucketByKey(bucket).label} — $${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
         (result.adopted.adSet
           ? 'Updated. Running stays running, stopped stays stopped.'
           : 'Built and stopped. Nothing spends until you start it.'),

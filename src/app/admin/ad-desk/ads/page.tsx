@@ -16,6 +16,8 @@ import { money } from '@/components/ad-desk/format';
 import { requireSection } from '@/lib/auth-guard';
 import { CAMPAIGN_BUCKETS } from '@/lib/meta/buckets';
 import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
+import { adGroupsForRooftop } from '@/lib/meta/ad-groups';
+import { describeFilters } from '@/lib/meta/group-filter';
 import { previewFeed } from '@/lib/meta/feed-preview';
 import { blockerFor, loadAdDesk, loadLotGroups } from '../shared';
 
@@ -69,6 +71,11 @@ export default async function AdsPage() {
   const previews = new Map(
     await Promise.all(provisioned.map(async (r) => [r.id, await previewFeed(r.id)] as const)),
   );
+  const localByRooftop = new Map(
+    await Promise.all(
+      provisioned.map(async (r) => [r.id, await adGroupsForRooftop(r.id)] as const),
+    ),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
@@ -80,6 +87,7 @@ export default async function AdsPage() {
         const copy = copyByRooftop.get(r.id) ?? [];
         const shelfCounts = previews.get(r.id)?.shelfCounts ?? null;
         const blocker = blockerFor(data, r.id);
+        const local = new Map((localByRooftop.get(r.id) ?? []).map((g) => [g.bucket, g]));
 
         const built = new Set(groups.map((g) => g.bucketKey).filter(Boolean));
         const unbuilt = CAMPAIGN_BUCKETS.filter((b) => !built.has(b.key));
@@ -154,6 +162,12 @@ export default async function AdsPage() {
                         shelfCounts && g.bucketKey ? shelfCounts[g.bucketKey] : null
                       }
                       adoptable={unbuilt.map((b) => ({ key: b.key, label: b.label }))}
+                      displayName={g.bucketKey ? local.get(g.bucketKey)?.name : undefined}
+                      rule={
+                        g.bucketKey
+                          ? describeFilters(local.get(g.bucketKey)?.filters ?? {})
+                          : ''
+                      }
                     />
                   ))}
               </div>

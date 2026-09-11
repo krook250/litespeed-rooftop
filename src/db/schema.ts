@@ -1946,3 +1946,82 @@ export const metaAdCopy = pgTable(
   },
   (t) => [index('meta_ad_copy_rooftop_bucket_idx').on(t.rooftopId, t.bucket)],
 );
+
+/* --------------------------------------------------------------- ad groups */
+
+/**
+ * What narrows a shelf, beyond days on the lot.
+ *
+ * Every field is optional and an absent field means "no clause" — that is what
+ * makes the empty object the honest representation of an un-narrowed group
+ * rather than a special case threaded through the builder, exactly as
+ * `bucketFilter` treats a shelf with no day bounds.
+ *
+ * The names here are OURS. They are translated to Meta's product-set field
+ * names in `src/lib/meta/group-filter.ts`, where the traps live: mileage is
+ * `mileage_value` and not `mileage.value` (the feed uses the nested spelling,
+ * the product-set filter does not), and price is filtered through
+ * `custom_number_0` rather than `price`, because Meta's price field carries a
+ * currency and comparing against it is the documented way to build a set that
+ * silently matches nothing.
+ */
+export type AdGroupFilters = {
+  /** Meta's `body_style` enum values: TRUCK, SUV, SEDAN, … */
+  bodyStyles?: string[];
+  makes?: string[];
+  yearMin?: number | null;
+  yearMax?: number | null;
+  mileageMax?: number | null;
+  /** Whole dollars. */
+  priceMax?: number | null;
+};
+
+/**
+ * A group's local half.
+ *
+ * UNTIL NOW A GROUP HAD NO ROW. It was an ad set at Meta, identified by its
+ * name matching a shelf label, and everything else was derived. That bought
+ * simplicity and cost three things, all of which showed up in one evening on a
+ * real dealer account: a group could not be narrowed beyond its shelf, it could
+ * not be named anything but its shelf, and renaming it in Ads Manager made it
+ * unrecognisable to us (see `adoptGroupForRooftop`).
+ *
+ * `adSetId` is the fix for the third: once a group has been built, it is
+ * identified by id, and the name becomes a label rather than a key.
+ *
+ * STILL ONE GROUP PER SHELF — `uniqueIndex` on (rooftopId, bucket). Ad copy is
+ * keyed on `meta_ad_copy.bucket`, so two groups on one shelf would share their
+ * ads, which is not what "two groups" means to anybody. Lifting that is a
+ * second migration that moves copy onto `adGroupId`, and it is not needed for
+ * filters.
+ */
+export const metaAdGroups = pgTable(
+  'meta_ad_groups',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+
+    /** The shelf, a `BucketKey`. Text for the same reason `meta_ad_copy.bucket` is. */
+    bucket: text().notNull().default('all'),
+
+    /** What the dealer calls it, and what the ad set is named at Meta. */
+    name: text().notNull(),
+
+    filters: jsonb().$type<AdGroupFilters>().notNull().default({}),
+
+    /**
+     * The ad set at Meta, once built. Null means saved here and nowhere else —
+     * the "Not built yet" row on the list.
+     */
+    adSetId: text(),
+    /** The product set the ad set promotes. Held so a dead one can be spotted. */
+    productSetId: text(),
+
+    dailyBudgetUsd: integer().notNull().default(25),
+    radiusMiles: integer().notNull().default(25),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('meta_ad_groups_rooftop_bucket_idx').on(t.rooftopId, t.bucket)],
+);

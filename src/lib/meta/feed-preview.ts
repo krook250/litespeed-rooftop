@@ -27,6 +27,7 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { buildFeed, fullWindow, type FeedPhoto, type FeedRow, type FeedVehicle } from './feed-spec';
 import { CAMPAIGN_BUCKETS, type BucketKey } from './buckets';
+import type { TargetableUnit } from './group-filter';
 
 export type FeedReasonGroup = {
   code: string;
@@ -60,13 +61,40 @@ export type FeedPreview = {
    * money.
    */
   shelfCounts: Record<BucketKey, number>;
+  /**
+   * Every car a group could possibly target, reduced to the six fields a filter
+   * can see.
+   *
+   * Sent to the browser so the car count moves as the dealer types. A round
+   * trip per keystroke would be slow, and on a lot with poor signal it is
+   * indistinguishable from a field that does not work. Small by construction —
+   * six scalars per unit — and it is the same list the product set is built
+   * from, so the number on screen cannot disagree with the ad set.
+   */
+  units: TargetableUnit[];
 };
+
+/** Cars Meta could target at all: available, and Marketplace-clean. */
+function targetableRows(rows: FeedRow[]): FeedRow[] {
+  return rows.filter((r) => r.availability === 'available' && r.custom_label_1 === 'mkt_ok');
+}
+
+function toUnits(rows: FeedRow[]): TargetableUnit[] {
+  return targetableRows(rows).map((r) => ({
+    days: Number(r.days_on_lot) || 0,
+    year: Number(r.year) || 0,
+    make: r.make ?? '',
+    body: r.body_style ?? 'OTHER',
+    miles: Number(r['mileage.value']) || 0,
+    // The same integer the feed hands Meta in `custom_number_0`, so a local
+    // count and a product-set filter are reading the same number.
+    price: Number(r.custom_number_0) || 0,
+  }));
+}
 
 /** The shelf counts, from built feed rows. Mirrors `bucketFilter()` exactly. */
 function countShelves(rows: FeedRow[]): Record<BucketKey, number> {
-  const targetable = rows.filter(
-    (r) => r.availability === 'available' && r.custom_label_1 === 'mkt_ok',
-  );
+  const targetable = targetableRows(rows);
   const out = {} as Record<BucketKey, number>;
   for (const b of CAMPAIGN_BUCKETS) {
     out[b.key] = targetable.filter((r) => {
@@ -171,6 +199,7 @@ export async function previewFeedFor(
     included: built.rows.length,
     marketplaceHeld: built.vehicles.filter((v) => v.row !== null && v.issues.length > 0).length,
     shelfCounts: countShelves(built.rows),
+    units: toUnits(built.rows),
     excluded: built.vehicles.filter((v) => v.row === null).length,
     // Feed-blocking problems first — those are cars that are not being
     // advertised at all, which is the more urgent sentence.

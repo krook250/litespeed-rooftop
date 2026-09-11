@@ -79,6 +79,7 @@
 
 import 'server-only';
 import { MetaApiError, graph, graphEdge } from './graph';
+import { metaFilterClauses, type AdGroupFilters } from './group-filter';
 import {
   CAMPAIGN_BUCKETS,
   DEFAULT_BUCKET,
@@ -328,20 +329,46 @@ export async function ensureProductSet(
   catalogId: string,
   bucket: CampaignBucket,
   dealerName: string,
+  filters: AdGroupFilters = {},
+  groupName?: string | null,
 ): Promise<ProductSetResult> {
-  const name = `Rooftop — ${dealerName} — ${bucket.label}`.slice(0, 90);
+  const label = groupName?.trim() || bucket.label;
+  const name = `Rooftop — ${dealerName} — ${label}`.slice(0, 90);
+
+  /*
+   * The shelf's own clauses, then the group's. `bucketFilter` already returns
+   * the availability and Marketplace-clean pair every set needs, so narrowing
+   * is purely additive — which is what makes an un-narrowed group the same
+   * filter it has always been rather than a special case.
+   */
+  const filter = JSON.stringify({
+    and: [...bucketFilter(bucket).and, ...metaFilterClauses(filters)],
+  });
 
   const existing = await graphEdge<{ id: string; name?: string }>(`/${catalogId}/product_sets`, {
     token,
     fields: 'id,name',
   });
   const mine = existing.find((s) => s.name === name);
-  if (mine) return { id: mine.id, name, adopted: true };
+
+  /*
+   * AN ADOPTED SET IS REWRITTEN, NOT LEFT ALONE.
+   *
+   * Adoption-by-name was written when a set's contents were a pure function of
+   * its shelf, so finding one by name meant finding the right one. The moment
+   * filters became something a dealer types, that stopped being true: change
+   * the price ceiling, press Build, and the old set — with the old ceiling —
+   * was adopted and reported as success. The same silent no-op the ad set had.
+   */
+  if (mine) {
+    await graph<{ success?: boolean }>(`/${mine.id}`, { method: 'POST', token, params: { filter } });
+    return { id: mine.id, name, adopted: true };
+  }
 
   const created = await graph<{ id: string }>(`/${catalogId}/product_sets`, {
     method: 'POST',
     token,
-    params: { name, filter: JSON.stringify(bucketFilter(bucket)) },
+    params: { name, filter },
   });
   return { id: created.id, name, adopted: false };
 }
@@ -357,6 +384,10 @@ export type DemoCampaignInput = {
   pageId: string;
   dealerName: string;
   bucket?: BucketKey;
+  /** What narrows the shelf. Absent means the shelf as-is. */
+  filters?: AdGroupFilters;
+  /** The dealer's name for the group; names the product set. */
+  groupName?: string | null;
   specialAdCategory?: SpecialAdCategory;
   /** ISO-3166 alpha-2. Required by Meta whenever the category is not NONE. */
   specialAdCategoryCountry?: string;
@@ -477,7 +508,14 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
   const act = actPath(input.adAccountId);
   const bucket = bucketByKey(input.bucket ?? DEFAULT_BUCKET);
 
-  const productSet = await ensureProductSet(token, catalogId, bucket, dealerName);
+  const productSet = await ensureProductSet(
+    token,
+    catalogId,
+    bucket,
+    dealerName,
+    input.filters ?? {},
+    input.groupName,
+  );
 
   /* --------------------------------------------------------- 1. campaign */
 

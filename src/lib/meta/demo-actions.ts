@@ -21,7 +21,9 @@ import { requireGroupId } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import type { DemoCampaignResult } from './campaigns';
-import { DEFAULT_BUCKET, type BucketKey } from './buckets';
+import { DEFAULT_BUCKET, bucketByKey, type BucketKey } from './buckets';
+import { readFilters, validateFilters } from './group-filter';
+import { upsertAdGroup } from './ad-groups';
 import {
   adoptGroupForRooftop,
   buildCampaignForRooftop,
@@ -67,6 +69,27 @@ export async function buildGroupAction(
 
   const invalid = validateCampaignInput(bucket, dailyBudgetUsd, radiusMiles);
   if (invalid) return { ok: false, error: invalid };
+
+  const filters = readFilters(formData);
+  const badFilter = validateFilters(filters);
+  if (badFilter) return { ok: false, error: badFilter };
+
+  /*
+   * The group's own row is written FIRST, before a word goes to Facebook.
+   *
+   * A build that fails at Meta must still leave the dealer's rule and their
+   * name on the screen. Losing a filter set because Facebook was slow is the
+   * bug that teaches people not to trust a form — the same lesson the ad copy
+   * learned when it was saved after the build rather than before it.
+   */
+  await upsertAdGroup({
+    rooftopId,
+    bucket,
+    name: String(formData.get('groupName') ?? '').trim() || bucketByKey(bucket).label,
+    filters,
+    dailyBudgetUsd,
+    radiusMiles,
+  });
 
   const adCountRaw = formData.get('adCount');
   if (adCountRaw !== null) {

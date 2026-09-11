@@ -22,6 +22,8 @@ export function GroupRow({
   adCount,
   shelfCount,
   adoptable,
+  displayName,
+  rule,
 }: {
   rooftopId: string;
   group: LotGroup;
@@ -31,6 +33,10 @@ export function GroupRow({
   shelfCount: number | null;
   /** Shelves with no group yet — what an unmapped ad set may be taken over as. */
   adoptable: { key: string; label: string }[];
+  /** What the dealer named it here. The ad set at Meta still carries the shelf label. */
+  displayName?: string;
+  /** The narrowing, in English. Empty when the group is the whole shelf. */
+  rule?: string;
 }) {
   const [state, action, switching] = useActionState(setGroupRunningAction, null);
   const [adoptState, adoptAction, adopting] = useActionState(adoptGroupAction, null);
@@ -43,11 +49,12 @@ export function GroupRow({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5">
         <div className="min-w-[12rem] flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-semibold text-ink-900">{group.name}</span>
+            <span className="text-sm font-semibold text-ink-900">{displayName || group.name}</span>
             {running ? <Badge tone="green">Running</Badge> : <Badge tone="slate">Stopped</Badge>}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] tabular-nums text-ink-600">
             {shelfCount !== null ? <span>{shelfCount} cars</span> : null}
+            {rule ? <span className="text-ink-900">{rule}</span> : null}
             {group.dailyBudgetUsd !== null ? <span>{money(group.dailyBudgetUsd)} a day</span> : null}
             {group.radiusMiles !== null ? <span>{group.radiusMiles} miles</span> : null}
             <span>

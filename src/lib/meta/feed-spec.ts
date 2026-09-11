@@ -512,6 +512,20 @@ const BASE_COLUMNS = [
   'custom_label_0',
   'custom_label_1',
   'custom_label_2',
+  /*
+   * Price again, as a bare integer.
+   *
+   * `price` carries a currency ("34995 USD") because Meta's feed spec requires
+   * it, and a product-set filter comparing a number against that string matches
+   * nothing — silently, which is the expensive part. Meta documents
+   * `custom_number_0` as the field for exactly this: "filter by number ranges
+   * (is greater than and is less than) when you create a set". So the price
+   * filter on a group reads this column, not `price`.
+   *
+   * Whole dollars, no separators: the field takes integers 0–4294967295 and
+   * rejects decimals and commas.
+   */
+  'custom_number_0',
 ] as const;
 
 export function buildFeed(
@@ -588,6 +602,7 @@ export function buildFeed(
       custom_label_0: agingLabel(days),
       custom_label_1: marketplaceOk ? 'mkt_ok' : 'mkt_hold',
       custom_label_2: v.isCertified ? 'certified' : 'standard',
+      custom_number_0: String(Math.max(0, Math.round(activePrice(v)))),
     };
 
     // Absolutise before emitting, and renumber: `image[0]` must exist or Meta

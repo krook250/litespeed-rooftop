@@ -28,14 +28,12 @@ import {
   updateGroupAdsAction,
 } from '@/lib/meta/ad-copy-actions';
 import type { AdCopyFields } from '@/lib/meta/ad-copy-spec';
-import type { BucketKey } from '@/lib/meta/buckets';
+import { bucketByKey, type BucketKey } from '@/lib/meta/buckets';
 import type { LotGroup } from '@/lib/meta/campaigns';
+import { WhichCars } from './which-cars';
+import { suggestName, type AdGroupFilters, type TargetableUnit } from '@/lib/meta/group-filter';
 
 const MAX_ADS = 3;
-
-export type Shelf = { key: BucketKey; label: string; count: number | null; taken: boolean };
-
-/* ------------------------------------------------------------------ shell */
 
 function Back() {
   return (
@@ -56,99 +54,6 @@ function Step({ n, title, hint }: { n: number; title: string; hint?: string }) {
       </span>
       <span className="text-sm font-semibold text-ink-900">{title}</span>
       {hint ? <span className="text-[11px] text-ink-500">{hint}</span> : null}
-    </div>
-  );
-}
-
-/** The five shelves, and how many cars each is holding right now. */
-function ShelfPicker({
-  shelves,
-  value,
-  onChange,
-  locked,
-}: {
-  shelves: Shelf[];
-  value: BucketKey;
-  onChange?: (k: BucketKey) => void;
-  locked: boolean;
-}) {
-  const current = shelves.find((s) => s.key === value);
-  const count = current?.count ?? null;
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-      <div>
-        <span className="text-xs font-medium text-ink-700">Days on the lot</span>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {shelves.map((s) => {
-            const on = s.key === value;
-            const disabled = locked ? !on : s.taken && !on;
-            return (
-              <button
-                key={s.key}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange?.(s.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition-colors ${
-                  on
-                    ? 'bg-ink-900 text-white ring-ink-900'
-                    : disabled
-                      ? 'bg-ink-50 text-ink-400 ring-ink-200'
-                      : 'bg-white text-ink-700 ring-ink-300 hover:bg-ink-50'
-                }`}
-              >
-                {s.label}
-                {s.count !== null && !disabled ? (
-                  <span className={on ? 'ml-1.5 text-white/70' : 'ml-1.5 text-ink-400'}>
-                    {s.count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-        {locked ? null : (
-          <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
-            Greyed-out shelves already have a group. One group per shelf.
-          </p>
-        )}
-      </div>
-
-      {/*
-        The count, and the sentence that answers the question every dealer asks
-        about a shelf: what happens when these sell? Nothing — the shelf is a
-        rule, not a list of cars, and Facebook re-reads it from the catalog.
-      */}
-      <div className="rounded-lg border border-ink-200 bg-ink-50 px-4 py-3">
-        {count !== null ? (
-          <>
-            <p className="text-sm font-medium text-ink-900">
-              <span className="text-2xl font-bold tabular-nums">{count}</span>{' '}
-              {count === 1 ? 'car matches' : 'cars match'} right now
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
-              Cars join this shelf when you take them in and drop out the day they sell — the group
-              keeps running either way. Only cars that are front-line ready and Marketplace-clean
-              are counted.
-            </p>
-            {count === 0 ? (
-              <p className="mt-2 rounded bg-amber-100 px-2 py-1.5 text-[11px] font-medium text-amber-900">
-                Nothing on this shelf today. Facebook refuses an empty shelf, so building it will
-                fail until a car lands in it.
-              </p>
-            ) : count < 5 ? (
-              <p className="mt-2 rounded bg-amber-100 px-2 py-1.5 text-[11px] font-medium text-amber-900">
-                Thin. Facebook does better with more to pick from — a wider shelf usually costs less
-                per click.
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <p className="text-[11px] text-ink-600">
-            Inventory could not be read just now, so the car count is not shown.
-          </p>
-        )}
-      </div>
     </div>
   );
 }
@@ -219,8 +124,10 @@ export function NewGroupEditor({
   rooftopId,
   rooftopName,
   city,
-  shelves,
+  units,
+  taken,
   initialBucket,
+  initialFilters,
   saved,
   fallback,
   blocker,
@@ -228,8 +135,10 @@ export function NewGroupEditor({
   rooftopId: string;
   rooftopName: string;
   city: string | null;
-  shelves: Shelf[];
+  units: TargetableUnit[];
+  taken: string[];
   initialBucket: BucketKey;
+  initialFilters: AdGroupFilters;
   /** Ads already saved per shelf, so a half-finished group reopens where it was. */
   saved: AdCopyRow[];
   fallback: AdCopyFields;
@@ -237,6 +146,10 @@ export function NewGroupEditor({
 }) {
   const [state, action, busy] = useActionState(buildGroupAction, null);
   const [bucket, setBucket] = useState<BucketKey>(initialBucket);
+  const [filters, setFilters] = useState<AdGroupFilters>(initialFilters);
+  const [name, setName] = useState(() =>
+    suggestName(bucketByKey(initialBucket).label, initialFilters),
+  );
 
   const seedFor = (b: BucketKey) => {
     const rows = saved.filter((c) => c.bucket === b && c.active).slice(0, MAX_ADS);
@@ -260,21 +173,33 @@ export function NewGroupEditor({
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="rooftopId" value={rooftopId} />
-        <input type="hidden" name="bucket" value={bucket} />
         <input type="hidden" name="adCount" value={adCount} />
 
         <Card>
           <div className="space-y-4 px-5 py-4">
-            <Step n={1} title="Which cars" hint="A shelf, not a list — it keeps itself up to date." />
-            <ShelfPicker
-              shelves={shelves}
-              value={bucket}
+            <Step n={1} title="Which cars" hint="A rule, not a list — it keeps itself up to date." />
+            <WhichCars
+              units={units}
+              taken={taken}
+              bucket={bucket}
               locked={false}
-              onChange={(k) => {
+              onBucket={(k) => {
                 setBucket(k);
                 setAdCount(seedFor(k).length);
                 setActive(0);
+                // The suggested name follows the shelf until the dealer types
+                // over it; leaving "1-30 days" on a group they just moved to
+                // 61+ is the kind of stale label nobody notices until it is in
+                // Ads Manager.
+                setName((n) => (n === suggestName(bucketByKey(bucket).label, filters) ? suggestName(bucketByKey(k).label, filters) : n));
               }}
+              filters={filters}
+              onFilters={(f) => {
+                setFilters(f);
+                setName((n) => (n === suggestName(bucketByKey(bucket).label, filters) ? suggestName(bucketByKey(bucket).label, f) : n));
+              }}
+              name={name}
+              onName={setName}
             />
           </div>
         </Card>
@@ -370,7 +295,9 @@ export function GroupEditor({
   rooftopName,
   city,
   bucket,
-  shelves,
+  units,
+  initialFilters,
+  initialName,
   group,
   rows,
   fallback,
@@ -379,7 +306,9 @@ export function GroupEditor({
   rooftopName: string;
   city: string | null;
   bucket: BucketKey;
-  shelves: Shelf[];
+  units: TargetableUnit[];
+  initialFilters: AdGroupFilters;
+  initialName: string;
   group: LotGroup;
   rows: AdCopyRow[];
   fallback: AdCopyFields;
@@ -389,6 +318,8 @@ export function GroupEditor({
   const [pushState, pushAction, pushing] = useActionState(updateGroupAdsAction, null);
   const [active, setActive] = useState(0);
   const [extra, setExtra] = useState(0);
+  const [filters, setFilters] = useState<AdGroupFilters>(initialFilters);
+  const [name, setName] = useState(initialName || bucketByKey(bucket).label);
 
   const running = group.effectiveStatus === 'ACTIVE';
   const live = rows.filter((r) => r.active);
@@ -458,19 +389,35 @@ export function GroupEditor({
         <Figure value={group.impressions.toLocaleString()} label="times shown" />
       </div>
 
-      {/* ------------------------------------------------------- 1 · shelf */}
-      <Card>
-        <div className="space-y-4 px-5 py-4">
-          <Step n={1} title="Which cars" hint="A shelf, not a list — it keeps itself up to date." />
-          <ShelfPicker shelves={shelves} value={bucket} locked />
-        </div>
-      </Card>
+      {/*
+        SHELF, RULE AND BUDGET ARE ONE FORM, ONE BUTTON.
 
-      {/* ------------------------------------------------------ 2 · budget */}
-      <Card>
-        <form action={budgetAction}>
-          <input type="hidden" name="rooftopId" value={rooftopId} />
-          <input type="hidden" name="bucket" value={bucket} />
+        They were two — targeting here, budget below — and that was wrong the
+        moment the rule became something a dealer edits: both go to Facebook in
+        the same call, so two buttons meant two ways to leave the ad set half
+        updated and no way to tell which half.
+      */}
+      <form action={budgetAction}>
+        <input type="hidden" name="rooftopId" value={rooftopId} />
+
+        <Card className="mb-4">
+          <div className="space-y-4 px-5 py-4">
+            <Step n={1} title="Which cars" hint="A rule, not a list — it keeps itself up to date." />
+            <WhichCars
+              units={units}
+              taken={[]}
+              bucket={bucket}
+              onBucket={() => {}}
+              locked
+              filters={filters}
+              onFilters={setFilters}
+              name={name}
+              onName={setName}
+            />
+          </div>
+        </Card>
+
+        <Card>
           <div className="space-y-4 px-5 py-4">
             <Step n={2} title="Budget and reach" />
             <BudgetRadiusFields
@@ -482,7 +429,7 @@ export function GroupEditor({
           <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 px-5 py-3.5">
             <div className="ml-auto">
               <Button type="submit" size="sm" variant="secondary" disabled={saving}>
-                {saving ? 'Updating…' : 'Update budget and radius'}
+                {saving ? 'Updating…' : 'Update this group'}
               </Button>
             </div>
           </div>
@@ -496,8 +443,8 @@ export function GroupEditor({
               {budgetState.message}
             </p>
           ) : null}
-        </form>
-      </Card>
+        </Card>
+      </form>
 
       {/* --------------------------------------------------------- 3 · ads */}
       <Card>
