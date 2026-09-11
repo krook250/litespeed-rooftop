@@ -1890,8 +1890,12 @@ export const metaRooftopAssets = pgTable(
  * means many rows here per lot, which four columns on the assets row could
  * never express.
  *
- * Per lot, not per campaign, because the copy is the dealership's voice and
- * should not have to be rewritten for each shelf.
+ * PER AD SET, NOT PER LOT. A row belongs to one shelf on one lot — `bucket` is
+ * the shelf key — because each row *is* one ad inside that shelf's ad set, and
+ * an ad is not something two ad sets can share. The earlier per-lot design
+ * meant every shelf on a lot got the same ads and nobody could edit one
+ * without editing all of them. Rows from before the column existed default to
+ * `all`, which is the shelf every existing campaign was built on.
  *
  * `headline` and `description` carry Meta's `{{vehicle.*}}` template tokens,
  * interpolated per car at render time — that is what makes one creative cover a
@@ -1905,7 +1909,14 @@ export const metaAdCopy = pgTable(
     id: cuid().primaryKey(),
     rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
 
-    /** What the dealer calls this version, e.g. "Default" or "Payment led". */
+    /**
+     * Which shelf's ad set this ad lives in — a `BucketKey` from
+     * `src/lib/meta/buckets.ts`. Text, not an enum, for the same reason as
+     * `callToAction`: the shelf list is app code, not a database contract.
+     */
+    bucket: text().notNull().default('all'),
+
+    /** What the dealer calls this ad, e.g. "Default" or "Payment led". */
     name: text().notNull(),
 
     /** The text above the card. The one line in a dealership's own voice. */
@@ -1933,5 +1944,5 @@ export const metaAdCopy = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('meta_ad_copy_rooftop_idx').on(t.rooftopId)],
+  (t) => [index('meta_ad_copy_rooftop_bucket_idx').on(t.rooftopId, t.bucket)],
 );

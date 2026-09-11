@@ -6,7 +6,7 @@
  * NOT a copy of `ad-desk-demo.tsx` with different labels. The dealer's panel
  * answers "get my cars into Facebook ads"; this one answers "which of my
  * dealers needs me today, and can I fix it from here". So it leads with what is
- * broken, names the dealer on every row, and shows live campaign state — which
+ * broken, names the dealer on every row, and shows live group state — which
  * the dealer's own screen does not, because a dealer with one lot already knows.
  *
  * The chrome stays dark and amber for the reason `src/app/ops/layout.tsx` gives:
@@ -16,9 +16,13 @@
 
 import { useActionState } from 'react';
 import { Badge, Button, Card, CardHeader } from './ui';
-import { opsBuildCampaignAction, opsSetCampaignRunningAction } from '@/lib/ops/ad-desk-actions';
+import {
+  opsBuildCampaignAction,
+  opsSetGroupRunningAction,
+  opsStopLegacyCampaignAction,
+} from '@/lib/ops/ad-desk-actions';
 import type { OpsAdDeskLot } from '@/lib/ops/ad-desk-queries';
-import type { LotCampaign } from '@/lib/meta/campaigns';
+import type { LotGroups } from '@/lib/meta/campaigns';
 import { CAMPAIGN_BUCKETS, DEFAULT_BUCKET } from '@/lib/meta/buckets';
 
 const money = (n: number) =>
@@ -119,13 +123,14 @@ function Kv({ k, v }: { k: string; v: string | null | undefined }) {
 
 export type OpsLotPanelProps = {
   lot: OpsAdDeskLot;
-  campaigns: LotCampaign[];
-  campaignsError: string | null;
+  groups: LotGroups;
+  groupsError: string | null;
 };
 
-export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps) {
+export function OpsLotPanel({ lot, groups, groupsError }: OpsLotPanelProps) {
   const [state, action, busy] = useActionState(opsBuildCampaignAction, null);
-  const [runState, runAction, running] = useActionState(opsSetCampaignRunningAction, null);
+  const [runState, runAction, running] = useActionState(opsSetGroupRunningAction, null);
+  const [legacyState, legacyAction, stopping] = useActionState(opsStopLegacyCampaignAction, null);
   const error = lot.connectionError ?? lot.assetError;
 
   return (
@@ -153,41 +158,48 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
           <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
         ) : null}
 
-        {/* ------------------------------------------------ live campaigns */}
+        {/* --------------------------------------------------- live groups */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-ink-700">At Facebook right now</p>
-          {campaignsError ? (
+          {groupsError ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Could not read campaigns: {campaignsError}
+              Could not read groups: {groupsError}
             </p>
-          ) : campaigns.length === 0 ? (
+          ) : groups.groups.length === 0 ? (
             <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
-              No Rooftop-built campaigns on this ad account. Anything this dealer runs by hand
-              under a different name will not appear here.
+              No Rooftop-built groups on this ad account. Anything this dealer runs by hand under
+              a different name will not appear here.
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {campaigns.map((c) => {
-                const isOn = c.effectiveStatus === 'ACTIVE';
+              {groups.groups.map((g) => {
+                const isOn = g.effectiveStatus === 'ACTIVE';
                 return (
                   <li
-                    key={c.id}
+                    key={g.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-ink-50 px-3 py-2"
                   >
                     <div className="min-w-[12rem] flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="text-xs font-medium text-ink-900">{c.name}</span>
-                        <Badge tone={isOn ? 'green' : 'slate'}>{c.effectiveStatus}</Badge>
-                        {c.dailyBudgetUsd !== null ? (
+                        <span className="text-xs font-medium text-ink-900">{g.name}</span>
+                        <Badge tone={isOn ? 'green' : 'slate'}>{g.effectiveStatus}</Badge>
+                        {g.dailyBudgetUsd !== null ? (
                           <span className="text-[11px] text-ink-600">
-                            {money(c.dailyBudgetUsd)}/day
+                            {money(g.dailyBudgetUsd)}/day
                           </span>
+                        ) : null}
+                        {g.radiusMiles !== null ? (
+                          <span className="text-[11px] text-ink-600">{g.radiusMiles} mi</span>
                         ) : null}
                       </div>
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] tabular-nums text-ink-600">
-                        <span>{money(c.spend)} spent</span>
-                        <span>{c.impressions.toLocaleString()} impressions</span>
-                        <span>{c.clicks.toLocaleString()} clicks</span>
+                        <span>{money(g.spend)} spent</span>
+                        <span>{g.impressions.toLocaleString()} impressions</span>
+                        <span>{g.clicks.toLocaleString()} clicks</span>
+                        <span>
+                          {g.ads.length} {g.ads.length === 1 ? 'ad' : 'ads'}
+                          {g.ads.length ? ` — ${g.ads.map((a) => a.name).join(', ')}` : ''}
+                        </span>
                       </div>
                     </div>
 
@@ -200,7 +212,7 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
                     <form action={runAction}>
                       <input type="hidden" name="groupId" value={lot.groupId} />
                       <input type="hidden" name="rooftopId" value={lot.rooftopId} />
-                      <input type="hidden" name="campaignId" value={c.id} />
+                      <input type="hidden" name="adSetId" value={g.id} />
                       <input type="hidden" name="running" value={isOn ? 'false' : 'true'} />
                       <Button
                         type="submit"
@@ -225,11 +237,49 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
               {runState.message}
             </p>
           ) : null}
+
+          {/*
+            One-campaign-per-shelf leftovers. Stop only; the dealer's screen
+            does not show these at all. Delete in Ads Manager once stopped.
+          */}
+          {groups.legacy.length ? (
+            <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-[11px] font-medium text-amber-900">
+                Older campaigns from before groups — stop, then delete in Ads Manager
+              </p>
+              {groups.legacy.map((c) => {
+                const isOn = c.effectiveStatus === 'ACTIVE';
+                return (
+                  <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex-1 text-[11px] text-amber-900">
+                      {c.name} · {c.effectiveStatus} · {money(c.spend)} spent
+                    </span>
+                    {isOn ? (
+                      <form action={legacyAction}>
+                        <input type="hidden" name="groupId" value={lot.groupId} />
+                        <input type="hidden" name="rooftopId" value={lot.rooftopId} />
+                        <input type="hidden" name="campaignId" value={c.id} />
+                        <Button type="submit" variant="secondary" size="sm" disabled={stopping}>
+                          {stopping ? '…' : 'Stop'}
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {legacyState && !legacyState.ok ? (
+                <p className="text-[11px] text-red-700">{legacyState.error}</p>
+              ) : null}
+              {legacyState?.ok ? (
+                <p className="text-[11px] text-emerald-800">{legacyState.message}</p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {/* ----------------------------------------------------- the build */}
         <div className="space-y-3 border-t border-ink-200 pt-3">
-          <p className="text-xs font-medium text-ink-700">Build or update</p>
+          <p className="text-xs font-medium text-ink-700">Build or update a group</p>
 
           {lot.blocker ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{lot.blocker}</p>
@@ -288,9 +338,10 @@ export function OpsLotPanel({ lot, campaigns, campaignsError }: OpsLotPanelProps
               </div>
 
               <p className="rounded-lg bg-ink-50 px-3 py-2 text-[11px] text-ink-600">
-                Builds in <strong>{lot.groupName}</strong>&rsquo;s own ad account and lands paused.
-                Building again updates the existing campaign rather than making a second one.
-                Turning it on is done in Ads Manager, not here.
+                Builds one group (a Meta ad set) in <strong>{lot.groupName}</strong>&rsquo;s own
+                ad account, under the lot&rsquo;s one campaign, and lands paused. Building a shelf
+                that already has a group updates its budget and radius rather than making a second
+                one. Ads use whatever copy the dealer has saved for that shelf.
               </p>
 
               <Button type="submit" disabled={busy}>

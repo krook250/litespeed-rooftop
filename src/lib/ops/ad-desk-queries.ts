@@ -13,7 +13,7 @@ import 'server-only';
  * page — billed at the APP level, which `claude/meta-onboarding-matrix.md` §4
  * names as the ceiling that actually bites as dealer count grows, precisely
  * because it is the one limit that is not per ad account. So the roll-up answers
- * from the database, and `listLotCampaigns` runs on the per-dealer screen where
+ * from the database, and `listLotGroups` runs on the per-dealer screen where
  * N is one. If a "spend across all dealers" number is ever wanted, it comes from
  * a scheduled per-dealer fan-out writing to a table, not from widening this.
  */
@@ -23,7 +23,7 @@ import { db } from '@/db';
 import * as t from '@/db/schema';
 import { previewFeedFor, type FeedPreview } from '@/lib/meta/feed-preview';
 import { tokenFor } from '@/lib/meta/connect';
-import { listLotCampaigns, type LotCampaign } from '@/lib/meta/campaigns';
+import { listLotGroups, type LotGroups } from '@/lib/meta/campaigns';
 
 export type OpsAdDeskLot = {
   groupId: string;
@@ -210,7 +210,8 @@ export async function opsRooftopInGroup(groupId: string, rooftopId: string) {
 
 export type OpsLotCampaigns = {
   rooftopId: string;
-  campaigns: LotCampaign[];
+  /** Groups under the lot's campaign, plus any legacy one-per-shelf campaigns still alive. */
+  lot: LotGroups;
   /** Set when Facebook refused or could not be reached. The screen says so rather than showing zero. */
   error: string | null;
 };
@@ -219,7 +220,7 @@ export type OpsLotCampaigns = {
  * What Facebook currently holds for each lot of ONE dealer.
  *
  * Only ever called from the per-dealer screen. See the note at the top of this
- * file on why the roll-up does not do this: the cost is 1 + 2N Graph calls per
+ * file on why the roll-up does not do this: the cost is 2 + 2N Graph calls per
  * lot, billed app-level.
  *
  * A failure here is returned, never thrown. Facebook being unreachable is not a
@@ -240,7 +241,7 @@ export async function opsLotCampaigns(
     for (const l of usable) {
       out.set(l.rooftopId, {
         rooftopId: l.rooftopId,
-        campaigns: [],
+        lot: { campaignId: null, groups: [], legacy: [] },
         error: 'Facebook is not connected for this dealer.',
       });
     }
@@ -250,12 +251,12 @@ export async function opsLotCampaigns(
   await Promise.all(
     usable.map(async (l) => {
       try {
-        const campaigns = await listLotCampaigns(conn.token, l.adAccountId!, l.rooftopName);
-        out.set(l.rooftopId, { rooftopId: l.rooftopId, campaigns, error: null });
+        const lot = await listLotGroups(conn.token, l.adAccountId!, l.rooftopName);
+        out.set(l.rooftopId, { rooftopId: l.rooftopId, lot, error: null });
       } catch (err) {
         out.set(l.rooftopId, {
           rooftopId: l.rooftopId,
-          campaigns: [],
+          lot: { campaignId: null, groups: [], legacy: [] },
           error: err instanceof Error ? err.message : 'Facebook could not be reached.',
         });
       }

@@ -79,8 +79,29 @@ export type AdCopyFields = {
   callToAction: string;
 };
 
+/**
+ * Read one ad's fields off a form. `prefix` lets several ads share a form —
+ * the new-group form posts `ad0.name`, `ad1.name`… — while the per-ad editor
+ * posts bare names. Pure, so both the action and the component can agree on
+ * the field names without importing a server module.
+ */
+export function adFieldName(prefix: string, field: keyof AdCopyFields): string {
+  return prefix ? `${prefix}.${field}` : field;
+}
+
+export function readAdFields(formData: FormData, prefix = ''): AdCopyFields {
+  const get = (f: keyof AdCopyFields) => String(formData.get(adFieldName(prefix, f)) ?? '').trim();
+  return {
+    name: get('name'),
+    message: get('message'),
+    headline: get('headline'),
+    description: get('description'),
+    callToAction: get('callToAction') || 'LEARN_MORE',
+  };
+}
+
 export function validateAdCopy(c: AdCopyFields): string | null {
-  if (!c.name.trim()) return 'Give this version a name so you can tell them apart.';
+  if (!c.name.trim()) return 'Give this ad a name so you can tell them apart.';
   if (!c.message.trim()) return 'The main line of text can’t be empty.';
   if (!c.headline.trim()) return 'The headline can’t be empty.';
   if (c.name.length > COPY_LIMITS.name) return `Name is over ${COPY_LIMITS.name} characters.`;

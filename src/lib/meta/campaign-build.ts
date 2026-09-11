@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * Building a campaign for one lot, with the authorization decision left to the
+ * Building a group for one lot, with the authorization decision left to the
  * caller.
  *
  * THIS MODULE DELIBERATELY DOES NOT CHECK WHO YOU ARE.
@@ -19,6 +19,11 @@ import 'server-only';
  * applies to it, and there is no id-shaped string here that could arrive off a
  * form and be trusted. A `'use server'` module cannot express that: everything
  * it exports becomes a POST endpoint reachable by anyone who can guess the id.
+ *
+ * WORDS. A "group" on screen is a Meta ad set: one shelf on one lot, with its
+ * own budget, radius and ads. Every group on a lot lives under the lot's one
+ * campaign, which the dealer never sees. `bucket` below is the shelf key and
+ * therefore the group's identity.
  */
 
 import { eq } from 'drizzle-orm';
@@ -27,15 +32,17 @@ import * as t from '@/db/schema';
 import { MetaApiError, graph } from './graph';
 import { noteFailure, tokenFor } from './connect';
 import {
-  campaignNamePrefix,
   createDemoCampaign,
-  listLotCampaigns,
+  legacyCampaignPrefix,
+  listLotGroups,
+  lotCampaignName,
   setCampaignRunning,
+  setGroupRunning,
   type DemoCampaignResult,
   type RunOutcome,
 } from './campaigns';
 import { bucketByKey, isBucketKey, type BucketKey } from './buckets';
-import { adCopyForRooftop } from './ad-copy';
+import { adCopyForGroup } from './ad-copy';
 
 export type BuildCampaignOutcome =
   | { ok: true; data: DemoCampaignResult; message: string }
@@ -64,6 +71,12 @@ export function validateCampaignInput(
   return null;
 }
 
+/**
+ * Build or update one group. Idempotent: the campaign and the ad set are
+ * adopted by name, the ad set's budget and radius are overwritten with what
+ * was passed, and every ad is repointed at a fresh creative carrying the
+ * group's current saved copy. Never starts anything.
+ */
 export async function buildCampaignForRooftop(input: BuildCampaignInput): Promise<BuildCampaignOutcome> {
   const { groupId, rooftop, bucket, dailyBudgetUsd, radiusMiles } = input;
 
@@ -119,9 +132,10 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
       lng: rooftop.longitude,
       radiusMiles,
       dailyBudgetUsd,
-      // One ad per active variant, all inside the one ad set. Falls back to the
-      // hardcoded default when the dealer has never opened the copy editor.
-      adCopies: await adCopyForRooftop(rooftop.id, rooftop.name),
+      // One ad per active row saved for THIS shelf. Falls back to the
+      // hardcoded default when nobody has written any — the ops screen builds
+      // without a copy editor.
+      adCopies: await adCopyForGroup(rooftop.id, bucket, rooftop.name),
       landingUrl: await inventoryUrlFor(rooftop.id),
     });
 
@@ -129,17 +143,17 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
       ok: true,
       data: result,
       message:
-        `Built a paused campaign for ${rooftop.name} targeting the ` +
-        `${bucketByKey(bucket).label} shelf — ` +
-        `$${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
-        'It is paused — nothing is running and nothing will spend until it is started.',
+        `${bucketByKey(bucket).label} — $${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
+        (result.adopted.adSet
+          ? 'Updated. Running stays running, stopped stays stopped.'
+          : 'Built and stopped. Nothing spends until you start it.'),
     };
   } catch (err) {
     await noteFailure(groupId, err);
     if (err instanceof MetaApiError) {
       // The transport logs Meta's words; this logs which objects we were
-      // pointing at. A campaign build touches four ids and the failure never
-      // says which one Meta objected to.
+      // pointing at. A build touches four ids and the failure never says
+      // which one Meta objected to.
       console.error(
         '[meta] buildCampaignForRooftop failed ' +
           JSON.stringify({
@@ -168,34 +182,78 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
 
 /* --------------------------------------------------------- start and stop */
 
-export type RunCampaignInput = {
+export type RunGroupInput = {
   groupId: string;
   /** Already loaded through the caller's own guard, exactly as above. */
   rooftop: typeof t.rooftops.$inferSelect;
-  campaignId: string;
+  /** The ad set id. */
+  adSetId: string;
   running: boolean;
 };
 
 /**
- * Start or stop one campaign, for a caller that has already established who is
+ * Start or stop one group, for a caller that has already established who is
  * asking.
  *
- * THE CAMPAIGN ID ARRIVES OFF A FORM, so unlike everything else here it cannot
- * be trusted as given. Two checks before anything is written, and both matter:
+ * THE AD SET ID ARRIVES OFF A FORM, so unlike everything else here it cannot be
+ * trusted as given. Two checks before anything is written, and both matter:
  *
- *   1. The campaign must live in THIS LOT'S ad account. Without it, a signed-in
- *      dealer could post any campaign id in the world and toggle somebody
- *      else's ads. `account_id` comes back bare, so it is compared against the
- *      stored `act_` id with the prefix stripped from both.
- *   2. Its name must carry this lot's Rooftop prefix. That keeps us off
- *      campaigns the dealer built by hand in Ads Manager, which are theirs and
- *      which we have no business starting or stopping from here.
+ *   1. The ad set must live in THIS LOT'S ad account. Without it, a signed-in
+ *      dealer could post any ad set id in the world and toggle somebody else's
+ *      ads. `account_id` comes back bare, so it is compared against the stored
+ *      `act_` id with the prefix stripped from both.
+ *   2. Its parent campaign must be this lot's Rooftop campaign, by exact name.
+ *      That keeps us off ad sets the dealer built by hand in Ads Manager, which
+ *      are theirs and which we have no business starting or stopping from here.
  *
- * A campaign failing either check is reported as not found rather than as
+ * An ad set failing either check is reported as not found rather than as
  * forbidden, because the two are the same fact from the caller's side and the
  * difference is only useful to somebody probing.
  */
-export async function runCampaignForRooftop(input: RunCampaignInput): Promise<RunOutcome> {
+export async function runGroupForRooftop(input: RunGroupInput): Promise<RunOutcome> {
+  const { groupId, rooftop, adSetId, running } = input;
+
+  if (!/^\d+$/.test(adSetId)) return { ok: false, error: 'That group was not found.' };
+
+  const conn = await tokenFor(groupId);
+  if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
+
+  const asset = await assetFor(rooftop.id);
+  if (!asset?.adAccountId) return { ok: false, error: 'This lot has no ad account.' };
+
+  let adSet: { id: string; account_id?: string; campaign?: { id?: string; name?: string } };
+  try {
+    adSet = await graph<typeof adSet>(`/${adSetId}`, {
+      token: conn.token,
+      params: { fields: 'id,account_id,campaign{id,name}' },
+    });
+  } catch (err) {
+    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
+    throw err;
+  }
+
+  const storedAccount = asset.adAccountId.replace(/^act_/, '');
+  if ((adSet.account_id ?? '') !== storedAccount) {
+    return { ok: false, error: 'That group was not found on this lot.' };
+  }
+  if (!adSet.campaign?.id || adSet.campaign.name !== lotCampaignName(rooftop.name)) {
+    return { ok: false, error: 'That group was not built by Rooftop, so it is not ours to start or stop.' };
+  }
+
+  return setGroupRunning(conn.token, adSet.campaign.id, adSetId, running);
+}
+
+/**
+ * Stop (or start) a LEGACY campaign — the one-per-shelf kind from before
+ * groups existed. Ops only. Same two checks as above, at the campaign level,
+ * against the legacy name prefix.
+ */
+export async function runLegacyCampaignForRooftop(input: {
+  groupId: string;
+  rooftop: typeof t.rooftops.$inferSelect;
+  campaignId: string;
+  running: boolean;
+}): Promise<RunOutcome> {
   const { groupId, rooftop, campaignId, running } = input;
 
   if (!/^\d+$/.test(campaignId)) return { ok: false, error: 'That campaign was not found.' };
@@ -203,17 +261,12 @@ export async function runCampaignForRooftop(input: RunCampaignInput): Promise<Ru
   const conn = await tokenFor(groupId);
   if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
 
-  const rows = await db
-    .select()
-    .from(t.metaRooftopAssets)
-    .where(eq(t.metaRooftopAssets.rooftopId, rooftop.id))
-    .limit(1);
-  const asset = rows[0];
+  const asset = await assetFor(rooftop.id);
   if (!asset?.adAccountId) return { ok: false, error: 'This lot has no ad account.' };
 
   let campaign: { id: string; name?: string; account_id?: string };
   try {
-    campaign = await graph<{ id: string; name?: string; account_id?: string }>(`/${campaignId}`, {
+    campaign = await graph<typeof campaign>(`/${campaignId}`, {
       token: conn.token,
       params: { fields: 'id,name,account_id' },
     });
@@ -226,14 +279,20 @@ export async function runCampaignForRooftop(input: RunCampaignInput): Promise<Ru
   if ((campaign.account_id ?? '') !== storedAccount) {
     return { ok: false, error: 'That campaign was not found on this lot.' };
   }
-  if (!(campaign.name ?? '').startsWith(campaignNamePrefix(rooftop.name))) {
-    return {
-      ok: false,
-      error: 'That campaign was not built by Rooftop, so it is not ours to start or stop.',
-    };
+  if (!(campaign.name ?? '').startsWith(legacyCampaignPrefix(rooftop.name))) {
+    return { ok: false, error: 'That campaign was not built by Rooftop, so it is not ours to start or stop.' };
   }
 
   return setCampaignRunning(conn.token, campaignId, running);
+}
+
+async function assetFor(rooftopId: string) {
+  const rows = await db
+    .select()
+    .from(t.metaRooftopAssets)
+    .where(eq(t.metaRooftopAssets.rooftopId, rooftopId))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 /**
@@ -267,89 +326,62 @@ async function inventoryUrlFor(rooftopId: string): Promise<string> {
 /* ------------------------------------------------------- pushing an edit */
 
 export type RefreshOutcome =
-  | { ok: true; updated: number; message: string }
+  | { ok: true; message: string }
   | { ok: false; error: string };
 
 /**
- * Put the lot's current ad copy onto every campaign it already has.
+ * Put one group's current saved copy onto the ads it already has at Facebook.
  *
- * WHY THIS EXISTS RATHER THAN "PRESS BUILD AGAIN". Build already does the right
- * thing — it adopts the campaign, updates the ad set, and repoints the ads at
- * fresh creatives — but it lives in a different panel, under a word that means
- * "make something new", and asks for a shelf, a budget and a radius the dealer
- * already chose. Somebody who just rewrote a headline should not have to
- * re-answer three questions to see it go live, and will not connect "Build" with
- * "apply my edit".
+ * WHY THIS EXISTS RATHER THAN "PRESS BUILD AGAIN". Build does the right thing —
+ * it adopts the ad set and repoints every ad at a fresh creative — but it asks
+ * for a budget and a radius the dealer already chose. Somebody who just fixed
+ * a headline should not have to re-answer those to see it go live. So this
+ * reads the group's budget and radius back FROM META and rebuilds with exactly
+ * those, changing only what the copy changed.
  *
- * So this reads each existing campaign's shelf, budget and radius back FROM
- * META and rebuilds with exactly those, changing only what the copy changed.
- * Nothing is stored on our side to drift out of sync, and a campaign whose name
- * no longer matches our convention — one the dealer renamed and took over in Ads
- * Manager — is skipped rather than rewritten.
- *
- * **It does not start or stop anything.** A running campaign keeps running with
+ * **It does not start or stop anything.** A running group keeps running with
  * new words; a stopped one stays stopped. Editing text must never be the thing
  * that changes what is spending.
  */
-export async function refreshAdsForRooftop(input: {
+export async function refreshGroupForRooftop(input: {
   groupId: string;
   rooftop: typeof t.rooftops.$inferSelect;
+  bucket: BucketKey;
 }): Promise<RefreshOutcome> {
-  const { groupId, rooftop } = input;
+  const { groupId, rooftop, bucket } = input;
 
   const conn = await tokenFor(groupId);
   if (!conn) return { ok: false, error: 'Facebook is not connected for this dealer.' };
 
-  const rows = await db
-    .select()
-    .from(t.metaRooftopAssets)
-    .where(eq(t.metaRooftopAssets.rooftopId, rooftop.id))
-    .limit(1);
-  const asset = rows[0];
+  const asset = await assetFor(rooftop.id);
   if (!asset?.adAccountId) return { ok: false, error: 'This lot has no ad account.' };
 
-  let campaigns;
+  let lot;
   try {
-    campaigns = await listLotCampaigns(conn.token, asset.adAccountId, rooftop.name);
+    lot = await listLotGroups(conn.token, asset.adAccountId, rooftop.name);
   } catch (err) {
     if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
     throw err;
   }
 
-  const rebuildable = campaigns.filter((c) => c.bucketKey);
-  if (!rebuildable.length) {
+  const group = lot.groups.find((g) => g.bucketKey === bucket);
+  if (!group) {
     return {
       ok: false,
-      error:
-        'There is no campaign to update yet. Build one below and it will use what you just wrote.',
+      error: 'This group is not on Facebook yet. Build it below and it will use what you just wrote.',
     };
   }
 
-  let updated = 0;
-  let lastError: string | null = null;
+  const outcome = await buildCampaignForRooftop({
+    groupId,
+    rooftop,
+    bucket,
+    // Read back rather than defaulted: a dealer who set $75 a day does not
+    // want an edit to their headline quietly resetting it to $25.
+    dailyBudgetUsd: group.dailyBudgetUsd ?? 25,
+    radiusMiles: group.radiusMiles ?? 25,
+  });
+  if (!outcome.ok) return outcome;
 
-  for (const c of rebuildable) {
-    const outcome = await buildCampaignForRooftop({
-      groupId,
-      rooftop,
-      bucket: c.bucketKey!,
-      // Read back rather than defaulted: a dealer who set $75 a day does not
-      // want an edit to their headline quietly resetting it to $25.
-      dailyBudgetUsd: c.dailyBudgetUsd ?? 25,
-      radiusMiles: c.radiusMiles ?? 25,
-    });
-    if (outcome.ok) updated += 1;
-    else lastError = outcome.error;
-  }
-
-  if (!updated) return { ok: false, error: lastError ?? 'Facebook would not accept the update.' };
-
-  return {
-    ok: true,
-    updated,
-    message:
-      updated === 1
-        ? 'Your ad is updated. Check it under See the ad.'
-        : `${updated} campaigns updated. Check them under See the ad.`,
-  };
+  return { ok: true, message: 'Your ads are updated on Facebook. Check them under See the ad.' };
 }

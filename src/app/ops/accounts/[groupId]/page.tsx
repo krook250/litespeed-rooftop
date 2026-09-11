@@ -292,16 +292,16 @@ export default async function OpsAccountPage({
           <div>
             <h2 className="text-sm font-semibold text-ink-900">Ad Desk</h2>
             <p className="text-xs text-ink-600">
-              Facebook campaigns for this dealer, read live. Anything built here lands paused and
-              is turned on in Ads Manager.
+              Facebook ad groups for this dealer, read live. Anything built here lands paused;
+              start it from the switch on its row.
             </p>
           </div>
           {adLots.map((lot) => (
             <OpsLotPanel
               key={lot.rooftopId}
               lot={lot}
-              campaigns={adCampaigns.get(lot.rooftopId)?.campaigns ?? []}
-              campaignsError={adCampaigns.get(lot.rooftopId)?.error ?? null}
+              groups={adCampaigns.get(lot.rooftopId)?.lot ?? { campaignId: null, groups: [], legacy: [] }}
+              groupsError={adCampaigns.get(lot.rooftopId)?.error ?? null}
             />
           ))}
         </div>

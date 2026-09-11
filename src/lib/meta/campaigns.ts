@@ -19,14 +19,19 @@
  *   2. **Targeting is a radius around the lot**, not `countries: ['US']`. A
  *      dealer who unpauses a nationwide used-car campaign finds out by invoice.
  *
- * One campaign, one ad set, one creative, then read the result back. The Lot
- * Walk aging buckets pick the inventory, the dealer's Page carries the
- * creative, and everything lands PAUSED.
+ * THE SHAPE, SINCE SEP 2026: **one campaign per lot, one ad set per shelf, one
+ * ad per saved copy row.** On screen the ad set is called a *group* — "campaign"
+ * and "ad set" are Meta's words and a dealer does not need either; what they
+ * pick is a shelf, a budget, a radius and the words on each ad. The campaign
+ * itself is invisible to them and exists because Meta needs a parent.
  *
- * **It deliberately stops before creating an Ad object.** That is not an
- * oversight and it costs nothing in App Review — see the note at the end of
- * `createDemoCampaign`, which explains both why Meta will not let us and why the
- * ad is not needed.
+ * Before this the code built one campaign per shelf, each with a single ad set,
+ * and copy was stored per lot so every shelf ran identical ads. Campaigns from
+ * that era carry a `— <shelf> inventory` suffix and are listed as *legacy* by
+ * `listLotGroups` so an operator can stop them; nothing here builds one.
+ *
+ * The Lot Walk aging buckets pick the inventory, the dealer's Page carries the
+ * creative, and everything lands PAUSED.
  *
  * THINGS LEARNED THE HARD WAY, PRESERVED HERE
  *
@@ -229,8 +234,8 @@ export type CampaignObjective = (typeof OBJECTIVES)[number];
  *      cannot enable ad set budget sharing without bid strategy." We do not set
  *      one, so `true` would trade this 400 for a different 400.
  *   3. `true` requires a uniform spec across the campaign's ad sets — error
- *      4834009 — which is a constraint with no upside on a campaign that has
- *      exactly one ad set.
+ *      4834009 — and the groups in one lot's campaign deliberately differ in
+ *      budget and radius.
  *
  * WHY THE STRING AND NOT THE BOOLEAN: `graph.ts` form-encodes params through
  * `String(v)`, so a boolean `false` would arrive as `"false"` and work today.
@@ -485,7 +490,8 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
           special_ad_category_country: JSON.stringify([specialAdCategoryCountry]),
         };
 
-  const campaignName = `Rooftop — ${dealerName} — ${bucket.label} inventory`.slice(0, 100);
+  // One per lot, shared by every group. See `lotCampaignName`.
+  const campaignName = lotCampaignName(dealerName);
 
   let campaignId = '';
   let objectiveUsed: string = OBJECTIVES[0];
@@ -620,7 +626,7 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    *
    * The fallback is deliberately loud rather than clever: `countries: ['US']`
    * on a used-car lot is a mistake a dealer would notice only after paying for
-   * it, so `createDemoCampaignAction` refuses to build until the coordinates
+   * it, so `buildCampaignForRooftop` refuses to build until the coordinates
    * exist. This branch stays because the type allows null and a silent
    * nationwide campaign is the one outcome worth being paranoid about.
    */
@@ -650,7 +656,13 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     ...(instagramId ? { instagram_positions: ['stream'] } : {}),
   };
 
-  const adSetName = `${bucket.label} — prospecting`;
+  /*
+   * THE AD SET IS THE GROUP, AND ITS NAME IS THE SHELF. `listLotGroups` maps
+   * it back to a `BucketKey` by matching the label exactly, so this string is
+   * a contract, not a display choice — change it and every existing group
+   * stops being recognised as ours.
+   */
+  const adSetName = groupNameFor(bucket);
 
   // Scoped to this campaign's own edge rather than the account's, so the name
   // only has to be unique within the campaign — which it is by construction.
@@ -775,18 +787,17 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
    * problem than an unresettable demo.
    */
   /*
-   * ONE CREATIVE AND ONE AD PER COPY VARIANT, ALL IN THE SAME AD SET.
+   * ONE CREATIVE AND ONE AD PER COPY ROW, ALL IN THIS ONE AD SET.
    *
-   * This loop replaced a single hardcoded creative in Sep 2026. The shape is
-   * the answer to "does each new ad need its own campaign": no, and it should
-   * not have one. Meta's optimisation and its learning phase live at the AD
-   * SET. Several ads inside one share that learning and delivery moves toward
-   * whichever is winning; several campaigns each start from nothing and split
-   * the budget between them. Creative testing therefore goes inside, which is
-   * why `metaAdCopy` is a table of rows per lot rather than four columns.
+   * Meta's optimisation and its learning phase live at the AD SET. Several ads
+   * inside one share that learning and delivery moves toward whichever is
+   * winning; several ad sets each start from nothing and split the budget.
+   * Creative testing therefore goes inside the group, and each row of
+   * `metaAdCopy` for this shelf is one ad here — edited one at a time, the way
+   * Ads Manager does it.
    *
-   * A lot with no saved copy gets one entry — the hardcoded default — so
-   * nothing about an existing dealer's ads changes until they edit something.
+   * A group with no saved copy gets one entry — the hardcoded default — so a
+   * build from the ops screen, where nobody wrote copy, still produces an ad.
    */
   const copies = input.adCopies?.length
     ? input.adCopies
@@ -796,8 +807,17 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
   let adCannotRun: string | null = null;
   let lastCreativeId = '';
 
+  /*
+   * Read once, up front. Every ad in the set, live or not, so the loop can
+   * adopt by name and the sweep afterwards can see what it did NOT build.
+   */
+  const existingAds = await graphEdge<{ id: string; name?: string; status?: string }>(
+    `/${adSet.id}/ads`,
+    { token, fields: 'id,name,status', maxPages: 2 },
+  );
+
   for (const copy of copies) {
-    const creativeName = `Rooftop — ${dealerName} — ${copy.name}`.slice(0, 100);
+    const creativeName = `Rooftop — ${dealerName} — ${bucket.label} — ${copy.name}`.slice(0, 100);
 
     const creative = await graph<{ id: string }>(`${act}/adcreatives`, {
       method: 'POST',
@@ -830,14 +850,15 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
       },
     });
 
-    const adName = `${bucket.label} — ${copy.name}`.slice(0, 100);
-
-    const priorAd = await findLiveByName<{ id: string; name?: string; status?: string }>(
-      `/${adSet.id}/ads`,
-      token,
-      'id,name,status',
-      adName,
-    );
+    /*
+     * The ad carries the dealer's own name for it, nothing else — the ad set
+     * already says which shelf, and Ads Manager shows both columns. It is also
+     * the adoption key: rename a row on screen and the next build makes a new
+     * ad under the new name, and the sweep below pauses the one under the old
+     * name so a renamed ad does not keep running its old words.
+     */
+    const adName = copy.name.slice(0, 100);
+    const priorAd = existingAds.find((a) => a.name === adName && !DEAD_STATUSES.has(a.status ?? '')) ?? null;
 
     try {
       if (priorAd) {
@@ -864,7 +885,14 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
             name: adName,
             adset_id: adSet.id,
             creative: JSON.stringify({ creative_id: creative.id }),
-            status: 'PAUSED',
+            /*
+             * PAUSED — with one exception. An ad added to a group that is
+             * already running joins it running: the dealer pressed Start on
+             * the group, and "add another ad" should not silently produce one
+             * that never delivers. A new group is always PAUSED, so the
+             * never-spends-on-build guarantee holds where it matters.
+             */
+            status: priorAdSet?.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
           },
         });
         ads.push({ id: ad.id, name: adName });
@@ -907,6 +935,30 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
     }
 
     lastCreativeId = creative.id;
+  }
+
+  /*
+   * THE SWEEP. Anything live in this ad set that this build did not just touch
+   * is an ad whose row was renamed or turned off on screen. It is paused, not
+   * deleted: the row keeps its numbers, and Meta keeps reporting against the
+   * ad. Without this, "Turn off" would change the database and nothing else,
+   * and a renamed ad would run twice under two names.
+   */
+  const built = new Set(ads.map((a) => a.id));
+  for (const stray of existingAds) {
+    if (built.has(stray.id) || DEAD_STATUSES.has(stray.status ?? '') || stray.status === 'PAUSED') continue;
+    try {
+      await graph<{ success?: boolean }>(`/${stray.id}`, {
+        method: 'POST',
+        token,
+        params: { status: 'PAUSED' },
+      });
+    } catch (err) {
+      console.warn(
+        '[meta] could not pause stray ad ' +
+          JSON.stringify({ adId: stray.id, name: stray.name, code: err instanceof MetaApiError ? err.code : null }),
+      );
+    }
   }
 
   return {
@@ -976,192 +1028,299 @@ function classifyCampaignCreateFault(err: unknown): CampaignCreateFault {
   return `${err.message}`.toLowerCase().includes('objective') ? 'objective' : 'parameter';
 }
 
-/* ------------------------------------------------- reading the lot's ads */
+/* ---------------------------------------------------- names, as contracts */
 
 /**
- * The campaigns Rooftop built for one lot, with their live status and spend.
- *
- * Matched by NAME PREFIX, not by a stored id, and that is a deliberate trade.
- * We have never persisted a campaign id — `createDemoCampaign` adopts by name on
- * every run precisely because there was nothing to look one up from. Reading by
- * the same convention keeps one source of truth instead of two that can
- * disagree, and it means a campaign the dealer renamed in Ads Manager drops off
- * this list rather than showing stale numbers under a name that no longer
- * exists. If campaign ids ever get stored, read from those and delete this.
- *
- * Cost is 1 + 2N calls, so it is capped. An operator screen listing every
- * dealer must NOT call this per row — see `claude/meta-onboarding-matrix.md` §4
- * on app-level rate limits, which are billed app-wide rather than per account.
- * One dealer at a time is what this is for.
+ * The one campaign a lot gets. Everything Rooftop runs for the lot lives under
+ * it, one ad set per shelf. Matched by EXACT name, so a campaign the dealer
+ * renamed in Ads Manager is one they have taken over and we leave alone.
  */
-export type LotCampaign = {
-  id: string;
-  name: string;
-  status: string;
-  /** What Meta says is actually happening, which is not always `status`. */
-  effectiveStatus: string;
-  objective: string;
-  createdTime: string | null;
-  dailyBudgetUsd: number | null;
-  spend: number;
-  impressions: number;
-  clicks: number;
-  /**
-   * The creative to preview, and whether there is an Ad at all.
-   *
-   * `adId` null means this campaign predates ads being created — everything
-   * built before 11 Sep 2026 is in that state — and it can never deliver
-   * whatever its status says. The screen offers Build rather than Start for it.
-   */
-  adId: string | null;
-  creativeId: string | null;
-  /**
-   * Enough to rebuild this campaign without asking the dealer to retype what
-   * they already chose. Derived from what Meta holds, not from anything we
-   * stored — we never persisted budget, radius or shelf, and reading them back
-   * is both simpler and immune to our copy drifting from the live campaign.
-   *
-   * `bucketKey` comes from the campaign NAME, which is the same convention
-   * `campaignNamePrefix` writes. Null when a dealer renamed it in Ads Manager,
-   * and a campaign we cannot place on a shelf is one we decline to rebuild.
-   */
-  bucketKey: BucketKey | null;
-  radiusMiles: number | null;
-};
+export function lotCampaignName(dealerName: string): string {
+  return `Rooftop — ${dealerName}`.slice(0, 100);
+}
 
-/** The prefix `createDemoCampaign` gives everything it builds for a lot. */
-export function campaignNamePrefix(dealerName: string): string {
+/**
+ * Pre-Sep-2026 campaigns: one per shelf, `Rooftop — <dealer> — <shelf> inventory`.
+ * Nothing builds these any more; `listLotGroups` reports them so they can be
+ * stopped and deleted, and `setCampaignRunning` can still stop one.
+ */
+export function legacyCampaignPrefix(dealerName: string): string {
   return `Rooftop — ${dealerName} — `;
 }
 
-export async function listLotCampaigns(
+/** The ad set's name is the shelf label, and `listLotGroups` maps it back by equality. */
+export function groupNameFor(bucket: CampaignBucket): string {
+  return bucket.label;
+}
+
+/* ------------------------------------------------- reading the lot's ads */
+
+/** One ad inside a group, as Meta holds it. */
+export type GroupAd = {
+  id: string;
+  name: string;
+  status: string;
+  effectiveStatus: string;
+  creativeId: string | null;
+};
+
+/**
+ * A group: one ad set under the lot's campaign, with its live status, spend,
+ * and the ads inside it.
+ *
+ * Nothing here is stored on our side. Budget, radius and shelf are read back
+ * from what Meta holds, which is both simpler and immune to our copy drifting
+ * from the live object. `bucketKey` comes from the ad set NAME, the same
+ * convention `groupNameFor` writes; null means somebody renamed it by hand and
+ * it is no longer a shelf we can rebuild.
+ */
+export type LotGroup = {
+  /** The ad set id. This is what start/stop and rebuild are keyed on. */
+  id: string;
+  campaignId: string;
+  name: string;
+  bucketKey: BucketKey | null;
+  status: string;
+  /** What Meta says is actually happening, which is not always `status`. */
+  effectiveStatus: string;
+  createdTime: string | null;
+  dailyBudgetUsd: number | null;
+  radiusMiles: number | null;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ads: GroupAd[];
+};
+
+/** A campaign from the one-per-shelf era. Listed so it can be stopped; never rebuilt. */
+export type LegacyCampaign = {
+  id: string;
+  name: string;
+  effectiveStatus: string;
+  spend: number;
+};
+
+export type LotGroups = {
+  /** Null until the first group is built. */
+  campaignId: string | null;
+  groups: LotGroup[];
+  legacy: LegacyCampaign[];
+};
+
+/**
+ * Everything Rooftop runs for one lot.
+ *
+ * Cost is 2 + 2N calls (campaign list, ad set list, then insights and ads per
+ * group), so it is capped. An operator screen listing every dealer must NOT
+ * call this per row — see `claude/meta-onboarding-matrix.md` §4 on app-level
+ * rate limits, which are billed app-wide rather than per account. One dealer
+ * at a time is what this is for.
+ */
+export async function listLotGroups(
   token: string,
   adAccountId: string,
   dealerName: string,
   max = 8,
-): Promise<LotCampaign[]> {
+): Promise<LotGroups> {
   const act = actPath(adAccountId);
-  const prefix = campaignNamePrefix(dealerName);
+  const wanted = lotCampaignName(dealerName);
+  const legacyPrefix = legacyCampaignPrefix(dealerName);
 
-  const rows = await graphEdge<{
+  const campaigns = await graphEdge<{
     id: string;
     name?: string;
     status?: string;
     effective_status?: string;
-    objective?: string;
-    created_time?: string;
   }>(`${act}/campaigns`, {
     token,
-    fields: 'id,name,status,effective_status,objective,created_time',
+    fields: 'id,name,status,effective_status',
     maxPages: 2,
   });
 
-  const mine = rows
-    .filter((r) => (r.name ?? '').startsWith(prefix) && !DEAD_STATUSES.has(r.status ?? ''))
-    .slice(0, max);
+  const live = campaigns.filter((c) => !DEAD_STATUSES.has(c.status ?? ''));
+  const mine = live.find((c) => c.name === wanted) ?? null;
 
-  return Promise.all(
-    mine.map(async (c) => {
-      /*
-       * Budget lives on the ad set, not the campaign — see the long note in
-       * `createDemoCampaign` about why we do not use campaign budget
-       * optimisation. So it has to be read from the child, and a campaign whose
-       * ad sets were deleted in Ads Manager legitimately has none.
-       */
-      const [adSets, insights, ads] = await Promise.all([
-        graphEdge<{ daily_budget?: string; targeting?: { geo_locations?: { custom_locations?: { radius?: number }[] } } }>(
-          `/${c.id}/adsets`,
-          { token, fields: 'daily_budget,targeting', maxPages: 1 },
-        ).catch(
-          () =>
-            [] as {
-              daily_budget?: string;
-              targeting?: { geo_locations?: { custom_locations?: { radius?: number }[] } };
-            }[],
-        ),
-        graphEdge<InsightsRow>(`/${c.id}/insights`, {
+  /*
+   * Legacy campaigns get one insights call each and nothing more. They are on
+   * the way out; the number that matters is whether one is still spending.
+   */
+  const legacy: LegacyCampaign[] = await Promise.all(
+    live
+      .filter((c) => (c.name ?? '').startsWith(legacyPrefix))
+      .slice(0, max)
+      .map(async (c) => {
+        const rows = await graphEdge<InsightsRow>(`/${c.id}/insights`, {
           token,
-          fields: 'spend,impressions,clicks',
+          fields: 'spend',
           params: { date_preset: 'maximum' },
           maxPages: 1,
-        }).catch(() => [] as InsightsRow[]),
-        /*
-         * The campaign's ads edge rather than walking adsets: one call, and it
-         * carries the creative id the preview needs. A campaign with no live ad
-         * here is one that cannot deliver, which is worth knowing on the screen
-         * rather than after someone presses Start and nothing happens.
-         */
-        graphEdge<{ id: string; status?: string; creative?: { id?: string } }>(`/${c.id}/ads`, {
-          token,
-          fields: 'id,status,creative{id}',
-          maxPages: 1,
-        }).catch(() => [] as { id: string; status?: string; creative?: { id?: string } }[]),
-      ]);
-
-      const minor = adSets.find((a) => a.daily_budget)?.daily_budget;
-      const row = insights[0];
-      const liveAd = ads.find((a) => !DEAD_STATUSES.has(a.status ?? ''));
-      const radius = adSets
-        .map((a) => a.targeting?.geo_locations?.custom_locations?.[0]?.radius)
-        .find((r) => typeof r === 'number');
-
-      /*
-       * `${bucket.label} inventory` is the tail of every name this file writes.
-       * Matching on it rather than storing a key keeps one source of truth, at
-       * the cost of losing the link if somebody renames the campaign by hand —
-       * which is the correct thing to lose, since a renamed campaign is one the
-       * dealer has taken over.
-       */
-      const tail = (c.name ?? '').slice(prefix.length);
-      const bucket = CAMPAIGN_BUCKETS.find((b) => tail.startsWith(b.label));
-
-      return {
-        id: c.id,
-        name: c.name ?? c.id,
-        status: c.status ?? 'UNKNOWN',
-        effectiveStatus: c.effective_status ?? c.status ?? 'UNKNOWN',
-        objective: c.objective ?? '',
-        createdTime: c.created_time ?? null,
-        dailyBudgetUsd: minor ? Number(minor) / 100 : null,
-        spend: Number(row?.spend ?? 0),
-        impressions: Number(row?.impressions ?? 0),
-        clicks: Number(row?.clicks ?? 0),
-        adId: liveAd?.id ?? null,
-        creativeId: liveAd?.creative?.id ?? null,
-        bucketKey: bucket?.key ?? null,
-        radiusMiles: radius ?? null,
-      };
-    }),
+        }).catch(() => [] as InsightsRow[]);
+        return {
+          id: c.id,
+          name: c.name ?? c.id,
+          effectiveStatus: c.effective_status ?? c.status ?? 'UNKNOWN',
+          spend: Number(rows[0]?.spend ?? 0),
+        };
+      }),
   );
+
+  if (!mine) return { campaignId: null, groups: [], legacy };
+
+  type AdSetRow = {
+    id: string;
+    name?: string;
+    status?: string;
+    effective_status?: string;
+    created_time?: string;
+    daily_budget?: string;
+    targeting?: { geo_locations?: { custom_locations?: { radius?: number }[] } };
+  };
+
+  const adSets = await graphEdge<AdSetRow>(`/${mine.id}/adsets`, {
+    token,
+    fields: 'id,name,status,effective_status,created_time,daily_budget,targeting',
+    maxPages: 1,
+  });
+
+  const groups = await Promise.all(
+    adSets
+      .filter((s) => !DEAD_STATUSES.has(s.status ?? ''))
+      .slice(0, max)
+      .map(async (s): Promise<LotGroup> => {
+        const [insights, ads] = await Promise.all([
+          graphEdge<InsightsRow>(`/${s.id}/insights`, {
+            token,
+            fields: 'spend,impressions,clicks',
+            params: { date_preset: 'maximum' },
+            maxPages: 1,
+          }).catch(() => [] as InsightsRow[]),
+          graphEdge<{
+            id: string;
+            name?: string;
+            status?: string;
+            effective_status?: string;
+            creative?: { id?: string };
+          }>(`/${s.id}/ads`, {
+            token,
+            fields: 'id,name,status,effective_status,creative{id}',
+            maxPages: 1,
+          }).catch(() => []),
+        ]);
+
+        const row = insights[0];
+        const bucket = CAMPAIGN_BUCKETS.find((b) => groupNameFor(b) === s.name);
+
+        return {
+          id: s.id,
+          campaignId: mine.id,
+          name: s.name ?? s.id,
+          bucketKey: bucket?.key ?? null,
+          status: s.status ?? 'UNKNOWN',
+          effectiveStatus: s.effective_status ?? s.status ?? 'UNKNOWN',
+          createdTime: s.created_time ?? null,
+          dailyBudgetUsd: s.daily_budget ? Number(s.daily_budget) / 100 : null,
+          radiusMiles: s.targeting?.geo_locations?.custom_locations?.[0]?.radius ?? null,
+          spend: Number(row?.spend ?? 0),
+          impressions: Number(row?.impressions ?? 0),
+          clicks: Number(row?.clicks ?? 0),
+          ads: ads
+            .filter((a) => !DEAD_STATUSES.has(a.status ?? ''))
+            .map((a) => ({
+              id: a.id,
+              name: a.name ?? a.id,
+              status: a.status ?? 'UNKNOWN',
+              effectiveStatus: a.effective_status ?? a.status ?? 'UNKNOWN',
+              creativeId: a.creative?.id ?? null,
+            })),
+        };
+      }),
+  );
+
+  return { campaignId: mine.id, groups, legacy };
 }
 
 /* --------------------------------------------------------- start and stop */
 
 /**
- * Turn one campaign on or off.
+ * Turn one group on or off.
  *
- * WALKS THE WHOLE TREE, AND HAS TO.
+ * WALKS ITS OWN SUBTREE, AND THE PARENT ON THE WAY UP.
  *
- * Meta's effective status is the *least* permissive status in the chain, so a
- * campaign set ACTIVE over a PAUSED ad set over a PAUSED ad still delivers
- * nothing — and every object this file builds is created PAUSED, so that is the
- * state of every campaign the first time somebody presses Start. Setting only
- * the campaign would report success and change nothing a dealer could see,
- * which is the worst available outcome for a button whose entire job is "is it
- * running or not".
+ * Meta's effective status is the *least* permissive status in the chain, so an
+ * ACTIVE ad set under a PAUSED campaign, or over PAUSED ads, delivers nothing —
+ * and every object this file builds is created PAUSED, so that is the state of
+ * every group the first time somebody presses Start. Setting only the ad set
+ * would report success and change nothing a dealer could see.
  *
- * Stopping walks the tree too. Pausing only the campaign is what Ads Manager
- * does and it is enough to halt delivery — but it leaves the children ACTIVE,
- * so the next Start would appear to work on a tree whose real state nobody can
- * read off one field. Symmetry is cheaper than that ambiguity.
- *
- * A campaign with no Ad cannot run whatever this does. Callers check `adId`
- * first; `missingAd` is the backstop for a campaign built before ads existed.
+ * Starting: ads, then the ad set, then the campaign — so nothing goes ACTIVE
+ * over a child that is still paused. Stopping: the ad set first, so delivery
+ * halts on the first call, then its ads. **The campaign is left alone on
+ * stop**: it is shared by every group on the lot, and pausing it would stop
+ * groups the dealer did not touch. A campaign that is ACTIVE with every ad set
+ * paused spends nothing.
  */
 export type RunOutcome =
   | { ok: true; running: boolean; adsTouched: number }
   | { ok: false; error: string; needsPayment?: boolean; missingAd?: boolean };
 
+export async function setGroupRunning(
+  token: string,
+  campaignId: string,
+  adSetId: string,
+  running: boolean,
+): Promise<RunOutcome> {
+  const status = running ? 'ACTIVE' : 'PAUSED';
+
+  try {
+    const found = await graphEdge<{ id: string; status?: string }>(`/${adSetId}/ads`, {
+      token,
+      fields: 'id,status',
+      maxPages: 2,
+    });
+    const ads = found.filter((a) => !DEAD_STATUSES.has(a.status ?? ''));
+
+    if (running && ads.length === 0) {
+      return {
+        ok: false,
+        missingAd: true,
+        error: 'This group has no ad in it yet, so it cannot run. Save an ad and press Update on Facebook, then start it.',
+      };
+    }
+
+    const setStatus = (path: string) =>
+      graph<{ success?: boolean }>(path, { method: 'POST', token, params: { status } });
+
+    if (running) {
+      for (const ad of ads) await setStatus(`/${ad.id}`);
+      await setStatus(`/${adSetId}`);
+      await setStatus(`/${campaignId}`);
+    } else {
+      await setStatus(`/${adSetId}`);
+      for (const ad of ads) await setStatus(`/${ad.id}`);
+    }
+
+    return { ok: true, running, adsTouched: ads.length };
+  } catch (err) {
+    if (err instanceof MetaApiError) {
+      return {
+        ok: false,
+        needsPayment: err.subcode === AD_NEEDS_PAYMENT,
+        error:
+          err.subcode === AD_NEEDS_PAYMENT
+            ? 'Facebook needs a payment method on this ad account before ads can run. Add a card ' +
+              'in their billing settings and try again.'
+            : err.dealerMessage,
+      };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Turn a whole campaign on or off. Kept for LEGACY campaigns only — the
+ * one-per-shelf kind — so an operator can stop one from the ops screen while
+ * it is being replaced by a group. Nothing on the dealer's screen calls this.
+ */
 export async function setCampaignRunning(
   token: string,
   campaignId: string,
@@ -1187,22 +1346,9 @@ export async function setCampaignRunning(
     }
 
     if (running && ads.length === 0) {
-      return {
-        ok: false,
-        missingAd: true,
-        error:
-          'This campaign has no ad in it yet, so it cannot run. Press Build again to finish it, ' +
-          'then start it.',
-      };
+      return { ok: false, missingAd: true, error: 'This campaign has no ad in it, so it cannot run.' };
     }
 
-    /*
-     * Order matters on the way up and on the way down. Starting: ad, then ad
-     * set, then campaign — so the campaign never goes ACTIVE over a child that
-     * is still paused, which would read as running while delivering nothing.
-     * Stopping: campaign first, so delivery halts on the first call rather than
-     * after a walk that might fail halfway.
-     */
     const setStatus = (path: string) =>
       graph<{ success?: boolean }>(path, { method: 'POST', token, params: { status } });
 
@@ -1218,17 +1364,7 @@ export async function setCampaignRunning(
 
     return { ok: true, running, adsTouched: ads.length };
   } catch (err) {
-    if (err instanceof MetaApiError) {
-      return {
-        ok: false,
-        needsPayment: err.subcode === AD_NEEDS_PAYMENT,
-        error:
-          err.subcode === AD_NEEDS_PAYMENT
-            ? 'Facebook needs a payment method on this ad account before ads can run. Add a card ' +
-              'in their billing settings and try again.'
-            : err.dealerMessage,
-      };
-    }
+    if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
     throw err;
   }
 }

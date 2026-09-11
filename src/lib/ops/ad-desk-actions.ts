@@ -33,7 +33,8 @@ import { requireStaff } from '@/lib/ops/guard';
 import { opsRooftopInGroup } from '@/lib/ops/ad-desk-queries';
 import {
   buildCampaignForRooftop,
-  runCampaignForRooftop,
+  runGroupForRooftop,
+  runLegacyCampaignForRooftop,
   validateCampaignInput,
 } from '@/lib/meta/campaign-build';
 import type { DemoCampaignResult } from '@/lib/meta/campaigns';
@@ -68,7 +69,7 @@ export async function opsBuildCampaignAction(
    * if the build then throws.
    */
   console.info(
-    '[ops] campaign build ' +
+    '[ops] group build ' +
       JSON.stringify({ by: me.email, groupId, rooftopId, bucket, dailyBudgetUsd, radiusMiles }),
   );
 
@@ -91,12 +92,12 @@ export async function opsBuildCampaignAction(
 }
 
 /**
- * Start or stop a dealer's campaign on their behalf.
+ * Start or stop one of a dealer's groups on their behalf.
  *
  * Logged before the call, like the build, and for a stronger reason: this one
  * begins or ends live spending on somebody else's card.
  */
-export async function opsSetCampaignRunningAction(
+export async function opsSetGroupRunningAction(
   _prev: unknown,
   formData: FormData,
 ): Promise<OpsActionResult<{ running: boolean }>> {
@@ -104,20 +105,20 @@ export async function opsSetCampaignRunningAction(
 
   const groupId = String(formData.get('groupId') ?? '');
   const rooftopId = String(formData.get('rooftopId') ?? '');
-  const campaignId = String(formData.get('campaignId') ?? '').trim();
+  const adSetId = String(formData.get('adSetId') ?? '').trim();
   const running = String(formData.get('running') ?? '') === 'true';
 
   const rooftop = await opsRooftopInGroup(groupId, rooftopId);
   if (!rooftop) return { ok: false, error: 'That lot was not found in that dealer group.' };
 
   console.info(
-    '[ops] campaign ' +
+    '[ops] group ' +
       (running ? 'START' : 'STOP') +
       ' ' +
-      JSON.stringify({ by: me.email, groupId, rooftopId, campaignId }),
+      JSON.stringify({ by: me.email, groupId, rooftopId, adSetId }),
   );
 
-  const outcome = await runCampaignForRooftop({ groupId, rooftop, campaignId, running });
+  const outcome = await runGroupForRooftop({ groupId, rooftop, adSetId, running });
   if (!outcome.ok) return { ok: false, error: outcome.error };
 
   revalidatePath('/ops/ad-desk');
@@ -128,4 +129,33 @@ export async function opsSetCampaignRunningAction(
     data: { running },
     message: running ? 'Started. This is now spending.' : 'Stopped.',
   };
+}
+
+/**
+ * Stop a LEGACY campaign — one built before groups existed, one campaign per
+ * shelf. Stop only: nothing should ever start one of these again. Once it is
+ * stopped, delete it in Ads Manager.
+ */
+export async function opsStopLegacyCampaignAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<OpsActionResult<{ running: boolean }>> {
+  const me = await requireStaff();
+
+  const groupId = String(formData.get('groupId') ?? '');
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const campaignId = String(formData.get('campaignId') ?? '').trim();
+
+  const rooftop = await opsRooftopInGroup(groupId, rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found in that dealer group.' };
+
+  console.info('[ops] legacy campaign STOP ' + JSON.stringify({ by: me.email, groupId, rooftopId, campaignId }));
+
+  const outcome = await runLegacyCampaignForRooftop({ groupId, rooftop, campaignId, running: false });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+
+  revalidatePath('/ops/ad-desk');
+  revalidatePath(`/ops/accounts/${groupId}`);
+  revalidatePath('/admin/ad-desk');
+  return { ok: true, data: { running: false }, message: 'Stopped. Delete it in Ads Manager when you are ready.' };
 }

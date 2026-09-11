@@ -19,13 +19,13 @@ import { requireGroupId } from '@/lib/auth';
 import { getRooftops } from '@/lib/queries';
 import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
 import { RooftopPanel, type AssetOption, type RooftopRow } from '@/components/ad-desk-panels';
-import { CampaignDemoPanel, CampaignListPanel, FeedHealthPanel } from '@/components/ad-desk-demo';
+import { FeedHealthPanel } from '@/components/ad-desk-demo';
 import { disconnectMetaForm, startMetaConnect } from '@/lib/meta/actions';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
-import { listLotCampaigns, type LotCampaign } from '@/lib/meta/campaigns';
+import { listLotGroups, type LotGroups } from '@/lib/meta/campaigns';
 import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
 import { defaultAdCopy } from '@/lib/meta/ad-copy-spec';
-import { AdCopyPanel, type AdCopyRow } from '@/components/ad-copy-panel';
+import { AdGroupsPanel, type AdCopyRow } from '@/components/ad-groups-panel';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
 import { previewFeed, type FeedPreview } from '@/lib/meta/feed-preview';
 import { requireSection } from '@/lib/auth-guard';
@@ -121,22 +121,21 @@ export default async function AdDeskPage({
   /*
    * What is actually running, read from Facebook.
    *
-   * A dealer can have several campaigns on one lot — one shelf each — so the
-   * build form is no longer the whole story and a result block from the last
-   * press is not a status screen. This is: every Rooftop campaign on the lot,
-   * with its real status, its budget and what it has spent.
+   * A lot has one campaign and a group (ad set) per shelf, so the build form is
+   * not the whole story and a result block from the last press is not a status
+   * screen. This is: every group on the lot, with its real status, its budget,
+   * what it has spent, and the ads inside it.
    *
-   * Costs 1 + 2N calls per lot. Affordable here because it is one dealer's own
+   * Costs 2 + 2N calls per lot. Affordable here because it is one dealer's own
    * account, which is exactly the distinction `src/lib/ops/ad-desk-queries.ts`
    * draws: the all-dealer roll-up must never do this, a dealer's own screen
    * should. Failures are swallowed per lot — Facebook being slow is not a
    * reason to take the setup half of the page down with it.
    */
   /*
-   * Saved ad copy per lot. A database read, not a Meta one — the words belong to
-   * the dealer and Facebook only ever receives a copy of them at build time.
-   * Empty means the lot has never opened the editor, and the panel pre-fills
-   * with the same default the build falls back to.
+   * Saved ads per lot, every group. A database read, not a Meta one — the words
+   * belong to the dealer and Facebook only ever receives a copy of them at
+   * build time. The panel splits them by group.
    */
   const copyByRooftop = new Map<string, AdCopyRow[]>();
   if (connected) {
@@ -147,6 +146,7 @@ export default async function AdDeskPage({
         provisioned[i]!.id,
         rows.map((r) => ({
           id: r.id,
+          bucket: r.bucket,
           name: r.name,
           message: r.message,
           headline: r.headline,
@@ -158,7 +158,8 @@ export default async function AdDeskPage({
     });
   }
 
-  const campaignsByRooftop = new Map<string, LotCampaign[]>();
+  const groupsByRooftop = new Map<string, LotGroups>();
+  const groupsFailed = new Set<string>();
   if (connected) {
     const conn = await tokenFor(groupId);
     const withAccount = rooftops.filter((r) => byRooftop.get(r.id)?.adAccountId);
@@ -166,13 +167,14 @@ export default async function AdDeskPage({
       await Promise.all(
         withAccount.map(async (r) => {
           try {
-            campaignsByRooftop.set(
+            groupsByRooftop.set(
               r.id,
-              await listLotCampaigns(conn.token, byRooftop.get(r.id)!.adAccountId!, r.name),
+              await listLotGroups(conn.token, byRooftop.get(r.id)!.adAccountId!, r.name),
             );
           } catch {
-            // Leave the lot out of the map; the panel renders nothing rather
-            // than an error the dealer cannot act on.
+            // The panel says Facebook could not be read rather than showing an
+            // empty list that looks like "nothing is running".
+            groupsFailed.add(r.id);
           }
         }),
       );
@@ -383,39 +385,14 @@ export default async function AdDeskPage({
                   />
                 ) : null}
                 {a?.catalogId ? (
-                  <AdCopyPanel
+                  <AdGroupsPanel
                     rooftopId={r.id}
-                    rows={copyByRooftop.get(r.id) ?? []}
+                    ready={blocker === null}
+                    blocker={blocker}
+                    groups={groupsByRooftop.get(r.id)?.groups ?? []}
+                    groupsUnavailable={groupsFailed.has(r.id)}
+                    copy={copyByRooftop.get(r.id) ?? []}
                     fallback={defaultAdCopy(r.name)}
-                    hasCampaigns={Boolean(campaignsByRooftop.get(r.id)?.length)}
-                  />
-                ) : null}
-                {campaignsByRooftop.get(r.id)?.length ? (
-                  <CampaignListPanel
-                    rooftopId={r.id}
-                    campaigns={campaignsByRooftop.get(r.id)!}
-                  />
-                ) : null}
-                {a?.catalogId ? (
-                  <CampaignDemoPanel
-                    row={{ rooftopId: r.id, name: r.name, ready: blocker === null, blocker }}
-                    /* Active variants only, falling back to the same default the
-                       build itself falls back to — so the panel cannot promise
-                       words the build will not send. */
-                    copies={(() => {
-                      const active = (copyByRooftop.get(r.id) ?? []).filter((c) => c.active);
-                      return active.length
-                        ? active.map((c) => ({
-                            name: c.name,
-                            message: c.message,
-                            headline: c.headline,
-                          }))
-                        : [defaultAdCopy(r.name)].map((c) => ({
-                            name: c.name,
-                            message: c.message,
-                            headline: c.headline,
-                          }));
-                    })()}
                   />
                 ) : null}
               </div>
