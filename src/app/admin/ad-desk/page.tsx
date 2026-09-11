@@ -114,11 +114,51 @@ export default async function AdDeskPage({
     });
   }
 
-  /** Why a lot cannot run the campaign demo yet, in the order it has to be fixed. */
+  /*
+   * What Facebook is holding in each catalog we have an id for.
+   *
+   * `discoverAssets` already fetches `product_count` on every render — it is in
+   * the `fields` list on both catalog edges — and this page used to drop it on
+   * the floor while rendering a green "Catalog live" badge from two database
+   * booleans. Reading it here costs nothing and is the difference between a
+   * dealer being told their catalog is live and being told Facebook is holding
+   * zero vehicles.
+   *
+   * A catalog id we hold that is NOT in this map is the worse case: the stored
+   * id exists but discovery could not see it, which is the signature of a
+   * catalog the system user can name but not read.
+   */
+  const metaCatalogCounts = new Map<string, number | null>(
+    [...(discovery?.vehicleCatalogs ?? []), ...(discovery?.otherCatalogs ?? [])].map((c) => [
+      c.id,
+      typeof c.product_count === 'number' ? c.product_count : null,
+    ]),
+  );
+  const discoveryOk = Boolean(discovery) && !discovery?.blocked.catalogs;
+
+  /** Why a lot cannot build a campaign yet, in the order it has to be fixed. */
   const demoBlocker = (a: (typeof assetRows)[number] | undefined): string | null => {
     if (!a?.catalogId) return 'Set this lot up above first — the campaign needs a vehicles catalog.';
     if (!a.adAccountId) return 'Pick an ad account for this lot above. A campaign has to live in one.';
     if (!a.pageId) return 'Pick this lot’s Facebook Page above. The ad runs from it.';
+    /*
+     * The gate that should have existed from the start. Building against a
+     * catalog Facebook holds nothing in fails with subcode 1798130 — a refusal
+     * whose old copy blamed the feed and sent a real dealer hunting. Where we
+     * already know the count is zero, do not offer the button at all.
+     *
+     * Only when we actually know. A failed discovery leaves the button up,
+     * because refusing to let a dealer try on the strength of a call WE could
+     * not make is worse than letting Meta refuse it.
+     */
+    if (discoveryOk && a.catalogId) {
+      if (!metaCatalogCounts.has(a.catalogId)) {
+        return 'Rooftop cannot read this lot’s catalog on Facebook. Contact us — it needs re-granting.';
+      }
+      if (metaCatalogCounts.get(a.catalogId) === 0) {
+        return 'Facebook is holding 0 vehicles from this catalog, so there is nothing to advertise yet. See the catalog status above.';
+      }
+    }
     return null;
   };
 
@@ -250,13 +290,23 @@ export default async function AdDeskPage({
               feedOk: Boolean(a?.productFeedId),
               pixelId: a?.pixelId ?? null,
               errorMessage: a?.errorMessage ?? null,
+              metaProductCount: a?.catalogId ? (metaCatalogCounts.get(a.catalogId) ?? null) : null,
+              metaSawCatalog: a?.catalogId ? metaCatalogCounts.has(a.catalogId) : false,
+              discoveryOk,
             };
             const preview = previews.get(r.id);
             const blocker = demoBlocker(a);
             return (
               <div key={r.id} className="space-y-5">
                 <RooftopPanel row={row} pages={pages} adAccounts={adAccounts} pixels={pixels} />
-                {preview ? <FeedHealthPanel preview={preview} /> : null}
+                {preview ? (
+                  <FeedHealthPanel
+                    preview={preview}
+                    metaProductCount={
+                      a?.catalogId && discoveryOk ? (metaCatalogCounts.get(a.catalogId) ?? null) : null
+                    }
+                  />
+                ) : null}
                 {a?.catalogId ? (
                   <CampaignDemoPanel
                     row={{ rooftopId: r.id, name: r.name, ready: blocker === null, blocker }}

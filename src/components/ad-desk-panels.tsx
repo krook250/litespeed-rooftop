@@ -42,6 +42,19 @@ export type RooftopRow = {
   feedOk: boolean;
   pixelId: string | null;
   errorMessage: string | null;
+  /**
+   * How many vehicles FACEBOOK is holding in this catalog, as opposed to how
+   * many we are sending. Null means we could not ask — discovery failed, or the
+   * catalog id we have stored is not in what came back.
+   *
+   * Free: `discoverAssets()` already requests `product_count` on every Ad Desk
+   * render and the page used to throw it away.
+   */
+  metaProductCount: number | null;
+  /** Whether the stored catalog id appeared in discovery at all. False = Rooftop cannot see it. */
+  metaSawCatalog: boolean;
+  /** False when the discovery call itself failed, so "we don't know" can be said as that. */
+  discoveryOk: boolean;
 };
 
 function Select({
@@ -116,22 +129,42 @@ export function RooftopPanel({
      appears only after a save round-trip — never from an unsaved selection. */
   const savedPage = row.pageId ? pages.find((p) => p.id === row.pageId) : undefined;
 
-  const live = Boolean(row.catalogId) && row.feedOk;
+  /*
+   * THE BADGE NAMES THE READ THAT JUSTIFIES IT.
+   *
+   * It used to be `Boolean(row.catalogId) && row.feedOk` — both database flags,
+   * meaning "we stored a catalog id and registered a feed". It said **Catalog
+   * live** in green over a catalog Facebook was holding zero vehicles in, next
+   * to a panel claiming 22 units were going out, next to an amber banner saying
+   * Facebook had nothing. Three true statements, one green badge, and no way
+   * for anyone to tell what was actually wrong.
+   *
+   * Now green requires Facebook to have confirmed a count. Everything else is
+   * degrees of not-knowing, and each one says which.
+   */
+  const status = !row.catalogId
+    ? ({ tone: 'neutral', label: 'Not set up' } as const)
+    : !row.discoveryOk
+      ? ({ tone: 'neutral', label: 'Last known — Facebook not reachable' } as const)
+      : !row.metaSawCatalog
+        ? ({ tone: 'red', label: 'Catalog not visible to Rooftop' } as const)
+        : !row.feedOk
+          ? ({ tone: 'amber', label: 'Feed not set' } as const)
+          : row.metaProductCount === 0
+            ? ({ tone: 'amber', label: 'Facebook holds 0 vehicles' } as const)
+            : row.metaProductCount === null
+              ? ({ tone: 'neutral', label: 'Catalog registered' } as const)
+              : ({
+                  tone: 'green',
+                  label: `Catalog live · ${row.metaProductCount} at Facebook`,
+                } as const);
 
   return (
     <Card>
       <CardHeader
         title={row.name}
         subtitle={`${row.city}, ${row.state}`}
-        action={
-          live ? (
-            <Badge tone="green">Catalog live</Badge>
-          ) : row.catalogId ? (
-            <Badge tone="amber">Feed not set</Badge>
-          ) : (
-            <Badge tone="neutral">Not set up</Badge>
-          )
-        }
+        action={<Badge tone={status.tone}>{status.label}</Badge>}
       />
 
       <form action={action} className="space-y-4 px-5 py-4">
@@ -173,11 +206,29 @@ export function RooftopPanel({
           <div className="rounded-lg bg-ink-50 px-3 py-2.5">
             <div className="text-xs font-medium text-ink-700">Vehicle catalog</div>
             {row.catalogId ? (
-              <p className="mt-1 text-[11px] text-ink-600">
-                {row.catalogSource === 'CREATED' ? 'Created by Rooftop' : 'Already in your business'} ·{' '}
-                {row.catalogName}
-                {row.feedOk ? ' · inventory feed connected' : ' · feed not connected yet'}
-              </p>
+              <>
+                <p className="mt-1 text-[11px] text-ink-600">
+                  {row.catalogSource === 'CREATED' ? 'Created by Rooftop' : 'Already in your business'} ·{' '}
+                  {row.catalogName}
+                  {row.feedOk ? ' · inventory feed connected' : ' · feed not connected yet'}
+                </p>
+                {/* The one sentence that would have ended a three-hour hunt. */}
+                {!row.discoveryOk ? null : !row.metaSawCatalog ? (
+                  <p className="mt-1 text-[11px] font-medium text-red-700">
+                    Rooftop can&apos;t read this catalog on Facebook. Contact us — it needs
+                    re-granting, and nothing will run until it is.
+                  </p>
+                ) : row.metaProductCount === 0 ? (
+                  <p className="mt-1 text-[11px] font-medium text-amber-800">
+                    Facebook is holding <strong>0</strong> vehicles from this catalog. Until that
+                    number moves, no ad can run against it.
+                  </p>
+                ) : row.metaProductCount !== null ? (
+                  <p className="mt-1 text-[11px] text-ink-600">
+                    Facebook is holding <strong>{row.metaProductCount}</strong> vehicles from it.
+                  </p>
+                ) : null}
+              </>
             ) : (
               <p className="mt-1 text-[11px] text-ink-600">
                 You don&apos;t need one. If this lot has a vehicle catalog we&apos;ll use it, and if it

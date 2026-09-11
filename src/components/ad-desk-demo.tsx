@@ -29,8 +29,26 @@ import type { FeedPreview } from '@/lib/meta/feed-preview';
 
 /* ------------------------------------------------------------ feed health */
 
-export function FeedHealthPanel({ preview }: { preview: FeedPreview }) {
+export function FeedHealthPanel({
+  preview,
+  metaProductCount,
+}: {
+  preview: FeedPreview;
+  /**
+   * What Facebook has ACCEPTED, against this panel's count of what we are
+   * SENDING. Null when we could not ask.
+   *
+   * These two numbers side by side are the entire point of the addition. This
+   * panel has always reported intent — `claude/meta-catalog-creation-blocker.md`
+   * says so outright: "'What Facebook is getting' reports intent, not
+   * acceptance. It counted 7 of 13 while Meta held zero." A dealer reading
+   * "22 of 23" reasonably concluded 22 cars were on Facebook. Nobody could see
+   * otherwise without leaving the product.
+   */
+  metaProductCount: number | null;
+}) {
   const { total, included, excluded, marketplaceHeld, reasons } = preview;
+  const mismatch = metaProductCount !== null && metaProductCount !== included;
 
   return (
     <Card>
@@ -54,6 +72,26 @@ export function FeedHealthPanel({ preview }: { preview: FeedPreview }) {
           <Tally n={marketplaceHeld} label="held off Marketplace" tone="amber" />
           <Tally n={excluded} label="not advertised" tone="red" />
         </div>
+
+        {metaProductCount !== null ? (
+          <p
+            className={`rounded-lg px-3 py-2 text-xs ${
+              metaProductCount === 0
+                ? 'bg-amber-50 text-amber-900'
+                : mismatch
+                  ? 'bg-amber-50 text-amber-900'
+                  : 'bg-emerald-50 text-emerald-800'
+            }`}
+          >
+            Rooftop is sending <strong>{included}</strong> · Facebook has accepted{' '}
+            <strong>{metaProductCount}</strong>
+            {metaProductCount === 0
+              ? '. Nothing can run until that second number moves.'
+              : mismatch
+                ? '. Facebook rejected the difference — contact us and we will read the reason back from them.'
+                : '.'}
+          </p>
+        ) : null}
 
         {reasons.length === 0 ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">

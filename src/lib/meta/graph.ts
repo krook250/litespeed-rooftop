@@ -91,18 +91,32 @@ export class MetaApiError extends Error {
 
   /** Safe to show a dealer: Meta's own wording, no ids, no token. */
   get dealerMessage(): string {
-    // Checked ahead of `kind` because 1798130 arrives as a bare `code: 100`,
-    // which classifies as `request` and would otherwise render as "Facebook
-    // could not complete that request. Try again in a moment." That is wrong
-    // twice over: nothing is broken, and trying again in a moment does nothing.
-    // Meta is refusing to build a product set against a catalog it has not
-    // filled yet, which is a waiting problem with a known end — and the dealer
-    // needs to be told to wait, not to retry.
+    /*
+     * Checked ahead of `kind` because 1798130 arrives as a bare `code: 100`,
+     * which classifies as `request` and would otherwise render as "Facebook
+     * could not complete that request. Try again in a moment." Nothing is
+     * broken and retrying does nothing, so that copy is wrong twice over.
+     *
+     * BUT THE OLD COPY HERE WAS ALSO WRONG, AND WORSE, BECAUSE IT WAS SPECIFIC.
+     * It said the catalog had not been filled yet. Meta does not say that.
+     * 1798130 is "we disallow the creation of empty product sets", and
+     * `claude/meta-catalog-creation-blocker.md` spells out the trap: "an empty
+     * catalog is only one way to get there; a shelf with no units in it is
+     * another." A lot onboarded with its whole inventory in one day has every
+     * unit at the same age, so the 46-60 day shelf is empty on a catalog
+     * holding every car. The old sentence sent a real dealer chasing a feed
+     * problem that did not exist.
+     *
+     * So this says only what the subcode actually licenses, and names both
+     * causes. The screen above it carries the number that distinguishes them —
+     * how many vehicles Facebook is holding — and once the shelf dry-run lands
+     * this message is replaced by the real answer rather than a pair of maybes.
+     */
     if (this.subcode === 1798130) {
       return (
-        'Facebook has not pulled your inventory into the catalog yet, so there is nothing ' +
-        'to build an ad against. This usually takes a few minutes after a lot is connected. ' +
-        'Nothing is wrong — try again shortly.'
+        'Facebook found no vehicles matching this shelf, so there is nothing to build an ad ' +
+        'against. Either your inventory has not reached Facebook yet, or no vehicle has been ' +
+        'on the lot for the number of days this shelf covers. The catalog status above says which.'
       );
     }
 
