@@ -47,7 +47,8 @@ export async function saveAdCopyAction(_prev: unknown, formData: FormData): Prom
   const ok = await upsertAdCopy({ rooftopId, bucket, copyId, fields });
   if (!ok) return { ok: false, error: 'That ad was not found.' };
 
-  revalidatePath('/admin/ad-desk');
+  // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
   return { ok: true, message: 'Saved. Press Update on Facebook when you want it live.' };
 }
 
@@ -86,7 +87,8 @@ export async function retireAdCopyAction(_prev: unknown, formData: FormData): Pr
     .set({ active: false, updatedAt: new Date() })
     .where(and(eq(t.metaAdCopy.id, copyId), eq(t.metaAdCopy.rooftopId, rooftopId)));
 
-  revalidatePath('/admin/ad-desk');
+  // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
   return { ok: true, message: 'Turned off. Press Update on Facebook and it stops running.' };
 }
 
@@ -108,6 +110,7 @@ export async function updateGroupAdsAction(_prev: unknown, formData: FormData): 
   const outcome = await refreshGroupForRooftop({ groupId, rooftop, bucket });
   if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  revalidatePath('/admin/ad-desk');
+  // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
   return { ok: true, message: outcome.message };
 }

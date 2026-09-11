@@ -25,7 +25,8 @@ import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
-import { buildFeed, fullWindow, type FeedPhoto, type FeedVehicle } from './feed-spec';
+import { buildFeed, fullWindow, type FeedPhoto, type FeedRow, type FeedVehicle } from './feed-spec';
+import { CAMPAIGN_BUCKETS, type BucketKey } from './buckets';
 
 export type FeedReasonGroup = {
   code: string;
@@ -48,7 +49,36 @@ export type FeedPreview = {
   /** Not sent at all. */
   excluded: number;
   reasons: FeedReasonGroup[];
+  /**
+   * How many cars each shelf holds right now.
+   *
+   * Counted off the rows Meta will actually receive, with the same two clauses
+   * `bucketFilter()` puts in the product set — available, and Marketplace-clean
+   * — so the number on the group editor is the number the ad set will target.
+   * A count computed off `vehicles` instead would be a different, friendlier,
+   * wrong number, and the dealer would find out which one was true by spending
+   * money.
+   */
+  shelfCounts: Record<BucketKey, number>;
 };
+
+/** The shelf counts, from built feed rows. Mirrors `bucketFilter()` exactly. */
+function countShelves(rows: FeedRow[]): Record<BucketKey, number> {
+  const targetable = rows.filter(
+    (r) => r.availability === 'available' && r.custom_label_1 === 'mkt_ok',
+  );
+  const out = {} as Record<BucketKey, number>;
+  for (const b of CAMPAIGN_BUCKETS) {
+    out[b.key] = targetable.filter((r) => {
+      const days = Number(r.days_on_lot);
+      if (!Number.isFinite(days)) return false;
+      if (b.min != null && days < b.min) return false;
+      if (b.max != null && days > b.max) return false;
+      return true;
+    }).length;
+  }
+  return out;
+}
 
 /**
  * The dealer's own preview, scoped to their session.
@@ -140,6 +170,7 @@ export async function previewFeedFor(
     total: built.vehicles.length,
     included: built.rows.length,
     marketplaceHeld: built.vehicles.filter((v) => v.row !== null && v.issues.length > 0).length,
+    shelfCounts: countShelves(built.rows),
     excluded: built.vehicles.filter((v) => v.row === null).length,
     // Feed-blocking problems first — those are cars that are not being
     // advertised at all, which is the more urgent sentence.

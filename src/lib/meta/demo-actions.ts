@@ -93,7 +93,8 @@ export async function buildGroupAction(
 
   // Saved rows are on screen either way — a build that failed at Facebook
   // should still show the dealer the words they wrote.
-  revalidatePath('/admin/ad-desk');
+  // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
   return outcome;
 }
 
@@ -121,7 +122,8 @@ export async function setGroupRunningAction(
   const outcome = await runGroupForRooftop({ groupId, rooftop, adSetId, running });
   if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  revalidatePath('/admin/ad-desk');
+  // 'layout' so the group pages under /ads refresh too, not just the index.
+  revalidatePath('/admin/ad-desk', 'layout');
   return {
     ok: true,
     data: { running },

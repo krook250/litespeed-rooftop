@@ -38,7 +38,17 @@ const LINKS: Item[] = [
   { href: '/admin/inventory', label: 'Inventory', section: 'inventory' },
   { href: '/admin/inventory?view=at-risk', label: 'At-risk list', section: 'at-risk', match: 'at-risk' },
   { href: '/admin/syndication', label: 'Syndication', section: 'syndication' },
-  { href: '/admin/ad-desk', label: 'Ad Desk', section: 'ad-desk' },
+  {
+    href: '/admin/ad-desk',
+    label: 'Ad Desk',
+    section: 'ad-desk',
+    children: [
+      // Ads first: the group header links to the FIRST child, and a dealer
+      // clicking "Ad Desk" wants the ads. Connect is a screen you finish once.
+      { href: '/admin/ad-desk/ads', label: 'Ads' },
+      { href: '/admin/ad-desk/connect', label: 'Connect' },
+    ],
+  },
   {
     href: '/admin/website',
     label: 'Website',
