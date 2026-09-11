@@ -20,6 +20,7 @@
  */
 
 import { AuthSubmitButton } from './submit-button';
+import { PasswordField } from './password-field';
 import { RooftopLockup } from './brand';
 
 const LEGAL = [
@@ -113,6 +114,15 @@ export function Field({
   hint,
   ...props
 }: { label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  /*
+   * Password inputs get a show/hide toggle, and get it here rather than at the
+   * six call sites across four pages. Doing it centrally is the only way the
+   * toggle cannot end up on login but not on invite — which is the version of
+   * this that gets reported as a bug three months later by the one dealer who
+   * typed their password wrong on a phone in the sun.
+   */
+  if (props.type === 'password') return <PasswordField label={label} hint={hint} {...props} />;
+
   return (
     <label className="mt-4 block text-xs font-medium text-ink-300">
       {label}
