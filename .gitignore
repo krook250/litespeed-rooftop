@@ -62,3 +62,5 @@ clear-malabar.js
 diagnose-*.js
 malabarinventory.csv
 *.patch
+
+Claude outputs/
