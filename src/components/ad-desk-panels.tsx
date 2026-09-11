@@ -125,10 +125,6 @@ export function RooftopPanel({
   const pageName = pages.find((p) => p.id === pageId)?.label ?? '';
   const adAccountName = adAccounts.find((a) => a.id === adAccountId)?.label ?? '';
 
-  /* What was actually stored, echoed back. `row` is server state, so this block
-     appears only after a save round-trip — never from an unsaved selection. */
-  const savedPage = row.pageId ? pages.find((p) => p.id === row.pageId) : undefined;
-
   /*
    * THE BADGE NAMES THE READ THAT JUSTIFIES IT.
    *
@@ -205,30 +201,36 @@ export function RooftopPanel({
 
           <div className="rounded-lg bg-ink-50 px-3 py-2.5">
             <div className="text-xs font-medium text-ink-700">Vehicle catalog</div>
+            {/*
+              ONE FACT, NOT THREE.
+              This box used to state the catalog's provenance ("Created by
+              Rooftop" / "Already in your business"), its name, and its feed
+              status — then the badge said the same thing again, and the save
+              confirmation said it a third time. None of it is a decision the
+              dealer makes or a word they use. The number of their cars that
+              reached Facebook is the only line here they can act on.
+            */}
             {row.catalogId ? (
-              <>
+              !row.discoveryOk ? (
                 <p className="mt-1 text-[11px] text-ink-600">
-                  {row.catalogSource === 'CREATED' ? 'Created by Rooftop' : 'Already in your business'} ·{' '}
-                  {row.catalogName}
-                  {row.feedOk ? ' · inventory feed connected' : ' · feed not connected yet'}
+                  Set up. We couldn&apos;t reach Facebook just now for a current count.
                 </p>
-                {/* The one sentence that would have ended a three-hour hunt. */}
-                {!row.discoveryOk ? null : !row.metaSawCatalog ? (
-                  <p className="mt-1 text-[11px] font-medium text-red-700">
-                    Rooftop can&apos;t read this catalog on Facebook. Contact us — it needs
-                    re-granting, and nothing will run until it is.
-                  </p>
-                ) : row.metaProductCount === 0 ? (
-                  <p className="mt-1 text-[11px] font-medium text-amber-800">
-                    Facebook is holding <strong>0</strong> vehicles from this catalog. Until that
-                    number moves, no ad can run against it.
-                  </p>
-                ) : row.metaProductCount !== null ? (
-                  <p className="mt-1 text-[11px] text-ink-600">
-                    Facebook is holding <strong>{row.metaProductCount}</strong> vehicles from it.
-                  </p>
-                ) : null}
-              </>
+              ) : !row.metaSawCatalog ? (
+                <p className="mt-1 text-[11px] font-medium text-red-700">
+                  Rooftop can&apos;t read this catalog on Facebook. Contact us — nothing will run
+                  until that&apos;s sorted.
+                </p>
+              ) : row.metaProductCount === 0 ? (
+                <p className="mt-1 text-[11px] font-medium text-amber-800">
+                  None of your vehicles have reached Facebook yet. Ads can&apos;t run until they do.
+                </p>
+              ) : row.metaProductCount !== null ? (
+                <p className="mt-1 text-[11px] text-ink-600">
+                  <strong>{row.metaProductCount}</strong> of your vehicles are on Facebook.
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-ink-600">Set up.</p>
+              )
             ) : (
               <p className="mt-1 text-[11px] text-ink-600">
                 You don&apos;t need one. If this lot has a vehicle catalog we&apos;ll use it, and if it
@@ -238,18 +240,13 @@ export function RooftopPanel({
           </div>
         </div>
 
-        {savedPage ? (
-          <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-700">
-            Saved · this lot advertises from{' '}
-            <span className="font-medium text-ink-900">{row.pageName ?? savedPage.label}</span>
-            {savedPage.sub ? <span className="text-ink-500"> · {savedPage.sub}</span> : null}
-            {row.adAccountName ? (
-              <>
-                , billed to <span className="font-medium text-ink-900">{row.adAccountName}</span>
-              </>
-            ) : null}
-          </p>
-        ) : null}
+        {/*
+          The "Saved · this lot advertises from X, billed to Y" echo is gone. It
+          was written as App Review evidence — shot 20 of the screencast needed
+          the stored values read back on screen — and review is long done. The
+          two dropdowns three lines above it already show exactly those values,
+          so on the dealer's screen it was the same sentence twice.
+        */}
 
         {row.errorMessage ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{row.errorMessage}</p>

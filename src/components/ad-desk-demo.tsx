@@ -15,11 +15,17 @@
  * dealer builds a campaign with. The ad account is theirs and it can spend, so
  * the two claims this panel used to make on screen — unfunded account, cannot
  * deliver — are gone. What replaces them is the truth: it lands PAUSED and they
- * turn it on themselves in Ads Manager.
+ * turn it on themselves.
  *
- * It is still not a campaign manager. Budget, radius and which shelf are the
- * three decisions worth making here; everything else belongs in Ads Manager and
- * pretending otherwise would mean reimplementing it badly.
+ * NOTE, OPEN: there is no start control here yet, so "start it" currently means
+ * Ads Manager — a place these dealers will never go, on an account most of them
+ * have never opened. The copy no longer names Ads Manager, because pointing a
+ * dealer at it is not the product we are selling. The button that makes the
+ * copy true is the next thing to build.
+ *
+ * It is still not a campaign manager. Which cars, how much a day, how far out,
+ * and on/off are the decisions worth having here. Everything past that is Ads
+ * Manager's job and reimplementing it badly would serve nobody.
  */
 
 import { useActionState } from 'react';
@@ -167,18 +173,22 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
 
   return (
     <Card>
+      {/*
+        COPY RULE FOR THIS PANEL: name what the dealer gets, not what we build.
+        "Campaign, ad set and creative" is our plumbing. "Points them at your
+        catalog" is our plumbing. A dealer picks which cars, how much a day, how
+        far out — and wants to know it can't spend behind their back.
+      */}
       <CardHeader
         title="Build a campaign"
-        subtitle="One catalog campaign off the Lot Walk aging buckets, aimed at the cars that have sat longest."
-        action={<Badge tone="neutral">Paused on build</Badge>}
+        subtitle="Put your cars in front of shoppers on Facebook and Instagram."
+        action={<Badge tone="neutral">Paused until you start it</Badge>}
       />
 
       <div className="space-y-4 px-5 py-4">
         <p className="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600">
-          This builds the campaign, ad set and creative in your own ad account and points them at
-          your catalog. <strong>Everything lands paused</strong> — nothing runs and nothing spends
-          until you turn it on in Ads Manager. Build it again with different numbers and it updates
-          what is there rather than making a second one.
+          Nothing spends until you start it. Change the numbers and build again and it updates the
+          same campaign — it won&apos;t make a second one.
         </p>
 
         {!row.ready ? (
@@ -200,8 +210,7 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
                 ))}
               </select>
               <span className="mt-1 block text-[11px] text-ink-500">
-                Start with all of them. The day ranges are the same buckets the Lot Walk uses, for
-                when you want to push only the cars that have been sitting.
+                All of them, or just the ones that have been sitting a while.
               </span>
             </label>
 
@@ -263,8 +272,7 @@ export function CampaignDemoPanel({ row }: { row: CampaignDemoRow }) {
               <Row k="status" v={state.data.status} />
             </dl>
             <p className="text-[11px] text-emerald-800">
-              Open it in Ads Manager to review the targeting and turn it on. Until you do, it is
-              paused.
+              It&apos;s built and paused. Nothing spends until it&apos;s started.
             </p>
             {state.data.adopted.campaign || state.data.adopted.adSet ? (
               <p className="text-[11px] text-emerald-800">

@@ -121,7 +121,7 @@ export async function buildCampaignForRooftop(input: BuildCampaignInput): Promis
         `Built a paused campaign for ${rooftop.name} targeting the ` +
         `${bucketByKey(bucket).label} shelf — ` +
         `$${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
-        'It is paused, so nothing is running and nothing will spend until it is turned on in Ads Manager.',
+        'It is paused — nothing is running and nothing will spend until it is started.',
     };
   } catch (err) {
     await noteFailure(groupId, err);

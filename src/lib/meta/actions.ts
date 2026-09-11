@@ -156,8 +156,8 @@ export async function provisionRooftopAction(
     data: { catalogSource: result.catalogSource, feedOk: result.feedId !== null },
     message:
       result.catalogSource === 'CREATED'
-        ? `Created a vehicles catalog for ${rooftop.name} and pointed it at your inventory.`
-        : `Connected ${rooftop.name} to the vehicles catalog already in your Facebook business.`,
+        ? `${rooftop.name} is set up. Your inventory is on its way to Facebook.`
+        : `${rooftop.name} is set up, using the vehicle catalog you already had.`,
   };
 }
 

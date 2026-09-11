@@ -228,11 +228,21 @@ export default async function AdDeskPage({
                   {connection.businessName || connection.businessId}
                 </span>
               </div>
-              <p className="text-xs text-ink-500">
-                {connection.tokenKind === 'SYSTEM_USER'
-                  ? 'Connected as a system user — this does not expire when staff change.'
-                  : 'Connected as a user — this will need renewing periodically.'}
-              </p>
+              {/*
+                The system-user sentence lived here since the connect flow shipped.
+                It was written for a Meta reviewer, who needed to see that the
+                credential survives staff turnover, and it read as reassurance.
+                To a dealer it is a sentence about OAuth on the screen where they
+                are trying to advertise cars. The reviewer has been and gone.
+
+                The user-token case still warrants a line, because it is a thing
+                that will break on them and they can act on it.
+              */}
+              {connection.tokenKind !== 'SYSTEM_USER' ? (
+                <p className="text-xs text-ink-500">
+                  This connection will need renewing every couple of months.
+                </p>
+              ) : null}
               {connection.errorMessage ? (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   {connection.errorMessage}
