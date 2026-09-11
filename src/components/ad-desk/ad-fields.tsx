@@ -88,27 +88,18 @@ export function AdFields({ prefix, initial }: { prefix: string; initial: AdCopyF
           name={n('message')}
           defaultValue={initial.message}
           maxLength={COPY_LIMITS.message}
-          rows={2}
+          /*
+           * Five rows, not two. Two showed one line of a three-line ad and made
+           * the dealer drag the corner before they could read what they wrote —
+           * on the field whose whole job is the sentence a shopper sees first.
+           */
+          rows={5}
           className={inputCls}
         />
         <span className="mt-1 block text-[11px] text-ink-500">
           The line above the car. Say something a neighbor would say.
         </span>
       </label>
-
-      <div className="flex flex-wrap items-center gap-1">
-        <span className="text-[11px] text-ink-500">Insert:</span>
-        {VEHICLE_TOKENS.map((t) => (
-          <button
-            key={t.token}
-            type="button"
-            onClick={() => insert(t.token)}
-            className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-700 hover:bg-ink-200"
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
 
       <div className="flex flex-wrap items-center gap-0.5">
         <span className="mr-1 text-[11px] text-ink-500">Emoji:</span>
@@ -121,6 +112,20 @@ export function AdFields({ prefix, initial }: { prefix: string; initial: AdCopyF
             className="rounded px-1 py-0.5 text-sm leading-none hover:bg-ink-100"
           >
             {e}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-[11px] text-ink-500">Insert:</span>
+        {VEHICLE_TOKENS.map((t) => (
+          <button
+            key={t.token}
+            type="button"
+            onClick={() => insert(t.token)}
+            className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] text-ink-700 hover:bg-ink-200"
+          >
+            {t.label}
           </button>
         ))}
       </div>

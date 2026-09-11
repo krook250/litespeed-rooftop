@@ -107,11 +107,11 @@ function ShelfPicker({
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
-          {locked
-            ? 'A built group keeps its shelf — the shelf is what Facebook knows it by. For a different shelf, build another group.'
-            : 'Greyed-out shelves already have a group. One group per shelf.'}
-        </p>
+        {locked ? null : (
+          <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
+            Greyed-out shelves already have a group. One group per shelf.
+          </p>
+        )}
       </div>
 
       {/*
@@ -480,9 +480,6 @@ export function GroupEditor({
             />
           </div>
           <div className="flex flex-wrap items-center gap-3 border-t border-ink-200 px-5 py-3.5">
-            <p className="text-xs text-ink-500">
-              Goes straight to Facebook. Running stays running, stopped stays stopped.
-            </p>
             <div className="ml-auto">
               <Button type="submit" size="sm" variant="secondary" disabled={saving}>
                 {saving ? 'Updating…' : 'Update budget and radius'}
