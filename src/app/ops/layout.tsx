@@ -29,6 +29,9 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
           <Link href="/ops/accounts" className="text-xs text-ink-300 hover:text-white">
             Accounts
           </Link>
+          <Link href="/ops/ad-desk" className="text-xs text-ink-300 hover:text-white">
+            Ad Desk
+          </Link>
           <span className="ml-auto text-xs text-ink-400">{me.email}</span>
           {/* An operator's own dealer group is a real (and empty) lot of their
               own, not an admin view of somebody else's -- see

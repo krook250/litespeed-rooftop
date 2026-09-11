@@ -760,6 +760,110 @@ function classifyCampaignCreateFault(err: unknown): CampaignCreateFault {
   return `${err.message}`.toLowerCase().includes('objective') ? 'objective' : 'parameter';
 }
 
+/* ------------------------------------------------- reading the lot's ads */
+
+/**
+ * The campaigns Rooftop built for one lot, with their live status and spend.
+ *
+ * Matched by NAME PREFIX, not by a stored id, and that is a deliberate trade.
+ * We have never persisted a campaign id — `createDemoCampaign` adopts by name on
+ * every run precisely because there was nothing to look one up from. Reading by
+ * the same convention keeps one source of truth instead of two that can
+ * disagree, and it means a campaign the dealer renamed in Ads Manager drops off
+ * this list rather than showing stale numbers under a name that no longer
+ * exists. If campaign ids ever get stored, read from those and delete this.
+ *
+ * Cost is 1 + 2N calls, so it is capped. An operator screen listing every
+ * dealer must NOT call this per row — see `claude/meta-onboarding-matrix.md` §4
+ * on app-level rate limits, which are billed app-wide rather than per account.
+ * One dealer at a time is what this is for.
+ */
+export type LotCampaign = {
+  id: string;
+  name: string;
+  status: string;
+  /** What Meta says is actually happening, which is not always `status`. */
+  effectiveStatus: string;
+  objective: string;
+  createdTime: string | null;
+  dailyBudgetUsd: number | null;
+  spend: number;
+  impressions: number;
+  clicks: number;
+};
+
+/** The prefix `createDemoCampaign` gives everything it builds for a lot. */
+export function campaignNamePrefix(dealerName: string): string {
+  return `Rooftop — ${dealerName} — `;
+}
+
+export async function listLotCampaigns(
+  token: string,
+  adAccountId: string,
+  dealerName: string,
+  max = 8,
+): Promise<LotCampaign[]> {
+  const act = actPath(adAccountId);
+  const prefix = campaignNamePrefix(dealerName);
+
+  const rows = await graphEdge<{
+    id: string;
+    name?: string;
+    status?: string;
+    effective_status?: string;
+    objective?: string;
+    created_time?: string;
+  }>(`${act}/campaigns`, {
+    token,
+    fields: 'id,name,status,effective_status,objective,created_time',
+    maxPages: 2,
+  });
+
+  const mine = rows
+    .filter((r) => (r.name ?? '').startsWith(prefix) && !DEAD_STATUSES.has(r.status ?? ''))
+    .slice(0, max);
+
+  return Promise.all(
+    mine.map(async (c) => {
+      /*
+       * Budget lives on the ad set, not the campaign — see the long note in
+       * `createDemoCampaign` about why we do not use campaign budget
+       * optimisation. So it has to be read from the child, and a campaign whose
+       * ad sets were deleted in Ads Manager legitimately has none.
+       */
+      const [adSets, insights] = await Promise.all([
+        graphEdge<{ daily_budget?: string }>(`/${c.id}/adsets`, {
+          token,
+          fields: 'daily_budget',
+          maxPages: 1,
+        }).catch(() => [] as { daily_budget?: string }[]),
+        graphEdge<InsightsRow>(`/${c.id}/insights`, {
+          token,
+          fields: 'spend,impressions,clicks',
+          params: { date_preset: 'maximum' },
+          maxPages: 1,
+        }).catch(() => [] as InsightsRow[]),
+      ]);
+
+      const minor = adSets.find((a) => a.daily_budget)?.daily_budget;
+      const row = insights[0];
+
+      return {
+        id: c.id,
+        name: c.name ?? c.id,
+        status: c.status ?? 'UNKNOWN',
+        effectiveStatus: c.effective_status ?? c.status ?? 'UNKNOWN',
+        objective: c.objective ?? '',
+        createdTime: c.created_time ?? null,
+        dailyBudgetUsd: minor ? Number(minor) / 100 : null,
+        spend: Number(row?.spend ?? 0),
+        impressions: Number(row?.impressions ?? 0),
+        clicks: Number(row?.clicks ?? 0),
+      };
+    }),
+  );
+}
+
 /* --------------------------------------------------------------- reading */
 
 export type InsightsRow = {

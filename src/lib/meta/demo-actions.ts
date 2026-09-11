@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * Server actions for building a campaign and reading it back.
+ * The dealer's two campaign actions: build one, and read it back.
  *
  * Kept out of `actions.ts` deliberately: that file is the connect flow. This
  * file started as the App Review demonstration harness and is now the campaign
@@ -9,28 +9,21 @@
  * funded. Everything it creates lands PAUSED and the dealer turns it on in Ads
  * Manager; that is the only thing preventing spend.
  *
- * Same tenant rule as everything else here: the group comes from the session,
- * the rooftop id arrives off a form and is therefore checked against
- * `sessionScope()` before it is used for anything.
+ * The build itself lives in `./campaign-build.ts`, which Rooftop staff also call
+ * from `src/lib/ops/ad-desk-actions.ts` under a different guard. What stays here
+ * is this file's own answer to "may you touch this lot?" — the group comes from
+ * the session, the rooftop id arrives off a form and is therefore checked
+ * against `sessionScope()` before it is used for anything.
  */
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
-import { db } from '@/db';
-import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { MetaApiError } from './graph';
-import { noteFailure, tokenFor } from './connect';
-import {
-  CAMPAIGN_BUCKETS,
-  createDemoCampaign,
-  readInsights,
-  type BucketKey,
-  type DemoCampaignResult,
-  type InsightsResult,
-} from './campaigns';
+import { tokenFor } from './connect';
+import { readInsights, type BucketKey, type DemoCampaignResult, type InsightsResult } from './campaigns';
+import { buildCampaignForRooftop, validateCampaignInput } from './campaign-build';
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -51,114 +44,19 @@ export async function createDemoCampaignAction(
   const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
   if (!rooftop) return { ok: false, error: 'That lot was not found.' };
 
-  if (!CAMPAIGN_BUCKETS.some((b) => b.key === bucket)) {
-    return { ok: false, error: 'Pick one of the aging buckets.' };
-  }
-  if (!Number.isFinite(dailyBudgetUsd) || dailyBudgetUsd < 10) {
-    return { ok: false, error: 'Daily budget has to be at least $10.' };
-  }
-  if (!Number.isFinite(radiusMiles) || radiusMiles < 5 || radiusMiles > 50) {
-    return {
-      ok: false,
-      error: 'Radius has to be between 5 and 50 miles. That is Facebook’s range, not ours.',
-    };
-  }
+  const invalid = validateCampaignInput(bucket, dailyBudgetUsd, radiusMiles);
+  if (invalid) return { ok: false, error: invalid };
 
-  const conn = await tokenFor(groupId);
-  if (!conn) return { ok: false, error: 'Facebook is not connected. Connect it first.' };
+  const outcome = await buildCampaignForRooftop({
+    groupId,
+    rooftop,
+    bucket,
+    dailyBudgetUsd,
+    radiusMiles,
+  });
 
-  const rows = await db
-    .select()
-    .from(t.metaRooftopAssets)
-    .where(eq(t.metaRooftopAssets.rooftopId, rooftopId))
-    .limit(1);
-  const asset = rows[0];
-
-  // Each of these is a distinct thing the dealer has to go and do, so each gets
-  // its own sentence rather than one "setup incomplete".
-  if (!asset?.catalogId) {
-    return { ok: false, error: 'This lot has no vehicles catalog yet. Run Set up this lot first.' };
-  }
-  if (!asset.adAccountId) {
-    return { ok: false, error: 'Pick an ad account for this lot first — a campaign has to live in one.' };
-  }
-  if (!asset.pageId) {
-    return { ok: false, error: 'Pick this lot’s Facebook Page first — the ad runs from it.' };
-  }
-  /*
-   * No coordinates, no campaign.
-   *
-   * `createDemoCampaign` falls back to `countries: ['US']` when the lot has no
-   * lat/long, which was harmless against an ad account that could not spend and
-   * is not harmless now. A nationwide used-car campaign is a mistake the dealer
-   * discovers on an invoice, so it is refused here rather than built and
-   * explained. Coordinates arrived as NULL columns in `0007_odd_big_bertha` and
-   * there is still no screen for them — see the app review runbook §3.2.
-   * Until there is, this is a concierge fix in the database.
-   */
-  if (rooftop.latitude === null || rooftop.longitude === null) {
-    return {
-      ok: false,
-      error:
-        'This lot has no map coordinates yet, and without them the ad would target the whole country. ' +
-        'Contact us and we’ll set them — it takes a minute.',
-    };
-  }
-
-  try {
-    const result = await createDemoCampaign({
-      token: conn.token,
-      adAccountId: asset.adAccountId,
-      catalogId: asset.catalogId,
-      pageId: asset.pageId,
-      dealerName: rooftop.name,
-      bucket,
-      lat: rooftop.latitude,
-      lng: rooftop.longitude,
-      radiusMiles,
-      dailyBudgetUsd,
-      landingUrl: await inventoryUrlFor(rooftopId),
-    });
-
-    revalidatePath('/admin/ad-desk');
-    return {
-      ok: true,
-      data: result,
-      message:
-        `Built a paused campaign for ${rooftop.name} targeting the ` +
-        `${CAMPAIGN_BUCKETS.find((b) => b.key === bucket)?.label} shelf — ` +
-        `$${dailyBudgetUsd} a day, ${radiusMiles} miles around the lot. ` +
-        'It is paused, so nothing is running and nothing will spend until you turn it on in Ads Manager.',
-    };
-  } catch (err) {
-    await noteFailure(groupId, err);
-    if (err instanceof MetaApiError) {
-      // Same reasoning as `ensureVehicleCatalog`: the transport logs Meta's
-      // words, this logs which objects we were pointing at. A campaign build
-      // touches four ids and the failure never says which one Meta objected to.
-      console.error(
-        '[meta] createDemoCampaignAction failed ' +
-          JSON.stringify({
-            rooftopId,
-            bucket,
-            dailyBudgetUsd,
-            radiusMiles,
-            adAccountId: asset.adAccountId,
-            catalogId: asset.catalogId,
-            pageId: asset.pageId,
-            kind: err.kind,
-            status: err.status,
-            code: err.code,
-            subcode: err.subcode,
-            message: err.message,
-            trace: err.traceId,
-          }),
-      );
-      return { ok: false, error: err.dealerMessage };
-    }
-    console.error('[meta] createDemoCampaignAction threw a non-Graph error', err);
-    throw err;
-  }
+  if (outcome.ok) revalidatePath('/admin/ad-desk');
+  return outcome;
 }
 
 /* ----------------------------------------------------------- the reading */
@@ -187,37 +85,4 @@ export async function readCampaignInsightsAction(
     if (err instanceof MetaApiError) return { ok: false, error: err.dealerMessage };
     throw err;
   }
-}
-
-/* ----------------------------------------------------------------- utils */
-
-/**
- * The lot's public inventory page — where a catalog ad's click lands.
- *
- * Deliberately not shared with `siteBaseFor` in the feed route, which does the
- * same lookup. That one runs unauthenticated, driven by a URL secret; this one
- * runs inside a session. Merging them would mean one caller reaching for a
- * helper written under the other's trust assumptions, and the feed route is not
- * a place to be casual about that.
- *
- * Not exported: everything a `'use server'` module exports becomes a callable
- * endpoint, and this is a private helper.
- */
-async function inventoryUrlFor(rooftopId: string): Promise<string> {
-  const rows = await db
-    .select({
-      slug: t.storefronts.slug,
-      domain: t.storefronts.domain,
-      status: t.storefronts.domainStatus,
-    })
-    .from(t.storefrontRooftops)
-    .innerJoin(t.storefronts, eq(t.storefrontRooftops.storefrontId, t.storefronts.id))
-    .where(eq(t.storefrontRooftops.rooftopId, rooftopId));
-
-  const origin = `https://${process.env.NEXT_PUBLIC_APP_HOST ?? 'app.rooftopauto.com'}`;
-  if (!rows.length) return origin;
-
-  const live = rows.find((r) => r.domain && r.status === 'LIVE');
-  if (live?.domain) return `https://${live.domain}`;
-  return `${origin}/s/${rows[0]!.slug}`;
 }

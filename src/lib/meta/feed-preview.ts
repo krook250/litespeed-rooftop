@@ -50,10 +50,34 @@ export type FeedPreview = {
   reasons: FeedReasonGroup[];
 };
 
+/**
+ * The dealer's own preview, scoped to their session.
+ *
+ * Rooftop staff reach the same numbers for somebody else's lot through
+ * `previewFeedFor` below, under `requireStaff()` instead. The split exists so
+ * that the scope check is a visible line in exactly one of them rather than a
+ * flag threaded through both.
+ */
 export async function previewFeed(rooftopId: string): Promise<FeedPreview | null> {
   await requireGroupId();
   const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
   if (!rooftop) return null;
+  return previewFeedFor(rooftop);
+}
+
+/**
+ * The same counts, for a rooftop row the caller has ALREADY authorized.
+ *
+ * Takes a row rather than an id for the reason spelled out in
+ * `src/lib/meta/campaign-build.ts`: a row can only have come from a query the
+ * caller ran through its own guard, whereas an id is a string off a form. This
+ * reads inventory and nothing else — no Meta call, no token — so it is cheap
+ * enough to run for every lot on an operator screen.
+ */
+export async function previewFeedFor(
+  rooftop: typeof t.rooftops.$inferSelect,
+): Promise<FeedPreview | null> {
+  const rooftopId = rooftop.id;
 
   const [assetRow] = await db
     .select({ pageId: t.metaRooftopAssets.pageId })

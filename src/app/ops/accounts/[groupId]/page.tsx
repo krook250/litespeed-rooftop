@@ -5,16 +5,22 @@
  * what have they got, and is any of it broken" — the screen you open before a
  * call, or when a dealer emails asking why something is not live.
  *
- * TWO PANELS ARE DELIBERATELY ABSENT rather than stubbed: **payments** and
- * **Twilio / ad-desk stats**. Neither has a source. A Payments card fed by
- * `activatedAt` would be read as a ledger, and it is not one — it is the date a
- * human pressed a button. The Plan card says so in words instead.
+ * **Payments is deliberately absent** rather than stubbed: it has no source. A
+ * Payments card fed by `activatedAt` would be read as a ledger, and it is not
+ * one — it is the date a human pressed a button. The Plan card says so in words
+ * instead. Twilio is still absent for the same reason.
+ *
+ * The Ad Desk section is the exception that arrived: it reads live campaign
+ * state from Facebook, one dealer at a time, which is the only scale at which
+ * that is affordable. See `src/lib/ops/ad-desk-queries.ts`.
  */
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireStaff } from '@/lib/ops/guard';
 import { opsAccountDetail } from '@/lib/ops/queries';
+import { opsAdDeskLotsForGroup, opsLotCampaigns } from '@/lib/ops/ad-desk-queries';
+import { OpsLotPanel } from '@/components/ops-ad-desk';
 import { setGroupPlan } from '@/lib/ops/actions';
 import { Card, CardHeader, Badge, Button, EmptyState } from '@/components/ui';
 import { relativeTime } from '@/lib/domain';
@@ -65,6 +71,15 @@ export default async function OpsAccountPage({
   await requireStaff();
   const { groupId } = await params;
   const data = await opsAccountDetail(groupId);
+
+  /*
+   * Ad desk state. The lot list is a database read; the campaign list is a live
+   * Facebook read, affordable here because it is one dealer. Both are awaited
+   * before render rather than streamed, because an operator half-reading a
+   * dealer's ad state is how the wrong budget gets set.
+   */
+  const adLots = await opsAdDeskLotsForGroup(groupId);
+  const adCampaigns = await opsLotCampaigns(groupId, adLots);
   if (!data) notFound();
 
   const { group, people, rooftops, storefronts, domainOrders, inventory, sales, leads } = data;
@@ -271,6 +286,27 @@ export default async function OpsAccountPage({
         </Card>
       ) : null}
 
+      {/* ------------------------------------------------------------- ad desk */}
+      {adLots.length ? (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink-900">Ad Desk</h2>
+            <p className="text-xs text-ink-600">
+              Facebook campaigns for this dealer, read live. Anything built here lands paused and
+              is turned on in Ads Manager.
+            </p>
+          </div>
+          {adLots.map((lot) => (
+            <OpsLotPanel
+              key={lot.rooftopId}
+              lot={lot}
+              campaigns={adCampaigns.get(lot.rooftopId)?.campaigns ?? []}
+              campaignsError={adCampaigns.get(lot.rooftopId)?.error ?? null}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {/* --------------------------------------------------------------- sales */}
       <Card>
         <CardHeader
@@ -290,7 +326,7 @@ export default async function OpsAccountPage({
       </Card>
 
       <p className="pb-4 text-xs text-ink-400">
-        Twilio numbers and ad-desk spend belong on this page and have no source yet.
+        Twilio numbers belong on this page and have no source yet.
       </p>
     </div>
   );
