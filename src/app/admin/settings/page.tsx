@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
@@ -9,6 +10,7 @@ import { RolePicker } from '@/components/settings/role-picker';
 import { InviteForm, RevokeButton } from '@/components/settings/invite-form';
 import { pendingInvites } from '@/lib/invites';
 import { emailConfigured } from '@/lib/email';
+import { getRegistration } from '@/lib/messaging/setup';
 import type { UserRole } from '@/db/schema';
 
 export const dynamic = 'force-dynamic';
@@ -24,9 +26,17 @@ export const dynamic = 'force-dynamic';
  * permissions is a lie waiting to happen — this one cannot drift, because it is
  * the same table the guard reads.
  */
+const MESSAGING_SUBTITLE: Record<string, string> = {
+  NOT_STARTED: 'Not set up. Text buyers from your own number.',
+  COLLECTING: 'Part-way through — your form is waiting.',
+  SUBMITTED: 'Waiting on the phone carriers.',
+  ACTION_NEEDED: 'The carriers sent it back. Needs a correction.',
+  READY: 'On.',
+};
+
 export default async function SettingsPage() {
   const me = await requireSection('settings');
-  const [group, people, invites] = await Promise.all([
+  const [group, people, invites, messaging] = await Promise.all([
     getGroup(),
     db
       .select({ id: t.users.id, name: t.users.name, email: t.users.email, role: t.users.role })
@@ -34,6 +44,7 @@ export default async function SettingsPage() {
       .where(eq(t.users.groupId, me.groupId))
       .orderBy(asc(t.users.name)),
     pendingInvites(me.groupId),
+    getRegistration(me.groupId),
   ]);
 
   const owners = people.filter((p) => p.role === 'OWNER').length;
@@ -45,6 +56,23 @@ export default async function SettingsPage() {
         <h1 className="text-xl font-semibold tracking-tight text-ink-900">Settings</h1>
         <p className="mt-0.5 text-sm text-ink-600">{group.name} — who works here and what they can open.</p>
       </header>
+
+      {/*
+        Texting is a paid addon most dealerships will never turn on, so it is a
+        one-line entry rather than a section — present enough to be found,
+        quiet enough not to look like a step anyone has skipped.
+      */}
+      <Card>
+        <CardHeader title="Texting" subtitle={MESSAGING_SUBTITLE[messaging?.status ?? 'NOT_STARTED']} />
+        <div className="px-5 py-4">
+          <Link
+            href="/admin/settings/texting"
+            className="text-sm font-medium text-ink-900 underline underline-offset-4 hover:text-ink-600"
+          >
+            {messaging ? 'View texting setup' : 'Set up texting'}
+          </Link>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader

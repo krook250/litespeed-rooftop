@@ -33,6 +33,20 @@ export type SetupResult =
   /** This deployment has no Twilio credentials. */
   | { kind: 'NOT_CONFIGURED' };
 
+/**
+ * This group's texting status, or null if they have never asked for it.
+ *
+ * Null is the honest answer for the overwhelming majority of dealers: texting
+ * is an addon and the row is not written until someone clicks setup.
+ */
+export async function getRegistration(groupId: string) {
+  return (
+    (await db.query.messagingRegistrations.findFirst({
+      where: eq(messagingRegistrations.groupId, groupId),
+    })) ?? null
+  );
+}
+
 /** The row, created on first use. Texting is an addon; most groups never have one. */
 async function registrationFor(groupId: string) {
   const existing = await db.query.messagingRegistrations.findFirst({
