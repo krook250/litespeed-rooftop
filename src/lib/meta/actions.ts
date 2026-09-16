@@ -49,12 +49,12 @@ export async function startMetaConnect(): Promise<void> {
   const groupId = await requireGroupId();
 
   if (!adDeskConfigured()) {
-    redirect('/admin/ad-desk?err=' + encodeURIComponent('The Meta connection is not configured on this deployment yet.'));
+    redirect('/admin/ad-desk/connect?err=' + encodeURIComponent('The Meta connection is not configured on this deployment yet.'));
   }
 
   const { state, nonce } = buildState(groupId);
   const url = authorizeUrl(state);
-  if (!url) redirect('/admin/ad-desk?err=' + encodeURIComponent('Missing Meta login configuration.'));
+  if (!url) redirect('/admin/ad-desk/connect?err=' + encodeURIComponent('Missing Meta login configuration.'));
 
   (await cookies()).set(STATE_COOKIE, nonce, {
     httpOnly: true,
@@ -86,19 +86,19 @@ export async function startCatalogProvision(formData: FormData): Promise<void> {
 
   const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
   if (!rooftop) {
-    redirect('/admin/ad-desk?err=' + encodeURIComponent('That lot was not found.'));
+    redirect('/admin/ad-desk/connect?err=' + encodeURIComponent('That lot was not found.'));
   }
 
   if (!catalogProvisionAvailable()) {
     redirect(
-      '/admin/ad-desk?err=' +
+      '/admin/ad-desk/connect?err=' +
         encodeURIComponent('The admin sign-in for catalog setup is not configured on this deployment yet.'),
     );
   }
 
   const { state, nonce } = buildState(groupId, { mode: 'provision', rooftopId });
   const url = provisionAuthorizeUrl(state);
-  if (!url) redirect('/admin/ad-desk?err=' + encodeURIComponent('Missing Meta login configuration.'));
+  if (!url) redirect('/admin/ad-desk/connect?err=' + encodeURIComponent('Missing Meta login configuration.'));
 
   (await cookies()).set(STATE_COOKIE, nonce, {
     httpOnly: true,
@@ -150,7 +150,7 @@ export async function provisionRooftopAction(
     return { ok: false, error: result.error, needsAdminGrant: result.needsAdminGrant };
   }
 
-  revalidatePath('/admin/ad-desk');
+  revalidatePath('/admin/ad-desk', 'layout');
   return {
     ok: true,
     data: { catalogSource: result.catalogSource, feedOk: result.feedId !== null },
@@ -222,7 +222,7 @@ export async function saveRooftopAssets(formData: FormData): Promise<ActionResul
     .values(values)
     .onConflictDoUpdate({ target: t.metaRooftopAssets.rooftopId, set: values });
 
-  revalidatePath('/admin/ad-desk');
+  revalidatePath('/admin/ad-desk', 'layout');
 
   // Named rather than generic, because "Saved" tells the dealer nothing about
   // whether they picked the Page they meant — which is the entire risk when a
@@ -248,7 +248,7 @@ export async function saveRooftopAssets(formData: FormData): Promise<ActionResul
 export async function saveRooftopAssetsForm(formData: FormData): Promise<void> {
   const res = await saveRooftopAssets(formData);
   const q = new URLSearchParams(res.ok ? { msg: res.message ?? 'Saved.' } : { err: res.error });
-  redirect(`/admin/ad-desk?${q.toString()}`);
+  redirect(`/admin/ad-desk/connect?${q.toString()}`);
 }
 
 /**
@@ -269,7 +269,7 @@ export async function disconnectMeta(): Promise<ActionResult> {
     await db.delete(t.metaRooftopAssets).where(eq(t.metaRooftopAssets.connectionId, conn[0].id));
   }
 
-  revalidatePath('/admin/ad-desk');
+  revalidatePath('/admin/ad-desk', 'layout');
   return {
     ok: true,
     message: revokedAtMeta
@@ -292,7 +292,7 @@ export async function disconnectMetaForm(): Promise<void> {
   const q = new URLSearchParams(
     res.ok ? { msg: res.message ?? 'Disconnected from Facebook.' } : { err: res.error },
   );
-  redirect(`/admin/ad-desk?${q.toString()}`);
+  redirect(`/admin/ad-desk/connect?${q.toString()}`);
 }
 
 /** Used by the connect screen to show who did it, without a second query. */

@@ -34,7 +34,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function back(req: NextRequest, params: Record<string, string>) {
-  const url = new URL('/admin/ad-desk', req.nextUrl.origin);
+  // Connect, not the Ad Desk index: that index redirects to /ads and drops the
+  // query string, so every message this handler produces — including the one
+  // that says whether retargeting actually came on — was thrown away and the
+  // dealer landed on a screen with nothing to do with what they had just done.
+  const url = new URL('/admin/ad-desk/connect', req.nextUrl.origin);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = NextResponse.redirect(url);
   res.cookies.delete(STATE_COOKIE);
@@ -92,12 +96,27 @@ export async function GET(req: NextRequest) {
     });
     if (!done.ok) return back(req, { err: done.error });
 
-    return back(req, {
-      msg:
-        done.catalogSource === 'CREATED'
-          ? 'Created a vehicles catalog and pointed it at your inventory.'
-          : 'Connected this lot to the vehicles catalog already in your Facebook business.',
-    });
+    /*
+     * SAY WHAT HAPPENED TO THE PIXEL.
+     *
+     * This same round trip is what the "Turn on retargeting" button starts, and
+     * on a lot whose catalog already exists the catalog half of this sentence is
+     * the half the dealer did not ask about. A pixel that could not be created
+     * used to fail silently inside `provisionRooftop` — the dealer authorized on
+     * Facebook, came back, and the field still read "Not set up yet" with no
+     * reason given anywhere.
+     */
+    const parts = [
+      done.catalogSource === 'CREATED'
+        ? 'Created a vehicles catalog and pointed it at your inventory.'
+        : 'Connected this lot to the vehicles catalog already in your Facebook business.',
+    ];
+    if (done.pixelMessage) parts.push(done.pixelMessage);
+    else if (done.pixelLinked) {
+      parts.push('Retargeting is on — the tag is already live on your website.');
+    }
+
+    return back(req, { msg: parts.join(' ') });
   }
 
   const result = await completeConnection({ code, groupId: user.groupId, userId: user.id });

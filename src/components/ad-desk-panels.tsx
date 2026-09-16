@@ -126,6 +126,20 @@ export function RooftopPanel({
   const adAccountName = adAccounts.find((a) => a.id === adAccountId)?.label ?? '';
 
   /*
+   * THE STORED PIXEL IS AN OPTION EVEN WHEN DISCOVERY DID NOT RETURN IT.
+   *
+   * `pixels` comes from `owned_pixels` / `client_pixels` on the business, which
+   * a freshly created pixel can lag behind by a minute and which comes back
+   * empty outright if that read is refused. Without this, a lot that genuinely
+   * has retargeting on renders an empty, disabled select reading "Not set up
+   * yet" — and, before the same fix, re-offered the button that sets it up.
+   */
+  const pixelOptions =
+    row.pixelId && !pixels.some((p) => p.id === row.pixelId)
+      ? [...pixels, { id: row.pixelId, label: 'Your retargeting pixel' }]
+      : pixels;
+
+  /*
    * THE BADGE NAMES THE READ THAT JUSTIFIES IT.
    *
    * It used to be `Boolean(row.catalogId) && row.feedOk` — both database flags,
@@ -195,10 +209,10 @@ export function RooftopPanel({
               label="Retargeting"
               value={pixelId}
               onChange={setPixelId}
-              options={pixels}
+              options={pixelOptions}
               emptyLabel="Not set up yet"
               hint={
-                pixelId || pixels.length
+                pixelId || pixelOptions.length
                   ? 'Shows your cars again to people who viewed them on your site.'
                   : undefined
               }
@@ -214,7 +228,7 @@ export function RooftopPanel({
               Creating it needs one admin sign-in, same as the catalog did,
               because a system user cannot make a business-owned object.
             */}
-            {!pixelId && pixels.length === 0 ? (
+            {!pixelId && pixelOptions.length === 0 ? (
               <div className="mt-1.5">
                 <p className="text-[11px] text-ink-500">
                   Show your cars again to people who looked at them and left. We&apos;ll set it up

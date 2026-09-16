@@ -358,7 +358,21 @@ export function feedUrls(rooftopId: string, secret: string): { full: string; del
 /* ---------------------------------------------------------- provisioning */
 
 export type ProvisionResult =
-  | { ok: true; catalogId: string; catalogSource: 'ADOPTED' | 'CREATED'; feedId: string | null; pixelLinked: boolean }
+  | {
+      ok: true;
+      catalogId: string;
+      catalogSource: 'ADOPTED' | 'CREATED';
+      feedId: string | null;
+      pixelLinked: boolean;
+      /**
+       * Why retargeting is not on, in words the dealer can act on, or null when
+       * there is nothing to say. The pixel is optional and must never fail a
+       * provision — but "optional" was being read as "silent", and a dealer who
+       * pressed *Turn on retargeting*, authorized on Facebook and came back to an
+       * unchanged field was given no reason at all.
+       */
+      pixelMessage?: string | null;
+    }
   | {
       ok: false;
       error: string;
@@ -546,16 +560,31 @@ export async function provisionRooftop(args: {
    * that is not attached to the catalog still collects but cannot target.
    */
   let pixelId = args.pixelId;
+  let pixelMessage: string | null = null;
   if (!pixelId && conn.row.businessId) {
     const pixel = await ensurePixel(conn.token, conn.row.businessId, args.dealerName, {
       createToken: args.createToken,
     });
     if (pixel.ok) pixelId = pixel.pixelId;
+    else pixelMessage = `Retargeting is not on yet. ${pixel.message}`;
+  } else if (!pixelId) {
+    pixelMessage =
+      'Retargeting is not on yet: we could not tell which Facebook business this lot belongs to.';
   }
 
   const pixelLinked = pixelId
     ? await associatePixel(conn.token, catalog.catalogId, pixelId)
     : false;
+
+  /*
+   * A pixel that exists but is not attached to the catalog collects events and
+   * can target nobody, which on screen is indistinguishable from working. Say so.
+   */
+  if (pixelId && !pixelLinked) {
+    pixelMessage =
+      'Your pixel is set up, but Facebook would not attach it to the vehicle catalog, ' +
+      'so retargeting ads cannot use it yet. Press Turn on retargeting again in a minute.';
+  }
 
   const values = {
     connectionId: conn.row.id,
@@ -611,6 +640,7 @@ export async function provisionRooftop(args: {
     catalogSource: catalog.source,
     feedId: feed.ok ? feed.feedId : null,
     pixelLinked,
+    pixelMessage,
   };
 }
 
