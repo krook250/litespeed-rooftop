@@ -299,6 +299,33 @@ export const domainOrderStatusEnum = pgEnum('domain_order_status', [
   'REJECTED_OVER_CAP',
 ]);
 
+/**
+ * How far along a dealer is in getting permission to text, in the only terms
+ * the dealer cares about.
+ *
+ * Deliberately five values for what is really three sequential Twilio
+ * registrations (Secondary Customer Profile, Brand, Campaign). The dealer does
+ * not care that there are three, and a screen that exposes three independent
+ * statuses is a screen that makes a used-car dealer phone us. Exactly one of
+ * these states asks them for anything: ACTION_NEEDED.
+ *
+ * SUBMITTED covers the long carrier wait. AT&T's manual review runs days, not
+ * minutes, and cannot be expedited at any price — so the UI must say so in
+ * words, or every dealer in that state believes the product is broken.
+ */
+export const messagingRegistrationStatusEnum = pgEnum('messaging_registration_status', [
+  /** Never begun. The dealer has not opened the form. */
+  'NOT_STARTED',
+  /** Inside the embed, part-way through. Twilio keeps their entered data 30 days. */
+  'COLLECTING',
+  /** Handed to Twilio and the carriers. Nothing for anyone here to do but wait. */
+  'SUBMITTED',
+  /** Rejected. `actionNeeded` holds what to fix, in the dealer's language. */
+  'ACTION_NEEDED',
+  /** Campaign approved and a number is attached. Texting works. */
+  'READY',
+]);
+
 /* ---------------------------------------------------------------- tenancy */
 
 /**
@@ -1589,9 +1616,127 @@ export const domainOrders = pgTable(
   ],
 );
 
-export const dealerGroupsRelations = relations(dealerGroups, ({ many }) => ({
+/* ------------------------------------------------------- dealer messaging */
+
+/**
+ * One row per dealer group: their standing with the carriers.
+ *
+ * **On the group, not the rooftop, and that is the whole design.** A2P 10DLC
+ * registers a *legal entity* — the brand is the LLC whose EIN is on the filing
+ * and whose name appears when a buyer's phone shows who is texting them. A
+ * group running three lots is one LLC with one EIN, so it is one brand and one
+ * campaign, however many lots or numbers hang off it.
+ *
+ * Getting this backwards is expensive twice over: a migration to move the
+ * columns, and a re-registration, because A2P registrations do not transfer
+ * between accounts. There is no repair that keeps the approval.
+ *
+ * The three `*InquiryId` columns are not bookkeeping. A dealer who abandons the
+ * form at the EIN step — which they will, because the EIN is in a drawer —
+ * resumes exactly where they stopped if we re-initialize with the stored id.
+ * Twilio holds their entered data 30 days. Lose the id and they start over, and
+ * a used-car dealer does not start over twice.
+ */
+export const messagingRegistrations = pgTable(
+  'messaging_registrations',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    status: messagingRegistrationStatusEnum().notNull().default('NOT_STARTED'),
+
+    /** This dealer's own Twilio subaccount. One per group, isolates blast radius. */
+    subaccountSid: text(),
+
+    /* -- step 1: who this business is ------------------------------------- */
+    customerProfileSid: text(),
+    profileInquiryId: text(),
+
+    /* -- step 2: the brand, against their EIN ------------------------------ */
+    brandSid: text(),
+    brandInquiryId: text(),
+
+    /* -- step 3: the campaign, and what sends it --------------------------- */
+    messagingServiceSid: text(),
+    campaignInquiryId: text(),
+
+    /**
+     * What the dealer has to fix, already translated out of carrier language.
+     * Twilio renders rejection banners inside the embed itself, so this exists
+     * for the screens *outside* the embed — the status line, the nag email.
+     * Null unless `status` is ACTION_NEEDED.
+     */
+    actionNeeded: text(),
+
+    /** When the carriers got it. The clock we quote "a few days" against. */
+    submittedAt: timestamp({ withTimezone: true }),
+    /** When texting actually started working. */
+    readyAt: timestamp({ withTimezone: true }),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('messaging_registrations_group_uq').on(t.groupId)],
+);
+
+/**
+ * The numbers a dealer sends from.
+ *
+ * `rooftopId` null means the number serves the whole group, which is both the
+ * default and what nearly every dealer wants: one number the dealership texts
+ * from, the same one on the door. Sales does not split by lot the way service
+ * might, and a three-lot group handing buyers three different numbers is worse
+ * for the buyer, not better.
+ *
+ * It is nullable rather than absent because the exception is real and cheap to
+ * support — a group that wants a number per lot sets `rooftopId` and nothing
+ * else changes. A dealer who has not asked never sees the option.
+ *
+ * `onDelete: 'set null'` on the rooftop, not cascade: closing a lot must not
+ * delete a phone number the dealership still owns and is still paying for. It
+ * reverts to serving the group, which is the safe reading.
+ */
+export const messagingNumbers = pgTable(
+  'messaging_numbers',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    /** Null = the whole group. Set = this lot only. */
+    rooftopId: text().references(() => rooftops.id, { onDelete: 'set null' }),
+    /** E.164, always. The format every Twilio endpoint expects. */
+    phoneNumber: text().notNull(),
+    twilioSid: text().notNull(),
+    isActive: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('messaging_numbers_sid_uq').on(t.twilioSid),
+    index('messaging_numbers_group_idx').on(t.groupId),
+  ],
+);
+
+export const dealerGroupsRelations = relations(dealerGroups, ({ many, one }) => ({
   rooftops: many(rooftops),
   storefronts: many(storefronts),
+  messagingRegistration: one(messagingRegistrations),
+  messagingNumbers: many(messagingNumbers),
+}));
+
+export const messagingRegistrationsRelations = relations(messagingRegistrations, ({ one }) => ({
+  group: one(dealerGroups, {
+    fields: [messagingRegistrations.groupId],
+    references: [dealerGroups.id],
+  }),
+}));
+
+export const messagingNumbersRelations = relations(messagingNumbers, ({ one }) => ({
+  group: one(dealerGroups, {
+    fields: [messagingNumbers.groupId],
+    references: [dealerGroups.id],
+  }),
+  rooftop: one(rooftops, {
+    fields: [messagingNumbers.rooftopId],
+    references: [rooftops.id],
+  }),
 }));
 
 export const rooftopsRelations = relations(rooftops, ({ one, many }) => ({
