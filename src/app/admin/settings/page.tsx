@@ -7,7 +7,7 @@ import { getGroup } from '@/lib/queries';
 import { ROLE_LABEL, ROLE_BLURB, SECTIONS, can } from '@/lib/permissions';
 import { Card, CardHeader } from '@/components/ui';
 import { RolePicker } from '@/components/settings/role-picker';
-import { InviteForm, RevokeButton } from '@/components/settings/invite-form';
+import { InviteForm, ResendButton, RevokeButton } from '@/components/settings/invite-form';
 import { pendingInvites } from '@/lib/invites';
 import { emailConfigured } from '@/lib/email';
 import { getRegistration } from '@/lib/messaging/setup';
@@ -131,24 +131,41 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader
             title="Waiting to accept"
-            subtitle="Nobody has an account until they use their link. Cancelling stops it working."
+            subtitle="Nobody has an account until they use their link. Resending sends a new link and kills the old one."
           />
           <div className="divide-y divide-ink-100">
-            {invites.map((i) => (
-              <div key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-ink-900">{i.email}</div>
-                  <div className="text-xs text-ink-500">
-                    {ROLE_LABEL[i.role]} · expires{' '}
-                    {new Date(i.expiresAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
+            {invites.map((i) => {
+              /*
+               * An expired invite is still listed, because the person it was
+               * sent to is still someone the owner meant to add — hiding it
+               * would read as "I already did that" when nothing happened. It
+               * just has to say so, rather than showing a date in the past
+               * under the word "expires" and leaving the owner to do the
+               * arithmetic.
+               */
+              const expired = new Date(i.expiresAt) <= new Date();
+              const when = new Date(i.expiresAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              });
+              return (
+                <div key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-ink-900">{i.email}</div>
+                    <div className="text-xs text-ink-500">
+                      {ROLE_LABEL[i.role]} ·{' '}
+                      {expired ? (
+                        <span className="font-semibold text-amber-700">link expired {when}</span>
+                      ) : (
+                        <>expires {when}</>
+                      )}
+                    </div>
                   </div>
+                  <ResendButton inviteId={i.id} />
+                  <RevokeButton inviteId={i.id} />
                 </div>
-                <RevokeButton inviteId={i.id} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       ) : null}

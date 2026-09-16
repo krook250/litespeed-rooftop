@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
-import { and, eq, gt, isNull, ne } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireSession } from '@/lib/auth';
@@ -102,8 +102,17 @@ export async function inviteUser(formData: FormData) {
     .limit(1);
   if (existing) return;
 
+  /*
+   * Expiry is deliberately NOT a condition here.
+   *
+   * It used to be, and the result was a duplicate: inviting an address whose
+   * invite had lapsed found nothing, inserted a second row, and left the owner
+   * looking at the same person twice in "Waiting to accept" with no way to tell
+   * which link was which. An outstanding invitation to an address is one thing
+   * whether or not the clock ran out on it.
+   */
   const [live] = await db
-    .select({ id: t.invites.id, token: t.invites.token })
+    .select({ id: t.invites.id, token: t.invites.token, expiresAt: t.invites.expiresAt })
     .from(t.invites)
     .where(
       and(
@@ -111,7 +120,6 @@ export async function inviteUser(formData: FormData) {
         eq(t.invites.email, email),
         isNull(t.invites.acceptedAt),
         isNull(t.invites.revokedAt),
-        gt(t.invites.expiresAt, new Date()),
       ),
     )
     .limit(1);
@@ -120,9 +128,11 @@ export async function inviteUser(formData: FormData) {
   if (live) {
     // Re-sending pushes the expiry out and updates the role, so changing your
     // mind about what someone should be does not need a revoke-and-reinvite.
+    // A lapsed invite gets a new token as well — see `resendInvite`.
+    if (new Date(live.expiresAt ?? 0) <= new Date()) token = inviteToken();
     await db
       .update(t.invites)
-      .set({ role: role as t.UserRole, expiresAt: inviteExpiry() })
+      .set({ role: role as t.UserRole, token: token!, expiresAt: inviteExpiry() })
       .where(eq(t.invites.id, live.id));
   } else {
     token = inviteToken();
@@ -150,6 +160,66 @@ export async function inviteUser(formData: FormData) {
       dealership: group?.name ?? 'your dealership',
       inviterName: me.name,
       roleLabel: ROLE_LABEL[role as t.UserRole],
+    }),
+  );
+
+  revalidatePath('/admin/settings');
+}
+
+/**
+ * Send someone's invitation again.
+ *
+ * **Rotates the token.** Pushing the expiry on the existing one would be
+ * friendlier by a hair — the original email would start working again — but an
+ * invite that has been sitting in an inbox for three weeks is exactly the one
+ * that got forwarded to somebody's personal address with "can you set this up
+ * for me". Resending should leave one live link, not two, and the person is
+ * getting a fresh email regardless, which is the entire point of the button.
+ *
+ * Works on a lapsed invite as readily as a live one: that is what an owner is
+ * looking at when they reach for this.
+ */
+export async function resendInvite(formData: FormData) {
+  const me = await requireSession();
+  if (!can(me.role, 'settings')) return;
+  const id = String(formData.get('inviteId') ?? '');
+  if (!id) return;
+
+  // Scoped in the WHERE clause, so an id from another dealership finds nothing.
+  const [invite] = await db
+    .select({ id: t.invites.id, email: t.invites.email, role: t.invites.role })
+    .from(t.invites)
+    .where(
+      and(
+        eq(t.invites.id, id),
+        eq(t.invites.groupId, me.groupId),
+        isNull(t.invites.acceptedAt),
+        isNull(t.invites.revokedAt),
+      ),
+    )
+    .limit(1);
+  if (!invite) return;
+
+  const token = inviteToken();
+  await db
+    .update(t.invites)
+    .set({ token, expiresAt: inviteExpiry() })
+    .where(and(eq(t.invites.id, invite.id), eq(t.invites.groupId, me.groupId)));
+
+  const [group] = await db
+    .select({ name: t.dealerGroups.name })
+    .from(t.dealerGroups)
+    .where(eq(t.dealerGroups.id, me.groupId))
+    .limit(1);
+
+  const host = (await headers()).get('host');
+  await sendEmail(
+    inviteEmail({
+      to: invite.email,
+      url: inviteUrl(token, host),
+      dealership: group?.name ?? 'your dealership',
+      inviterName: me.name,
+      roleLabel: ROLE_LABEL[invite.role],
     }),
   );
 

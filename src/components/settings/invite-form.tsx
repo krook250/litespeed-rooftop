@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { inviteUser, revokeInvite } from '@/lib/settings-actions';
+import { inviteUser, resendInvite, revokeInvite } from '@/lib/settings-actions';
 import { ROLE_LABEL, ROLE_BLURB } from '@/lib/permissions';
 import type { UserRole } from '@/db/schema';
 
@@ -89,6 +89,40 @@ export function InviteForm() {
         )}
       </p>
     </form>
+  );
+}
+
+/**
+ * Send it again.
+ *
+ * Says "Sent" afterwards rather than going quiet. The whole reason an owner is
+ * clicking this is that they are not sure the first one arrived, and a button
+ * that does nothing visible invites a third and fourth click.
+ */
+export function ResendButton({ inviteId }: { inviteId: string }) {
+  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
+
+  if (sent) {
+    return <span className="px-2.5 py-1.5 text-xs font-semibold text-emerald-700">Sent</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const fd = new FormData();
+          fd.set('inviteId', inviteId);
+          await resendInvite(fd);
+          setSent(true);
+        })
+      }
+      className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100 hover:text-ink-900 disabled:opacity-50"
+    >
+      {pending ? 'Sending…' : 'Resend'}
+    </button>
   );
 }
 
