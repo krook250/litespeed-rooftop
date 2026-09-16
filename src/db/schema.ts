@@ -1648,6 +1648,15 @@ export const messagingRegistrations = pgTable(
     subaccountSid: text(),
 
     /* -- step 1: who this business is ------------------------------------- */
+    /**
+     * Twilio's composite handle for this dealer's compliance record, shaped
+     * `tri1.us1.account.ACxxx.profile.BUxxx`. Stored whole because resuming a
+     * half-finished inquiry requires exactly this string — the BU alone will
+     * not do — and a dealer who abandoned at the EIN field is precisely who we
+     * need to be able to resume.
+     */
+    customerId: text(),
+    /** The BU inside `customerId`. What brand registration wants later. */
     customerProfileSid: text(),
     profileInquiryId: text(),
 

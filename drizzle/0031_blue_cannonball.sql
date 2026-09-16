@@ -1,0 +1,1 @@
+ALTER TABLE "messaging_registrations" ADD COLUMN "customerId" text;
