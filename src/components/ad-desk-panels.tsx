@@ -39,6 +39,8 @@ export type RooftopRow = {
   catalogId: string | null;
   catalogName: string | null;
   catalogSource: 'ADOPTED' | 'CREATED' | null;
+  /** The connected business, only so the Commerce Manager link opens in it. */
+  businessId: string | null;
   feedOk: boolean;
   pixelId: string | null;
   errorMessage: string | null;
@@ -258,6 +260,14 @@ export function RooftopPanel({
               confirmation said it a third time. None of it is a decision the
               dealer makes or a word they use. The number of their cars that
               reached Facebook is the only line here they can act on.
+
+              The identity line below is the one exception, and it is not for
+              the dealer. A lot can have several catalogs — old partner-shared
+              ones, hand-made ones, the one we feed — and every count on this
+              page is about ours. Without the id on screen, checking a number
+              against Commerce Manager means guessing which catalog to open,
+              and the wrong guess reads as a broken product set. It is the
+              count's citation, so it sits under the count and stays quiet.
             */}
             {row.catalogId ? (
               !row.discoveryOk ? (
@@ -286,6 +296,27 @@ export function RooftopPanel({
                 doesn&apos;t we&apos;ll make one and keep it fed from your inventory.
               </p>
             )}
+
+            {row.catalogId ? (
+              <p className="mt-2 border-t border-ink-200 pt-2 text-[11px] text-ink-500">
+                {row.catalogName ? (
+                  <span className="text-ink-700">{row.catalogName}</span>
+                ) : null}
+                {row.catalogName ? ' · ' : null}
+                <span className="font-mono">{row.catalogId}</span>
+                {' · '}
+                <a
+                  href={`https://business.facebook.com/commerce/catalogs/${row.catalogId}/items/${
+                    row.businessId ? `?business_id=${row.businessId}` : ''
+                  }`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-ink-700 underline underline-offset-2 hover:text-ink-900"
+                >
+                  Open in Commerce Manager ↗
+                </a>
+              </p>
+            ) : null}
           </div>
         </div>
 

@@ -195,6 +195,7 @@ export default async function ConnectPage({
               catalogId: a?.catalogId ?? null,
               catalogName: a?.catalogName ?? null,
               catalogSource: a?.catalogSource ?? null,
+              businessId: connection?.businessId ?? null,
               feedOk: Boolean(a?.productFeedId),
               pixelId: a?.pixelId ?? null,
               errorMessage: a?.errorMessage ?? null,
