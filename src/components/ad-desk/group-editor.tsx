@@ -27,7 +27,7 @@ import {
   saveAdCopyAction,
   updateGroupAdsAction,
 } from '@/lib/meta/ad-copy-actions';
-import type { AdCopyFields } from '@/lib/meta/ad-copy-spec';
+import { defaultAdName, type AdCopyFields } from '@/lib/meta/ad-copy-spec';
 import { bucketByKey, type BucketKey } from '@/lib/meta/buckets';
 import type { LotGroup } from '@/lib/meta/campaigns';
 import { WhichCars } from './which-cars';
@@ -177,7 +177,7 @@ export function NewGroupEditor({
 
         <Card>
           <div className="space-y-4 px-5 py-4">
-            <Step n={1} title="Which cars" hint="A rule, not a list — it keeps itself up to date." />
+            <Step n={1} title="Which cars" />
             <WhichCars
               units={units}
               taken={taken}
@@ -242,7 +242,7 @@ export function NewGroupEditor({
                 missing the ad somebody just wrote.
               */}
               {Array.from({ length: adCount }, (_, i) => {
-                const s = seed[i] ?? { copyId: '', fields: { ...fallback, name: '' } };
+                const s = seed[i] ?? { copyId: '', fields: { ...fallback, name: defaultAdName(i) } };
                 return (
                   <div key={i} className={i === active ? '' : 'hidden'}>
                     <input type="hidden" name={`ad${i}.copyId`} value={s.copyId} />
@@ -339,8 +339,14 @@ export function GroupEditor({
       row: { ...fallback, name: a.name, id: '', bucket, active: true } as AdCopyRow,
       copyId: '',
     })),
-    ...Array.from({ length: extra }, () => ({
-      row: { ...fallback, name: '', id: '', bucket, active: true } as AdCopyRow,
+    ...Array.from({ length: extra }, (_, k) => ({
+      row: {
+        ...fallback,
+        name: defaultAdName(live.length + unsaved.length + k),
+        id: '',
+        bucket,
+        active: true,
+      } as AdCopyRow,
       copyId: '',
     })),
   ];
@@ -402,7 +408,7 @@ export function GroupEditor({
 
         <Card className="mb-4">
           <div className="space-y-4 px-5 py-4">
-            <Step n={1} title="Which cars" hint="A rule, not a list — it keeps itself up to date." />
+            <Step n={1} title="Which cars" />
             <WhichCars
               units={units}
               taken={[]}

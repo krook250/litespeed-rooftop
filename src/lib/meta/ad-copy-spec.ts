@@ -52,6 +52,26 @@ export const VEHICLE_TOKENS = [
 ] as const;
 
 /**
+ * What an ad is called before the dealer names it: `Ad 1`, `Ad 2`, `Ad 3`.
+ *
+ * The name is the build's adoption key (`campaigns.ts`, "THE AD SET IS THE
+ * GROUP"), so it has to be non-empty and stable, and every unnamed ad on a
+ * group has to get a *different* one — two ads sharing a name means the second
+ * build repoints the first ad's creative instead of making the second ad.
+ * Position is what makes them distinct, which is why this takes an index
+ * rather than reading a count.
+ *
+ * Changing this string does not rename anything already live. A saved row
+ * keeps the name in the database; a group with no saved rows that was built
+ * from the old `Default` fallback will, on its next build, create an ad under
+ * the new name and the sweep will pause the old one. Only the unsaved case,
+ * and only on the next build.
+ */
+export function defaultAdName(index: number): string {
+  return `Ad ${index + 1}`;
+}
+
+/**
  * What a lot gets before anyone edits anything.
  *
  * These are the exact strings that were hardcoded in `createDemoCampaign` until
@@ -60,7 +80,7 @@ export const VEHICLE_TOKENS = [
  */
 export function defaultAdCopy(dealerName: string) {
   return {
-    name: 'Default',
+    name: defaultAdName(0),
     message: `Now at ${dealerName}.`,
     headline: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}',
     description: '{{vehicle.price}}',
