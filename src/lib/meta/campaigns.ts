@@ -1127,6 +1127,16 @@ export type GroupAd = {
   status: string;
   effectiveStatus: string;
   creativeId: string | null;
+  /**
+   * What this ad, specifically, has done since it started.
+   *
+   * Two ads in one group exist to be compared — same cars, same budget, same
+   * radius, different words — and the comparison is the only reason the dealer
+   * wrote a second one. Group totals cannot answer it.
+   */
+  spend: number;
+  impressions: number;
+  clicks: number;
 };
 
 /**
@@ -1253,10 +1263,18 @@ export async function listLotGroups(
       .slice(0, max)
       .map(async (s): Promise<LotGroup> => {
         const [insights, ads] = await Promise.all([
+          /*
+           * ONE ROW PER AD, NOT ONE PER GROUP.
+           *
+           * `level: 'ad'` costs the same single call and returns the ads
+           * broken out, and spend, impressions and clicks are additive, so the
+           * group's totals are the sum of its rows rather than a second read.
+           * (Reach would NOT be — do not add it here without its own call.)
+           */
           graphEdge<InsightsRow>(`/${s.id}/insights`, {
             token,
-            fields: 'spend,impressions,clicks',
-            params: { date_preset: 'maximum' },
+            fields: 'ad_id,spend,impressions,clicks',
+            params: { date_preset: 'maximum', level: 'ad' },
             maxPages: 1,
           }).catch(() => [] as InsightsRow[]),
           graphEdge<{
@@ -1272,7 +1290,15 @@ export async function listLotGroups(
           }).catch(() => []),
         ]);
 
-        const row = insights[0];
+        const byAd = new Map(insights.filter((r) => r.ad_id).map((r) => [r.ad_id!, r]));
+        const total = insights.reduce(
+          (acc, r) => ({
+            spend: acc.spend + Number(r.spend ?? 0),
+            impressions: acc.impressions + Number(r.impressions ?? 0),
+            clicks: acc.clicks + Number(r.clicks ?? 0),
+          }),
+          { spend: 0, impressions: 0, clicks: 0 },
+        );
         const bucket = CAMPAIGN_BUCKETS.find((b) => groupNameFor(b) === s.name);
 
         return {
@@ -1285,18 +1311,26 @@ export async function listLotGroups(
           createdTime: s.created_time ?? null,
           dailyBudgetUsd: s.daily_budget ? Number(s.daily_budget) / 100 : null,
           radiusMiles: s.targeting?.geo_locations?.custom_locations?.[0]?.radius ?? null,
-          spend: Number(row?.spend ?? 0),
-          impressions: Number(row?.impressions ?? 0),
-          clicks: Number(row?.clicks ?? 0),
+          spend: total.spend,
+          impressions: total.impressions,
+          clicks: total.clicks,
           ads: ads
             .filter((a) => !DEAD_STATUSES.has(a.status ?? ''))
-            .map((a) => ({
-              id: a.id,
-              name: a.name ?? a.id,
-              status: a.status ?? 'UNKNOWN',
-              effectiveStatus: a.effective_status ?? a.status ?? 'UNKNOWN',
-              creativeId: a.creative?.id ?? null,
-            })),
+            .map((a) => {
+              // An ad with no row has simply never delivered. Zero, not null:
+              // "nobody has seen it yet" is a number the dealer can read.
+              const r = byAd.get(a.id);
+              return {
+                id: a.id,
+                name: a.name ?? a.id,
+                status: a.status ?? 'UNKNOWN',
+                effectiveStatus: a.effective_status ?? a.status ?? 'UNKNOWN',
+                creativeId: a.creative?.id ?? null,
+                spend: Number(r?.spend ?? 0),
+                impressions: Number(r?.impressions ?? 0),
+                clicks: Number(r?.clicks ?? 0),
+              };
+            }),
         };
       }),
   );
@@ -1440,6 +1474,8 @@ export type InsightsRow = {
   spend?: string;
   impressions?: string;
   clicks?: string;
+  /** Present only on `level: 'ad'` reads, which is how a group's rows arrive. */
+  ad_id?: string;
   ctr?: string;
   cpc?: string;
   date_start?: string;

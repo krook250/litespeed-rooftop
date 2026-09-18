@@ -9,3 +9,11 @@
  */
 export const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+/**
+ * Money to the cent, for figures that are small enough that rounding to the
+ * dollar would say "$0" and mean nothing. `money` rounds; a cost per click
+ * cannot.
+ */
+export const dollars = (n: number) =>
+  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
