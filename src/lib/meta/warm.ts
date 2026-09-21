@@ -7,12 +7,21 @@
  * 11 Sep 2026, with the same sentence both times: *"Our records do not show a
  * sufficient number of Ads API calls in the last 15 days by this application."*
  * The bar is 500 successful Marketing API calls in a rolling 15-day window at
- * under 15% error rate. `devtools_api_usage call_volume` read `total_calls: 0`
- * on both occasions, because Rooftop makes almost no outbound calls by design:
+ * under 15% error rate.
+ *
+ * The real cause is that Rooftop makes almost no outbound calls by design:
  * `ad-desk-queries.ts` answers the roll-up from the database, `listLotGroups`
  * runs only when one dealer's screen is open, Meta *pulls* the product feed on
- * its own schedule, and a running ad generates no traffic from us at all. The
- * integration is healthy and the counter is honestly zero.
+ * its own schedule, and a running ad generates no traffic from us at all. A
+ * healthy integration, genuinely under the bar.
+ *
+ * `devtools_api_usage call_volume` read `total_calls: 0` on both occasions,
+ * but that reading is not evidence either way: it is the app-level Graph API
+ * counter, and Marketing API calls are excluded from Graph rate limiting
+ * entirely, so it reads 0 however much traffic this generates. Grade the
+ * result in the App Dashboard under Use cases -> Create & manage ads ->
+ * Customize -> Permissions and features, `API Calls` column, or from the
+ * `[meta-warm]` log lines.
  *
  * `scripts/warm-marketing-api.mjs` does this same job from a laptop, but it
  * cannot run any more: `META_TOKEN_KEY` is a Vercel **Secret** (write-only,
