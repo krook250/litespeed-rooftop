@@ -452,6 +452,26 @@ export const SEED_CHANNELS: SeedChannel[] = [
     blurb: 'Direct posting. Edits push immediately.',
     maxPhotos: 12, sortOrder: 9,
   },
+  {
+    key: 'dealercenter', name: 'DealerCenter', shortName: 'DealerCenter',
+    // MARKETPLACE is the least wrong of the five available kinds, and it is not
+    // quite right: DealerCenter is the dealer's own DMS, not a place shoppers
+    // browse. What the feed actually reaches is CarZing and AutoCheck, which are
+    // listing sites, via DealerCenter's importer — so the inventory does end up
+    // on marketplaces and a dealer reading the label is not misled. A `DMS` kind
+    // would be honest and needs an enum migration; not worth one for a field
+    // only `seed.ts` currently reads.
+    kind: 'MARKETPLACE',
+    // "One Time" or "Automated Nightly Feed" is DealerCenter's entire menu — no
+    // hourly, no real-time, no manual import button. 1440 is not a choice we
+    // made. See `claude/dealercenter-interop.md`.
+    syncMode: 'FEED_PULL', cadenceMinutes: 1440, brandHex: '#00447c', initials: 'DC',
+    blurb: 'We send your inventory once a night. A car is dealable in DealerCenter the next morning, not the same afternoon.',
+    // Unverified. DealerCenter has published no photo limit and the rows in
+    // their own sample carry four to eight URLs. Left at the house default
+    // rather than invented; ask during setup.
+    maxPhotos: 30, sortOrder: 10,
+  },
 ];
 
 /** Pool used to generate trailing-180-day sales history for turn / days supply. */

@@ -629,6 +629,45 @@ export function toCsv(columns: string[], rows: DcRow[]): string {
   return `${lines.join('\r\n')}\r\n`;
 }
 
+/**
+ * Whether this file may be sent, kept separate so it is readable without a
+ * database and so the transport and the preview screen agree on the answer.
+ *
+ * Three refusals, in the order they matter:
+ *
+ *  - **No DCID.** Unattachable; see the note above.
+ *  - **No connection row, or one that is not carrying.** We have not been asked
+ *    to send this lot's inventory anywhere.
+ *  - **Zero rows.** An empty file is not nothing — DealerCenter's importer has a
+ *    delete setting, and on the wrong setting an empty file is an instruction to
+ *    mark the dealer's whole lot Deleted or Sold. That setting lives in his
+ *    DealerCenter account and we cannot read it, so we never send the file that
+ *    depends on it being right. `claude/dealercenter-interop.md` has the detail.
+ *
+ * Deliberately NOT here: the short-file ratio guard the CarGurus run uses. That
+ * needs the previous run's row count, which is the caller's to hold. This
+ * function has only ever seen tonight.
+ */
+export function dealerCenterBlocker(input: {
+  dcid: string;
+  status: string | null;
+  sent: number;
+}): string | null {
+  if (!input.dcid) {
+    return 'No DealerCenter dealer ID (DCID) on the connection, so the file cannot be matched to an account.';
+  }
+  if (!input.status) {
+    return 'This rooftop has no DealerCenter connection.';
+  }
+  if (!(DEALERCENTER_FILE_STATUSES as readonly string[]).includes(input.status)) {
+    return `The DealerCenter connection is ${input.status.toLowerCase().replace(/_/g, ' ')}, so nothing is sent.`;
+  }
+  if (input.sent === 0) {
+    return 'No vehicles qualified, and an empty file can delist the lot depending on the dealer’s import settings.';
+  }
+  return null;
+}
+
 /** Which connection states put a rooftop's cars in the file. */
 export const DEALERCENTER_FILE_STATUSES = ['SUBMITTED', 'CONNECTED', 'ERROR'] as const;
 

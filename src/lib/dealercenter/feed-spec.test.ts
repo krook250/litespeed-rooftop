@@ -29,6 +29,7 @@ import {
   activePrice,
   buildDealerCenterFeed,
   dcFilename,
+  dealerCenterBlocker,
   evaluate,
   feedablePhotos,
   inDealerCenterFile,
@@ -357,4 +358,33 @@ test('only carrying connection states put a lot in the file', () => {
   assert.ok(!inDealerCenterFile('AWAITING_DEALER'));
   assert.ok(!inDealerCenterFile(null));
   assert.ok(!inDealerCenterFile(undefined));
+});
+
+/* --------------------------------------------------------------- blockers */
+
+test('a file with no DCID is refused — it cannot be matched to an account', () => {
+  const b = dealerCenterBlocker({ dcid: '', status: 'CONNECTED', sent: 35 });
+  assert.match(b ?? '', /DCID/);
+});
+
+test('an empty file is refused, because it can delist the whole lot', () => {
+  const b = dealerCenterBlocker({ dcid: '23548716', status: 'CONNECTED', sent: 0 });
+  assert.match(b ?? '', /delist/);
+});
+
+test('a lot with no connection, or a non-carrying one, is refused', () => {
+  assert.ok(dealerCenterBlocker({ dcid: '23548716', status: null, sent: 35 }));
+  assert.ok(dealerCenterBlocker({ dcid: '23548716', status: 'AWAITING_DEALER', sent: 35 }));
+  assert.ok(dealerCenterBlocker({ dcid: '23548716', status: 'DISCONNECTED', sent: 35 }));
+});
+
+test('a real file with a DCID and rows is not blocked', () => {
+  for (const status of ['CONNECTED', 'SUBMITTED', 'ERROR']) {
+    assert.equal(dealerCenterBlocker({ dcid: '23548716', status, sent: 35 }), null, status);
+  }
+});
+
+test('blocker text is written for a person, not a log', () => {
+  const b = dealerCenterBlocker({ dcid: '23548716', status: 'AWAITING_DEALER', sent: 35 });
+  assert.ok(!/AWAITING_DEALER/.test(b ?? ''));
 });
