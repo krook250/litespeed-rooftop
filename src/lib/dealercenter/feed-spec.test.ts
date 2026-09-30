@@ -30,6 +30,8 @@ import {
   buildDealerCenterFeed,
   dcFilename,
   dealerCenterBlocker,
+  guardDealerCenterFile,
+  SHORT_FILE_DROP_RATIO,
   evaluate,
   feedablePhotos,
   inDealerCenterFile,
@@ -353,7 +355,6 @@ test('options and features are merged into one comma-packed Options field', () =
 
 test('only carrying connection states put a lot in the file', () => {
   assert.ok(inDealerCenterFile('CONNECTED'));
-  assert.ok(inDealerCenterFile('SUBMITTED'));
   assert.ok(inDealerCenterFile('ERROR'));
   assert.ok(!inDealerCenterFile('AWAITING_DEALER'));
   assert.ok(!inDealerCenterFile(null));
@@ -375,16 +376,62 @@ test('an empty file is refused, because it can delist the whole lot', () => {
 test('a lot with no connection, or a non-carrying one, is refused', () => {
   assert.ok(dealerCenterBlocker({ dcid: '23548716', status: null, sent: 35 }));
   assert.ok(dealerCenterBlocker({ dcid: '23548716', status: 'AWAITING_DEALER', sent: 35 }));
+  assert.ok(dealerCenterBlocker({ dcid: '23548716', status: 'SUBMITTED', sent: 35 }));
   assert.ok(dealerCenterBlocker({ dcid: '23548716', status: 'DISCONNECTED', sent: 35 }));
 });
 
 test('a real file with a DCID and rows is not blocked', () => {
-  for (const status of ['CONNECTED', 'SUBMITTED', 'ERROR']) {
+  for (const status of ['CONNECTED', 'ERROR']) {
     assert.equal(dealerCenterBlocker({ dcid: '23548716', status, sent: 35 }), null, status);
   }
+});
+
+test('SUBMITTED does NOT send — it is the cutover gate, not a green light', () => {
+  // The whole switch. A mapped-but-unapproved dealer must stay dormant while the
+  // code is deployed, and go live on a one-row update to CONNECTED.
+  const b = dealerCenterBlocker({ dcid: '23548716', status: 'SUBMITTED', sent: 22 });
+  assert.ok(b, 'SUBMITTED must be blocked');
+  assert.ok(!inDealerCenterFile('SUBMITTED'));
 });
 
 test('blocker text is written for a person, not a log', () => {
   const b = dealerCenterBlocker({ dcid: '23548716', status: 'AWAITING_DEALER', sent: 35 });
   assert.ok(!/AWAITING_DEALER/.test(b ?? ''));
+});
+
+/* ------------------------------------------------------------------ guard */
+
+test('an empty file is refused and force cannot override it', () => {
+  assert.equal(guardDealerCenterFile({ sent: 0 }, { sent: 22 }).ok, false);
+  assert.equal(guardDealerCenterFile({ sent: 0 }, { sent: 22 }, { force: true }).ok, false);
+  assert.equal(guardDealerCenterFile({ sent: 0 }, null).ok, false);
+});
+
+test('the first file ever has no baseline and is allowed', () => {
+  assert.equal(guardDealerCenterFile({ sent: 22 }, null).ok, true);
+  assert.equal(guardDealerCenterFile({ sent: 1 }, { sent: 0 }).ok, true);
+});
+
+test('a normal day of selling cars passes', () => {
+  // 22 -> 20 is two trucks sold overnight, not a fault.
+  assert.equal(guardDealerCenterFile({ sent: 20 }, { sent: 22 }).ok, true);
+  assert.equal(guardDealerCenterFile({ sent: 22 }, { sent: 22 }).ok, true);
+  assert.equal(guardDealerCenterFile({ sent: 30 }, { sent: 22 }).ok, true);
+});
+
+test('half the lot vanishing overnight stops the run', () => {
+  const v = guardDealerCenterFile({ sent: 10 }, { sent: 22 });
+  assert.equal(v.ok, false);
+  assert.match(v.ok === false ? v.reason : '', /10 vehicle\(s\), down from 22/);
+});
+
+test('the drop ratio is the documented one and sits at the boundary correctly', () => {
+  assert.equal(SHORT_FILE_DROP_RATIO, 0.4);
+  // floor = ceil(22 * 0.6) = 14
+  assert.equal(guardDealerCenterFile({ sent: 14 }, { sent: 22 }).ok, true);
+  assert.equal(guardDealerCenterFile({ sent: 13 }, { sent: 22 }).ok, false);
+});
+
+test('force overrides a real drop but nothing else', () => {
+  assert.equal(guardDealerCenterFile({ sent: 10 }, { sent: 22 }, { force: true }).ok, true);
 });

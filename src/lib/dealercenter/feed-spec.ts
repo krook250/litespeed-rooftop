@@ -668,8 +668,80 @@ export function dealerCenterBlocker(input: {
   return null;
 }
 
-/** Which connection states put a rooftop's cars in the file. */
-export const DEALERCENTER_FILE_STATUSES = ['SUBMITTED', 'CONNECTED', 'ERROR'] as const;
+/**
+ * Which connection states put a rooftop's cars in the file.
+ *
+ * NARROWER THAN THE CARGURUS SET, AND THE DIFFERENCE IS THE CUTOVER SWITCH.
+ *
+ * `SUBMITTED` is deliberately absent. On CarGurus it means "we are in the file
+ * and they have not flipped the source yet", and sending is harmless because
+ * their side ignores the rows. DealerCenter is the opposite: the moment their
+ * importer is mapped, a file that lands **imports**, overwriting the dealer's own
+ * records by VIN. So SUBMITTED here means "mapped, not live yet" and must not
+ * send.
+ *
+ * That makes cutover a one-row update — set the connection to CONNECTED — rather
+ * than a deploy, which is the whole point: the code ships dormant and goes live
+ * on the day the dealer's approval reaches DealerCenter, not on the day we
+ * happen to push.
+ *
+ * `ERROR` stays in because an errored connection is still a live one; the error
+ * is ours to fix and dropping the dealer's file while we fix it is the outage
+ * this feed exists to avoid.
+ */
+export const DEALERCENTER_FILE_STATUSES = ['CONNECTED', 'ERROR'] as const;
+
+/* ------------------------------------------------------------------ guard */
+
+/**
+ * How far a dealer's row count may fall from the last file that landed before
+ * we stop and ask a human.
+ *
+ * Lower bar than a marketplace: 0.4 means a file carrying less than 60% of last
+ * night's units is refused. On a lot of twenty-odd trucks a real morning's sales
+ * never look like that, and the thing on the other side of this number is the
+ * dealer's own inventory system.
+ */
+export const SHORT_FILE_DROP_RATIO = 0.4;
+
+export type DcGuardVerdict = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Should this file be sent, given the last one that landed?
+ *
+ * Pure, so the preview screen and the uploader cannot disagree, and so the one
+ * number worth arguing about is testable without a database.
+ *
+ * `force` exists for the legitimate case the guard cannot tell from a fault: the
+ * dealer really did wholesale half the lot. It is an intentional act and can
+ * afford a human confirming it. Never wire it to a retry.
+ *
+ * It does NOT override an empty file — that floor lives in `dealerCenterBlocker`
+ * and is not forceable, because an empty file against an importer set to
+ * "Deleted or Sold" is the whole lot gone.
+ */
+export function guardDealerCenterFile(
+  current: { sent: number },
+  baseline: { sent: number } | null,
+  opts: { force?: boolean } = {},
+): DcGuardVerdict {
+  if (current.sent === 0) {
+    return { ok: false, reason: 'The file has no vehicles in it.' };
+  }
+  if (!baseline || baseline.sent === 0) return { ok: true };
+  if (opts.force) return { ok: true };
+
+  const floor = Math.ceil(baseline.sent * (1 - SHORT_FILE_DROP_RATIO));
+  if (current.sent < floor) {
+    return {
+      ok: false,
+      reason:
+        `Only ${current.sent} vehicle(s), down from ${baseline.sent} in the last file that ` +
+        `landed. That is a bigger drop than a normal day, so nothing was sent.`,
+    };
+  }
+  return { ok: true };
+}
 
 export function inDealerCenterFile(status: string | null | undefined): boolean {
   return status != null && (DEALERCENTER_FILE_STATUSES as readonly string[]).includes(status);
