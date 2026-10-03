@@ -97,7 +97,14 @@ export default async function SyndicationPage({
    * lot uses should not vanish because the other lot does not.
    */
   const connectedChannelIds = new Set(shownConnections.map((c) => c.channels.id));
-  const visibleChannels = channels.filter((ch) => connectedChannelIds.has(ch.id));
+  /*
+   * Marketplace is not a destination of its own. Facebook lists a dealer's
+   * vehicles on Marketplace out of the Meta catalog, so a separate card could
+   * only ever read "0 live / Not set up" beside a catalog that was working.
+   */
+  const visibleChannels = channels.filter(
+    (ch) => connectedChannelIds.has(ch.id) && ch.key !== 'fb_marketplace',
+  );
 
   /**
    * The same grid, flattened for the phone. Built here rather than in the JSX
