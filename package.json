@@ -15,7 +15,9 @@
     "test": "tsx --conditions=react-server --import ./src/db/test-env.mjs --test src/**/*.test.ts",
     "db:backfill-reserved": "tsx src/db/backfill-reserved.ts",
     "db:real-photos": "tsx src/db/real-photos.ts",
-    "db:enqueue-photos": "tsx src/db/backfill-photo-ingests.ts"
+    "db:enqueue-photos": "tsx src/db/backfill-photo-ingests.ts",
+    "db:cleanup-placeholders": "tsx src/db/cleanup-placeholder-photos.ts",
+    "db:cleanup-placeholders": "tsx src/db/cleanup-placeholder-photos.ts"
   },
   "dependencies": {
     "@twilio/twilio-compliance-embed": "^2.1.3",

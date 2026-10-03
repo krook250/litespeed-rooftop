@@ -824,19 +824,33 @@ async function uploadVehiclePhoto(
     cacheControlMaxAge: PHOTO_CACHE_SECONDS,
   });
 
+  // A real photograph retires the generated tiles. They were only ever standing
+  // in for one, and left in place the tile keeps `isPrimary` — so the lot showed
+  // a paint swatch in front of the photos the dealer had just taken.
+  await db
+    .delete(t.vehiclePhotos)
+    .where(and(eq(t.vehiclePhotos.vehicleId, v.id), sql`${t.vehiclePhotos.url} like '/api/photo?%'`));
+
   const maxRow = await db
     .select({ m: sql<number>`coalesce(max(${t.vehiclePhotos.sortOrder}), -1)::int` })
     .from(t.vehiclePhotos)
     .where(eq(t.vehiclePhotos.vehicleId, v.id));
   const count = await photoCountFor(v.id);
+  const hasLead = (
+    await db
+      .select({ id: t.vehiclePhotos.id })
+      .from(t.vehiclePhotos)
+      .where(and(eq(t.vehiclePhotos.vehicleId, v.id), eq(t.vehiclePhotos.isPrimary, true)))
+      .limit(1)
+  ).length > 0;
 
   await db.insert(t.vehiclePhotos).values({
     vehicleId: v.id,
     url: blob.url,
     sortOrder: (maxRow[0]?.m ?? -1) + 1,
-    // First real photo takes the lead slot even if generated tiles are already
-    // there. A photograph outranks a paint swatch on every surface that matters.
-    isPrimary: count === 0,
+    // Lead if nothing else is — which, with the tiles gone, means the first
+    // real photo on the vehicle.
+    isPrimary: !hasLead,
     tag: scene as typeof t.photoTagEnum.enumValues[number],
     alt: `${v.year} ${v.make} ${v.model}`,
   });
