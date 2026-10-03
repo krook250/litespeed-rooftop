@@ -22,6 +22,7 @@ import {
 } from '@/lib/domain';
 import { forceRefresh, repairConnection, retryListing } from '@/lib/actions';
 import { requireSection } from '@/lib/auth-guard';
+import { loadCatalogStatus } from '@/lib/meta/catalog-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,11 +53,12 @@ export default async function SyndicationPage({
   await requireSection('syndication');
   const { rooftop: rooftopSlug } = await searchParams;
 
-  const [channels, connections, rooftops, events] = await Promise.all([
+  const [channels, connections, rooftops, events, metaCatalogs] = await Promise.all([
     getChannels(),
     getConnections(),
     getRooftops(),
     getRecentEvents(24),
+    loadCatalogStatus(),
   ]);
 
   const activeRooftop = rooftops.find((r) => r.slug === rooftopSlug) ?? null;
@@ -239,6 +241,19 @@ export default async function SyndicationPage({
         {visibleChannels.map((ch) => {
           const counts = tally(ch.id);
           const conns = shownConnections.filter((c) => c.channels.id === ch.id);
+          /*
+           * Meta Catalog is the one card that does not describe itself from
+           * `channel_connections`. The catalog is set up and fed by the Ad Desk,
+           * so a lot with a working catalog has no CONNECTED row here and the
+           * card used to read "Not set up" next to ads that were running. It
+           * reads the Ad Desk's record instead, and links there.
+           */
+          const isMeta = ch.key === 'meta_catalog';
+          const metaLots = isMeta
+            ? conns.map((c) => metaCatalogs.get(c.rooftops.id)).filter((m) => m !== undefined)
+            : [];
+          const metaUnknown = metaLots.some((m) => m.accepted === null);
+          const metaLive = metaLots.reduce((n, m) => n + (m.accepted ?? 0), 0);
           const anyError = conns.some((c) => c.channel_connections.status === 'ERROR');
           const anyOffline = conns.some(
             (c) => !carriesListings(c.channel_connections.status),
@@ -270,7 +285,9 @@ export default async function SyndicationPage({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-sm font-semibold text-ink-900">{ch.shortName}</h3>
-                    {ch.syncMode === 'PUSH_API' ? (
+                    {isMeta ? (
+                      <Badge tone="blue">Feed · 1h</Badge>
+                    ) : ch.syncMode === 'PUSH_API' ? (
                       <Badge tone="green">Push</Badge>
                     ) : (
                       <Badge tone="blue">
@@ -278,14 +295,20 @@ export default async function SyndicationPage({
                       </Badge>
                     )}
                   </div>
-                  <p className="mt-1 text-[11px] leading-snug text-ink-500">{ch.blurb}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-ink-500">
+                    {isMeta
+                      ? 'Automotive Inventory Ads catalog. Facebook pulls your vehicle feed every hour; changes land at its next fetch.'
+                      : ch.blurb}
+                  </p>
                 </div>
               </div>
 
               <div className="tnum mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="font-semibold text-ink-900">{counts.LIVE ?? 0}</span>
+                  <span className="font-semibold text-ink-900">
+                    {isMeta ? (metaLots.length && metaUnknown ? '—' : metaLive) : (counts.LIVE ?? 0)}
+                  </span>
                   <span className="text-ink-500">live</span>
                 </span>
                 {(counts.QUEUED ?? 0) + (counts.SYNCING ?? 0) + (counts.PENDING ?? 0) > 0 ? (
@@ -314,7 +337,29 @@ export default async function SyndicationPage({
               </div>
 
               <div className="mt-3 space-y-1.5 border-t border-ink-100 pt-3">
-                {conns.map((c) => (
+                {conns.map((c) => {
+                  const metaLot = isMeta ? metaCatalogs.get(c.rooftops.id) : undefined;
+                  if (isMeta) {
+                    return (
+                      <Link
+                        key={c.channel_connections.id}
+                        href="/admin/ad-desk/connect"
+                        className="-mx-1 flex items-center gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-ink-50"
+                      >
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            metaLot ? 'bg-emerald-500' : 'bg-amber-400',
+                          )}
+                        />
+                        <span className="truncate text-ink-600">{c.rooftops.name}</span>
+                        <span className="ml-auto shrink-0 text-ink-400">
+                          {metaLot ? 'Connected' : 'Not set up'}
+                        </span>
+                      </Link>
+                    );
+                  }
+                  return (
                   // The whole row is the target rather than a trailing chevron:
                   // on a phone in a dealership office this is the difference
                   // between the setup screen being reachable and not.
@@ -345,7 +390,8 @@ export default async function SyndicationPage({
                         : CONNECTION_STATUS_LABEL[c.channel_connections.status]}
                     </span>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
 
               {feedConn ? (
