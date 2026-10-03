@@ -64,3 +64,15 @@ malabarinventory.csv
 *.patch
 
 Claude outputs/
+
+# Call-volume warmer progress. Local run state, not a deliverable — a checked-in
+# count from one machine would silently tell the next run it had already cleared
+# a bar it has not cleared.
+scripts/.warm-state.json
+
+# Dealer inventory exports and DealerCenter/Nowcom feed files. Same rule as
+# malabarinventory.csv above: real VINs and dealer contact details stay local.
+malabarinventory-*.csv
+23548716_*.csv
+InventoryTemplate for CSV file-DC.csv
+NowcomSampleFeedWithData*.csv

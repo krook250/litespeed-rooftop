@@ -48,6 +48,14 @@ export type OutboundEmail = {
   subject: string;
   html: string;
   text: string;
+  /**
+   * Overrides the default reply address for this one message.
+   *
+   * Exists for lead notifications: a dealer who hits Reply on "new lead" means
+   * to reply to the shopper, not to open a support ticket with us. Everything
+   * else leaves this unset and keeps REPLY_TO.
+   */
+  replyTo?: string;
 };
 
 /**
@@ -83,7 +91,7 @@ export async function sendEmail(msg: OutboundEmail): Promise<boolean> {
       body: JSON.stringify({
         from: FROM,
         to: [msg.to],
-        reply_to: REPLY_TO,
+        reply_to: msg.replyTo || REPLY_TO,
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
@@ -146,4 +154,73 @@ export function resetPasswordEmail(url: string, name: string): OutboundEmail {
 </div>`;
 
   return { to: '', subject: 'Reset your Rooftop Auto password', html, text };
+}
+
+/**
+ * A shopper asked about a car.
+ *
+ * WHY THE PHONE NUMBER IS THE HEADLINE AND THE EMAIL IS NOT.
+ *
+ * The first real lead this product ever took arrived with the address
+ * `…@gmail.coms` — a typo that passes the form's regex and every other
+ * syntactic check, and bounces. A shopper typing on a phone gets an address
+ * wrong often enough that treating email as the reachable channel is a mistake.
+ * The phone is printed first, big, and the message text is quoted in full
+ * because it usually names the vehicle even when nothing else survives.
+ *
+ * Plain HTML, same reasoning as `resetPasswordEmail`: this lands in a dealer's
+ * inbox at 8pm and has to read as a notification, not a campaign.
+ */
+export function newLeadEmail(input: {
+  to: string;
+  rooftopName: string;
+  vehicleTitle: string;
+  stockNumber: string;
+  vehicleUrl: string | null;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}): OutboundEmail {
+  const phone = input.phone.trim() || 'not given';
+  const lines = [
+    `${input.name} asked about the ${input.vehicleTitle} (stock #${input.stockNumber}).`,
+    '',
+    `Phone:  ${phone}`,
+    `Email:  ${input.email}`,
+    '',
+    input.message ? `"${input.message}"` : '(no message)',
+    '',
+    input.vehicleUrl ? input.vehicleUrl : '',
+    '',
+    `Sent by Rooftop Auto for ${input.rooftopName}. Reply to this email to answer ${input.name}.`,
+  ];
+
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.55;color:#1f2937;max-width:520px">
+  <p><strong>${esc(input.name)}</strong> asked about the ${esc(input.vehicleTitle)} (stock #${esc(input.stockNumber)}).</p>
+  <p style="font-size:20px;margin:18px 0 4px"><a href="tel:${esc(input.phone.replace(/[^\d+]/g, ''))}" style="color:#047857;text-decoration:none"><strong>${esc(phone)}</strong></a></p>
+  <p style="margin:0 0 18px"><a href="mailto:${esc(input.email)}" style="color:#047857">${esc(input.email)}</a></p>
+  ${input.message ? `<blockquote style="margin:0 0 18px;padding:10px 14px;border-left:3px solid #d1d5db;color:#374151">${esc(input.message)}</blockquote>` : '<p style="color:#6b7280">(no message)</p>'}
+  ${input.vehicleUrl ? `<p><a href="${esc(input.vehicleUrl)}" style="color:#047857">See the listing</a></p>` : ''}
+  <p style="font-size:13px;color:#6b7280">Sent by Rooftop Auto for ${esc(input.rooftopName)}. Reply to this email to answer ${esc(input.name)}.</p>
+</div>`;
+
+  return {
+    to: input.to,
+    subject: `New lead: ${input.name} — ${input.vehicleTitle} (#${input.stockNumber})`,
+    html,
+    text: lines.join('\n'),
+    /* Reply goes to the shopper. If their address is mistyped it bounces back to
+     * the dealer, which is the correct place for that bounce to land. */
+    replyTo: input.email,
+  };
+}
+
+/** Everything interpolated into the HTML above is visitor-supplied. */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

@@ -8,6 +8,8 @@ import { AGING_BUCKETS, bucketFor, daysInStock, type DisMode } from '@/lib/domai
 /** Presentation of the feed, not a query — but callers want one import. */
 export { resolveFeedStyle } from '@/lib/feed';
 import { scopeForGroup, type Scope } from '@/lib/scoped-db';
+import { newLeadEmail, sendEmail } from '@/lib/email';
+import { dealerSiteBase } from '@/lib/storefront-url';
 
 /**
  * The vehicle-keyed helpers now live in `scoped-db.ts` and take a `Scope` they
@@ -480,7 +482,19 @@ export async function getVehicleLifecycle(opts: { rooftopIds?: string[] } = {}) 
 
 /* ------------------------------------------------------------- storefront */
 
-/** Storefront "check availability" capture. Insert only — the CRM is not this product. */
+/**
+ * Storefront "check availability" capture.
+ *
+ * NO LONGER INSERT-ONLY, and the reason is worth keeping. It was, on the
+ * principle that the CRM is not this product — which is still true of *storing*
+ * and *working* leads. What that principle did not cover is that nothing else
+ * told anybody a lead had arrived: no screen reads this table, nothing emailed,
+ * so every lead Malabar's storefront took sat in Postgres unseen. The first one
+ * was found by hand, a day late, because a vehicle it pointed at was deleted.
+ *
+ * So the rule now is narrower and holds: we do not manage leads, we deliver
+ * them. One email, to the rooftop, on insert.
+ */
 export async function createLead(input: {
   vehicleId: string;
   storefrontId: string;
@@ -514,5 +528,99 @@ export async function createLead(input: {
       smsConsentText: consented ? input.smsConsentText! : null,
     })
     .returning();
-  return rows[0]!;
+  const lead = rows[0]!;
+
+  await notifyNewLead(lead.id, input.rooftopId, input.vehicleId);
+
+  return lead;
+}
+
+/**
+ * Tell the dealer a lead came in. Never throws, never blocks the visitor's
+ * confirmation on a provider being up.
+ *
+ * AWAITED RATHER THAN FIRE-AND-FORGET. A floating promise in a Vercel function
+ * is a promise that may be killed when the response is sent, and a lead
+ * notification that arrives 90% of the time is worse than none — nobody would
+ * know which 10% they were missing. `sendEmail` swallows its own failures and
+ * returns a boolean, so awaiting costs one HTTP round trip and risks nothing.
+ *
+ * Wrapped anyway: this runs inside the storefront's form action, and a shopper
+ * who filled the form correctly must see "thanks, we'll be in touch" even if
+ * every lookup in here fails.
+ */
+async function notifyNewLead(
+  leadId: string,
+  rooftopId: string,
+  vehicleId: string,
+): Promise<void> {
+  try {
+    const lead = (await db.select().from(t.leads).where(eq(t.leads.id, leadId)).limit(1))[0];
+    if (!lead) return;
+
+    const lot = (
+      await db
+        .select({ name: t.rooftops.name, email: t.rooftops.email })
+        .from(t.rooftops)
+        .where(eq(t.rooftops.id, rooftopId))
+        .limit(1)
+    )[0];
+
+    /* No address on the rooftop is a setup gap, not a code path to invent a
+     * recipient for. Loud, because the alternative is a silently unnotified
+     * dealer — the exact failure this function exists to end. */
+    if (!lot?.email) {
+      console.error(
+        `[lead] ${leadId} for rooftop ${rooftopId} could not be emailed: the rooftop has no email address.`,
+      );
+      return;
+    }
+
+    const v = (
+      await db
+        .select({
+          year: t.vehicles.year,
+          make: t.vehicles.make,
+          model: t.vehicles.model,
+          trim: t.vehicles.trim,
+          stockNumber: t.vehicles.stockNumber,
+        })
+        .from(t.vehicles)
+        .where(eq(t.vehicles.id, vehicleId))
+        .limit(1)
+    )[0];
+
+    const title = v
+      ? `${v.year} ${v.make} ${v.model}${v.trim ? ` ${v.trim}` : ''}`.trim()
+      : 'a vehicle';
+    const stock = v?.stockNumber ?? '—';
+
+    let vehicleUrl: string | null = null;
+    try {
+      const base = await dealerSiteBase(rooftopId);
+      if (base && v) vehicleUrl = `${base}/${v.stockNumber.toLowerCase()}`;
+    } catch {
+      // A storefront without a resolvable base is not a reason to hold the email.
+    }
+
+    const sent = await sendEmail(
+      newLeadEmail({
+        to: lot.email,
+        rooftopName: lot.name,
+        vehicleTitle: title,
+        stockNumber: stock,
+        vehicleUrl,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        message: lead.message,
+      }),
+    );
+
+    // One line either way. A dealer asking "did you send it" deserves an answer
+    // that is not a guess.
+    console.log(`[lead] ${leadId} -> ${lot.email} ${sent ? 'sent' : 'NOT SENT'}`);
+  } catch (err) {
+    console.error(`[lead] ${leadId} notification failed`, err);
+  }
 }
