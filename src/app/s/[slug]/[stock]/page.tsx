@@ -37,6 +37,7 @@ import {
   isRvBody,
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
+import { SOLD_STATUSES, similarToSold } from '@/lib/store/sold';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
 import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
@@ -56,8 +57,11 @@ async function load(slug: string, stock: string) {
   });
   if (!vehicle) return null;
   if (!storefront.rooftopIds.includes(vehicle.rooftopId)) return null;
+  /* A sold unit gets its own page rather than a 404 — its link is still out
+     there. ARRIVED and IN_RECON were never public, so they stay not-found. */
+  if (SOLD_STATUSES.has(vehicle.status)) return { storefront, vehicle, sold: true as const };
   if (!PUBLIC_STATUSES.has(vehicle.status)) return null;
-  return { storefront, vehicle };
+  return { storefront, vehicle, sold: false as const };
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -66,6 +70,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!data) return { title: 'Vehicle not found' };
   const { storefront, vehicle } = data;
   const url = vehicleCanonicalUrl(storefront, (await headers()).get('host'), vehicle.stockNumber);
+  /* Out of the index, links still followed into the similar cars. */
+  if (data.sold) {
+    return {
+      title: `Sold — ${vehicleTitle(vehicle)}`,
+      robots: { index: false, follow: true },
+      alternates: { canonical: url },
+    };
+  }
   const title = `${vehicleTitle(vehicle)} — Stock #${vehicle.stockNumber}`;
   const photo = primaryPhoto(vehicle);
   const description =
@@ -143,6 +155,7 @@ export default async function VehicleDetailPage({ params }: Params) {
   const data = await load(slug, stock);
   if (!data) notFound();
   const { storefront, vehicle } = data;
+  if (data.sold) return <SoldVehicle storefront={storefront} vehicle={vehicle} />;
 
   /*
    * Was hardcoded to `/s/<slug>`, which still resolves on a dealer's own domain
@@ -602,6 +615,80 @@ export default async function VehicleDetailPage({ params }: Params) {
           </div>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- sold page */
+
+/**
+ * What a shopper sees on a link to a car that has sold. No gallery, no price,
+ * no lead form and no Meta ViewContent — firing that for a sold unit would ask
+ * Meta to retarget a truck that is gone. The call / directions bar comes from
+ * the layout, so it is already here.
+ */
+async function SoldVehicle({
+  storefront,
+  vehicle,
+}: {
+  storefront: NonNullable<Awaited<ReturnType<typeof load>>>['storefront'];
+  vehicle: LiveVehicle;
+}) {
+  const host = (await headers()).get('host');
+  const basePath = storefrontBasePath(storefront, host);
+  const title = vehicleTitle(vehicle);
+  const photo = primaryPhoto(vehicle);
+
+  const inventory = (await getLiveInventory({ rooftopIds: storefront.rooftopIds })).filter((u) =>
+    PUBLIC_STATUSES.has(u.status),
+  );
+  const similar = similarToSold(vehicle, activePrice(vehicle), inventory, activePrice);
+  const badgeFreshAir = shouldBadgeFreshAir(
+    inventory.filter((u) => isFreshAir(daysInStock(u))).length,
+    inventory.length,
+  );
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-xl text-center">
+        <div className="relative overflow-hidden rounded-lg bg-[var(--paper-2)]">
+          {photo ? (
+            <img
+              src={photo.url}
+              alt={title}
+              className="aspect-[3/2] w-full object-cover opacity-60 grayscale"
+            />
+          ) : (
+            <div className="aspect-[3/2] w-full" />
+          )}
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-[var(--text)] px-4 py-1.5 text-sm font-bold uppercase tracking-[0.2em] text-[var(--paper)]">
+            Sold
+          </span>
+        </div>
+        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[var(--text)]">{title}</h1>
+        <p className="mt-2 text-[var(--text-2)]">
+          {similar.length
+            ? "This one's gone. Here's what's on the lot like it."
+            : "This one's gone."}
+        </p>
+      </div>
+
+      {similar.length ? (
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {similar.map((u) => (
+            <VehicleCard key={u.id} v={u} basePath={basePath} badgeFreshAir={badgeFreshAir} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-8 text-center">
+        <Link
+          href={basePath || '/'}
+          className="inline-block rounded-md bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-[var(--on-brand)] hover:opacity-90"
+        >
+          See all inventory
+        </Link>
+      </div>
     </div>
   );
 }

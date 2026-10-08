@@ -224,6 +224,10 @@ export async function getVehicleByStock(stock: string, opts: { rooftopIds?: stri
     .select({ id: t.vehicles.id })
     .from(t.vehicles)
     .where(and(eq(t.vehicles.stockNumber, stock), inArray(t.vehicles.rooftopId, rooftopIds)))
+    /* Stock numbers are not unique (see the index note in schema.ts), and a sold
+       unit can share one with a car on the lot today. The live one wins, then
+       the newest — otherwise the storefront could show SOLD over a real truck. */
+    .orderBy(desc(inArray(t.vehicles.status, LIVE_STATUSES)), desc(t.vehicles.acquiredDate))
     .limit(1);
   if (!rows[0]) return null;
   return getVehicleById(rows[0].id, { rooftopIds });
