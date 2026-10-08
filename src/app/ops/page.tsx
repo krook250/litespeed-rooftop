@@ -47,7 +47,20 @@ function daysSince(d: Date | null, now: Date): number | null {
 
 function Row({ c, now }: { c: OpsConnection; now: Date }) {
   const waiting = daysSince(c.requestedAt, now);
-  const stale = waiting !== null && waiting >= STALE_DAYS && !c.dealerConfirmedAt;
+  /**
+   * "Nobody has done anything about this" — which is only true while the ball is
+   * still in the dealer's court.
+   *
+   * The status check is not decoration. Without it a connection that went live
+   * without anybody clicking through the full lifecycle — Malabar's DealerCenter
+   * row, set up by `connect-dealercenter.ts`, which never stamped
+   * `dealerConfirmedAt` — keeps a red badge and "the dealer has not confirmed"
+   * forever, on a feed that is demonstrably running. A nag that is wrong on a
+   * working row is worse than no nag: it teaches an operator to read past red.
+   */
+  const awaitingTheDealer = c.status === 'AWAITING_DEALER' || c.status === 'PENDING_SETUP';
+  const stale =
+    awaitingTheDealer && waiting !== null && waiting >= STALE_DAYS && !c.dealerConfirmedAt;
 
   return (
     <div className="border-t border-ink-100 px-5 py-4 first:border-t-0">
