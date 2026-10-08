@@ -15,6 +15,7 @@ import {
   autoDealerLd,
   breadcrumbLd,
   canonicalOrigin,
+  vehicleCanonicalUrl,
   vehicleLd,
   type SeoRooftop,
 } from '@/lib/store/seo';
@@ -63,18 +64,26 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug, stock } = await params;
   const data = await load(slug, stock);
   if (!data) return { title: 'Vehicle not found' };
-  const { vehicle } = data;
+  const { storefront, vehicle } = data;
+  const url = vehicleCanonicalUrl(storefront, (await headers()).get('host'), vehicle.stockNumber);
   const title = `${vehicleTitle(vehicle)} — Stock #${vehicle.stockNumber}`;
   const photo = primaryPhoto(vehicle);
   const description =
     vehicle.description ||
     `${vehicleTitle(vehicle)} with ${miles(vehicle.mileage)} at ${usd(activePrice(vehicle))}.`;
+  /*
+   * Must be set here. The layout's canonical is the homepage, and Next merges
+   * metadata shallowly — a page that does not set `alternates` inherits it, which
+   * told Google every vehicle page was a duplicate of the home page.
+   */
   return {
     title,
     description,
+    alternates: { canonical: url },
     openGraph: {
       title,
       description,
+      url,
       type: 'website',
       images: photo
         ? [{ url: photo.url, width: 1200, height: 800, alt: photo.alt || title }]
@@ -228,7 +237,7 @@ export default async function VehicleDetailPage({ params }: Params) {
    * `seller` that resolves to nothing is a dangling reference.
    */
   const seoRooftop = rooftop as unknown as SeoRooftop;
-  const url = `${origin}${basePath}/${vehicle.stockNumber.toLowerCase()}`;
+  const url = vehicleCanonicalUrl(storefront, host, vehicle.stockNumber);
   const dealerNode = autoDealerLd(seoRooftop, {
     origin,
     basePath,

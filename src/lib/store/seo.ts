@@ -67,6 +67,22 @@ export function canonicalOrigin(sf: Pick<SeoStorefront, 'domain' | 'domainStatus
   return bare ? `https://${bare}` : '';
 }
 
+/**
+ * The one URL a vehicle page is indexed under. Built from the storefront, not
+ * the request: on a live domain it is always `https://<domain>/<stock>`, even
+ * when the visitor arrived on the `/s/<slug>` path — which is exactly the case
+ * the canonical exists for.
+ */
+export function vehicleCanonicalUrl(
+  sf: Pick<SeoStorefront, 'slug' | 'domain' | 'domainStatus'>,
+  host: string | null,
+  stockNumber: string,
+): string {
+  const live = Boolean(sf.domain) && sf.domainStatus === 'LIVE';
+  const base = live ? '' : `/s/${sf.slug}`;
+  return `${canonicalOrigin(sf, host)}${base}/${stockNumber.toLowerCase()}`;
+}
+
 /** `(360) 555-0142` → `tel:+13605550142`. Digits only; the display form stays human. */
 export function telHref(phone: string): string {
   const digits = phone.replace(/\D/g, '');

@@ -24,6 +24,7 @@ import {
   paragraphs,
   storefrontLd,
   telHref,
+  vehicleCanonicalUrl,
   vehicleLd,
   visitPath,
   type SeoRooftop,
@@ -327,5 +328,17 @@ describe('paths', () => {
 
   it('formats the one-line address the same way everywhere', () => {
     assert.equal(fullAddress(ROOFTOP), '8215 NE Highway 99, Vancouver, WA 98665');
+  });
+});
+
+describe('vehicleCanonicalUrl', () => {
+  const live = { slug: 'malabar', domain: 'malabartruckandtrade.com', domainStatus: 'LIVE' };
+  it('is the dealer domain root path when live, whichever host was used', () => {
+    assert.equal(vehicleCanonicalUrl(live, 'malabartruckandtrade.com', 'T1234'), 'https://malabartruckandtrade.com/t1234');
+    assert.equal(vehicleCanonicalUrl(live, 'rooftopauto.com', 'T1234'), 'https://malabartruckandtrade.com/t1234');
+  });
+  it('keeps the slug path until the domain is live', () => {
+    const pending = { ...live, domainStatus: 'PENDING' };
+    assert.equal(vehicleCanonicalUrl(pending, 'rooftopauto.com', 'T1234'), 'https://rooftopauto.com/s/malabar/t1234');
   });
 });
