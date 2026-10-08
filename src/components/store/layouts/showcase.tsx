@@ -31,9 +31,17 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
   const hero = results[0] ?? null;
   const rest = results.slice(1);
   const heroPhoto = hero ? primaryPhoto(hero) : null;
+  /* On a landing page the page's own heading is the H1, so the hero's title steps down. */
+  const HeroTitle = view.heading ? 'h2' : 'h1';
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      {view.heading ? (
+        <div className="mb-5">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">{view.heading.title}</h1>
+          <p className="tnum mt-1 text-sm text-[var(--text-2)]">{view.heading.line}</p>
+        </div>
+      ) : null}
       {hero ? (
         <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] shadow-sm">
           <Link href={`${basePath}/${hero.stockNumber}`} className="block">
@@ -52,9 +60,9 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
             </div>
             <div className="flex flex-wrap items-end justify-between gap-4 p-5">
               <div className="min-w-0">
-                <h1 className="truncate text-2xl font-bold tracking-tight text-[var(--text)]">
+                <HeroTitle className="truncate text-2xl font-bold tracking-tight text-[var(--text)]">
                   {vehicleTitle(hero)}
-                </h1>
+                </HeroTitle>
                 <p className="tnum mt-1 text-sm text-[var(--text-2)]">
                   {[
                     hasOdometer(hero.bodyStyle) ? miles(hero.mileage) : null,

@@ -63,52 +63,52 @@ test('their casing and trailing slashes are handled', () => {
 
 /* --------------------------------------------------------------- the SRPs */
 
-test('make pages become a filtered search', () => {
-  assert.equal(legacyRedirect('/chevrolet-for-sale-c998972'), '/?make=Chevrolet');
-  assert.equal(legacyRedirect('/ford-for-sale-c137146'), '/?make=Ford');
-  assert.equal(legacyRedirect('/gmc-for-sale-c137363'), '/?make=GMC');
-  assert.equal(legacyRedirect('/ram-for-sale-c169388'), '/?make=Ram');
+test('make pages become make landing pages', () => {
+  assert.equal(legacyRedirect('/chevrolet-for-sale-c998972'), '/used/chevrolet');
+  assert.equal(legacyRedirect('/ford-for-sale-c137146'), '/used/ford');
+  assert.equal(legacyRedirect('/gmc-for-sale-c137363'), '/used/gmc');
+  assert.equal(legacyRedirect('/ram-for-sale-c169388'), '/used/ram');
 });
 
 test('make + model pages keep the model', () => {
   assert.equal(
     legacyRedirect('/chevrolet-silverado-1500-for-sale-c999082'),
-    '/?make=Chevrolet&model=Silverado+1500',
+    '/used/chevrolet/silverado-1500',
   );
   assert.equal(
     legacyRedirect('/gmc-sierra-2500hd-for-sale-c137436'),
-    '/?make=GMC&model=Sierra+2500hd',
+    '/used/gmc/sierra-2500hd',
   );
   assert.equal(
     legacyRedirect('/gmc-yukon-xl-for-sale-c137531'),
-    '/?make=GMC&model=Yukon+Xl',
+    '/used/gmc/yukon-xl',
   );
 });
 
 test('an alphanumeric model keeps its hyphen', () => {
   assert.equal(
     legacyRedirect('/ford-f-350-super-duty-for-sale-c137282'),
-    '/?make=Ford&model=F-350+Super+Duty',
+    '/used/ford/f-350-super-duty',
   );
   assert.equal(
     legacyRedirect('/ford-f-250-super-duty-for-sale-c137247'),
-    '/?make=Ford&model=F-250+Super+Duty',
+    '/used/ford/f-250-super-duty',
   );
 });
 
 test('two-word makes are not split on their own hyphen', () => {
-  assert.equal(legacyRedirect('/land-rover-for-sale-c1'), '/?make=Land+Rover');
+  assert.equal(legacyRedirect('/land-rover-for-sale-c1'), '/used/land-rover');
   assert.equal(
     legacyRedirect('/mercedes-benz-c-class-for-sale-c2'),
-    '/?make=Mercedes-Benz&model=C-Class',
+    '/used/mercedes-benz/c-class',
   );
 });
 
 test('body style pages map onto our enum', () => {
-  assert.equal(legacyRedirect('/pickup-trucks-for-sale-b100030'), '/?body=TRUCK');
-  assert.equal(legacyRedirect('/suvs-for-sale-b100037'), '/?body=SUV');
-  assert.equal(legacyRedirect('/chassis-for-sale-b100006'), '/?body=TRUCK');
-  assert.equal(legacyRedirect('/vans-for-sale-b1'), '/?body=VAN');
+  assert.equal(legacyRedirect('/pickup-trucks-for-sale-b100030'), '/used/trucks');
+  assert.equal(legacyRedirect('/suvs-for-sale-b100037'), '/used/suvs');
+  assert.equal(legacyRedirect('/chassis-for-sale-b100006'), '/used/trucks');
+  assert.equal(legacyRedirect('/vans-for-sale-b1'), '/used/minivans');
 });
 
 test('an unreadable -for-sale- URL still goes home rather than 404ing', () => {
@@ -116,16 +116,24 @@ test('an unreadable -for-sale- URL still goes home rather than 404ing', () => {
   assert.equal(legacyRedirect('/nonsense-for-sale-b1'), '/');
 });
 
+test('our own landing pages and files are never caught', () => {
+  assert.equal(legacyRedirect('/used/chevrolet'), null);
+  assert.equal(legacyRedirect('/used/chevrolet/silverado-1500'), null);
+  assert.equal(legacyRedirect('/used/trucks'), null);
+  assert.equal(legacyRedirect('/sitemap.xml'), null);
+  assert.equal(legacyRedirect('/robots.txt'), null);
+});
+
 /* ------------------------------------------------------------- the details */
 
 test('a vehicle page becomes the closest search we can honestly describe', () => {
   assert.equal(
     legacyRedirect('/details/used-2018-chevrolet-silverado-1500/131418036'),
-    '/?make=Chevrolet&model=Silverado+1500',
+    '/used/chevrolet/silverado-1500',
   );
   assert.equal(
     legacyRedirect('/details/used-2008-ford-expedition/130042456'),
-    '/?make=Ford&model=Expedition',
+    '/used/ford/expedition',
   );
 });
 

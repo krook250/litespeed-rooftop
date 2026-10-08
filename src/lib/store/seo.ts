@@ -78,9 +78,18 @@ export function vehicleCanonicalUrl(
   host: string | null,
   stockNumber: string,
 ): string {
+  return canonicalUrl(sf, host, `/${stockNumber.toLowerCase()}`);
+}
+
+/** Same rule for any storefront path: the live domain with no `/s/`, or the slug path until then. */
+export function canonicalUrl(
+  sf: Pick<SeoStorefront, 'slug' | 'domain' | 'domainStatus'>,
+  host: string | null,
+  path: string,
+): string {
   const live = Boolean(sf.domain) && sf.domainStatus === 'LIVE';
   const base = live ? '' : `/s/${sf.slug}`;
-  return `${canonicalOrigin(sf, host)}${base}/${stockNumber.toLowerCase()}`;
+  return `${canonicalOrigin(sf, host)}${base}${path}`;
 }
 
 /** `(360) 555-0142` → `tel:+13605550142`. Digits only; the display form stays human. */

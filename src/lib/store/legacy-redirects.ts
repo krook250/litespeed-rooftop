@@ -37,6 +37,8 @@
  * module invented.
  */
 
+import { bodyPath, makePath } from './facets';
+
 /* ------------------------------------------------------------------ makes */
 
 /**
@@ -200,9 +202,16 @@ export type LegacyContext = {
 
 /* ------------------------------------------------------------------ rules */
 
-function srp(params: Record<string, string>): string {
-  const qs = new URLSearchParams(params).toString();
-  return qs ? `/?${qs}` : '/';
+/**
+ * The make / model / body landing page for an old URL. These used to be
+ * `/?make=…` views, which canonicalise to the home page — so every link the old
+ * site had earned was being handed to the home page instead of the page that
+ * matches it. See `src/lib/store/facets.ts`.
+ */
+function srp(params: { make?: string; model?: string; body?: string }): string {
+  if (params.body) return bodyPath(params.body) ?? '/';
+  if (params.make) return makePath(params.make, params.model || null);
+  return '/';
 }
 
 /**

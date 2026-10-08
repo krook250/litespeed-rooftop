@@ -9,6 +9,7 @@ describe('buildSitemap', () => {
   const xml = buildSitemap({
     origin,
     lotSlugs: ['malabar'],
+    facetPaths: ['/used/gmc', '/used/trucks'],
     vehicles: [
       { stockNumber: 'T491674', updatedAt: d, photos: [{ url: '/api/photo/abc' }, { url: 'https://cdn.x/y.jpg' }, { url: 'junk' }] },
     ],
@@ -19,6 +20,8 @@ describe('buildSitemap', () => {
     assert.match(xml, /<loc>https:\/\/malabartruckandtrade\.com\/visit\/malabar<\/loc>/);
     assert.match(xml, /<loc>https:\/\/malabartruckandtrade\.com\/loan-application<\/loc>/);
     assert.match(xml, /<loc>https:\/\/malabartruckandtrade\.com\/t491674<\/loc>/);
+    assert.match(xml, /<loc>https:\/\/malabartruckandtrade\.com\/used\/gmc<\/loc>/);
+    assert.match(xml, /<loc>https:\/\/malabartruckandtrade\.com\/used\/trucks<\/loc>/);
   });
 
   it('never lists the /s/ path or a filtered SRP', () => {

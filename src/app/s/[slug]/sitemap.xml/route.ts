@@ -1,5 +1,6 @@
 import { getLiveInventory, getStorefrontByKey } from '@/lib/queries';
 import { buildSitemap } from '@/lib/store/sitemap';
+import { facetLinks } from '@/lib/store/facets';
 
 /* Same set the SRP and VDP render. ARRIVED and IN_RECON have no photo set. */
 const PUBLIC_STATUSES = new Set(['PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE']);
@@ -21,6 +22,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const xml = buildSitemap({
     origin: `https://${sf.domain}`,
     lotSlugs: sf.rooftops.map((r) => r.slug),
+    facetPaths: (() => {
+      const l = facetLinks(vehicles);
+      return [...l.makes, ...l.models, ...l.bodies].map((x) => x.path);
+    })(),
     vehicles,
   });
 

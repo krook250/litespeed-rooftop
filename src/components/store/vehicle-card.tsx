@@ -106,7 +106,7 @@ export function VehicleCard({
 
         {v.photos.length ? (
           <span className="tnum absolute bottom-2 right-2 rounded-md bg-[var(--scrim)]/70 px-2 py-1 text-[11px] font-medium text-white">
-            {v.photos.length} photos
+            {v.photos.length} {v.photos.length === 1 ? 'photo' : 'photos'}
           </span>
         ) : null}
       </Link>

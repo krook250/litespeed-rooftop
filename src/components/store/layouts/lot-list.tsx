@@ -34,8 +34,14 @@ export function LotListLayout({ view }: { view: StorefrontView }) {
 
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">Inventory</h1>
-          <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">
+            {view.heading ? view.heading.title : 'Inventory'}
+          </h1>
+          {view.heading ? (
+            <p className="tnum mt-0.5 text-sm text-[var(--text-2)]">{view.heading.line}</p>
+          ) : (
+            <ResultCount shown={results.length} total={inventory.length} filtered={activeFilterCount > 0} />
+          )}
         </div>
         <SortBar basePath={basePath} sp={sp} filters={filters} />
       </div>

@@ -43,6 +43,12 @@ export type StorefrontView = {
    * `shouldBadgeFreshAir` in `src/lib/domain.ts`.
    */
   badgeFreshAir: boolean;
+  /**
+   * Set on a make / model / body landing page (`/used/...`): the page's H1 and
+   * one line of real numbers under it. Null on the home page, where each layout
+   * keeps its own heading.
+   */
+  heading: { title: string; line: string } | null;
 };
 
 export type LayoutComponent = (props: { view: StorefrontView }) => React.ReactNode;

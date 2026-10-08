@@ -15,6 +15,7 @@ import {
   autoDealerLd,
   breadcrumbLd,
   canonicalOrigin,
+  canonicalUrl,
   vehicleCanonicalUrl,
   vehicleLd,
   type SeoRooftop,
@@ -38,6 +39,7 @@ import {
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
 import { SOLD_STATUSES, similarToSold } from '@/lib/store/sold';
+import { makePath } from '@/lib/store/facets';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
 import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
@@ -267,7 +269,7 @@ export default async function VehicleDetailPage({ params }: Params) {
       dealerNode,
       breadcrumbLd([
         { name: storefront.name, url: `${origin}${basePath || '/'}` },
-        { name: vehicle.make, url: `${origin}${basePath}?make=${encodeURIComponent(vehicle.make)}` },
+        { name: vehicle.make, url: canonicalUrl(storefront, host, makePath(vehicle.make)) },
         { name: title, url },
       ]),
     ],
@@ -286,7 +288,7 @@ export default async function VehicleDetailPage({ params }: Params) {
         </Link>
         <span className="px-1.5 text-[var(--text-3)]">/</span>
         <Link
-          href={`${basePath}?make=${encodeURIComponent(vehicle.make)}`}
+          href={`${basePath}${makePath(vehicle.make)}`}
           className="hover:text-[var(--brand-text)] hover:underline"
         >
           {vehicle.make}

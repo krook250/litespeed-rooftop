@@ -15,9 +15,11 @@
  * ## What is in it
  *
  * Every URL here is one that carries its own canonical: the home page, one
- * `/visit/<lot>` per lot, the loan application, and every public vehicle.
- * Filtered SRPs (`?make=`) are not — they canonicalise to the home page, and
- * listing them would be submitting duplicates. Privacy is `noindex`.
+ * `/visit/<lot>` per lot, the loan application, every make / model / body page
+ * with at least one car behind it, and every public vehicle. Filtered SRPs
+ * (`?make=`) are not — they canonicalise to the home page, and listing them
+ * would be submitting duplicates. An empty `/used/` page is `noindex`, and so
+ * is Privacy.
  *
  * `lastmod` on a vehicle is its `updatedAt`, which moves on a price drop or new
  * photos — the two changes worth a recrawl. Google ignores `priority` and
@@ -33,6 +35,8 @@ export type SitemapVehicle = {
 export type SitemapInput = {
   origin: string; // https://<domain>, no trailing slash
   lotSlugs: string[];
+  /** `/used/...` landing pages that have stock — see `facetLinks`. */
+  facetPaths?: string[];
   vehicles: SitemapVehicle[];
 };
 
@@ -54,7 +58,7 @@ function absolute(origin: string, url: string): string | null {
   return null;
 }
 
-export function buildSitemap({ origin, lotSlugs, vehicles }: SitemapInput): string {
+export function buildSitemap({ origin, lotSlugs, facetPaths = [], vehicles }: SitemapInput): string {
   const entries: string[] = [];
   const newest = vehicles.reduce<Date | null>(
     (max, v) => (!max || v.updatedAt > max ? v.updatedAt : max),
@@ -74,6 +78,7 @@ export function buildSitemap({ origin, lotSlugs, vehicles }: SitemapInput): stri
   entries.push(url(`${origin}/`, newest));
   for (const lot of lotSlugs) entries.push(url(`${origin}/visit/${encodeURIComponent(lot)}`));
   entries.push(url(`${origin}/loan-application`));
+  for (const p of facetPaths) entries.push(url(`${origin}${p}`));
 
   for (const v of vehicles) {
     const images = v.photos
