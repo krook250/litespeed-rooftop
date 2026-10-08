@@ -14,12 +14,13 @@
  * item in the menu. Revisit when there is a geocoder worth depending on.
  */
 
-import { Card, CardHeader, Badge, Button } from '@/components/ui';
+import { Card, CardHeader, Badge } from '@/components/ui';
 import { getRooftops } from '@/lib/queries';
 import { saveRooftopDetails } from '@/lib/rooftop-actions';
 import { HoursCard } from '@/components/website/hours-card';
 import { MapPinField } from '@/components/website/map-pin-field';
 import { requireSection } from '@/lib/auth-guard';
+import { SaveButton } from '@/components/submit-button';
 import { GOOGLE_PROFILE_PATTERN } from '@/lib/store/google-profile';
 
 export const dynamic = 'force-dynamic';
@@ -135,7 +136,7 @@ export default async function LotsPage() {
               </div>
 
               <div className="mt-4 flex justify-end">
-                <Button type="submit">Save lot</Button>
+                <SaveButton>Save lot</SaveButton>
               </div>
             </form>
 

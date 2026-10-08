@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button, cn } from './ui';
 
@@ -58,6 +59,53 @@ export function SubmitButton({
       ) : null}
       {pending ? pendingLabel : children}
     </Button>
+  );
+}
+
+/**
+ * A save button that says it saved.
+ *
+ * `SubmitButton` covers the wait; this covers the moment after. A fast save
+ * finishes before the spinner is visible, so on its own the button flickers and
+ * the dealer cannot tell whether anything happened. When the form stops being
+ * pending, a green "Saved" with a check sits beside the button for a few
+ * seconds. A server action that throws never gets here — it goes to the error
+ * boundary — so reaching the end of `pending` without a throw means it saved.
+ */
+export function SaveButton({ children, savedLabel = 'Saved' }: { children: React.ReactNode; savedLabel?: string }) {
+  const { pending } = useFormStatus();
+  const was = useRef(false);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (was.current && !pending) {
+      setShown(true);
+      const t = setTimeout(() => setShown(false), 4000);
+      was.current = pending;
+      return () => clearTimeout(t);
+    }
+    if (pending) setShown(false);
+    was.current = pending;
+  }, [pending]);
+
+  return (
+    <span className="inline-flex items-center gap-3">
+      <span
+        role="status"
+        aria-live="polite"
+        className={cn(
+          'inline-flex items-center gap-1 text-sm font-medium text-emerald-700 transition-opacity duration-300',
+          shown ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.15" />
+          <path d="M4.5 8.2l2.3 2.3 4.7-4.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {shown ? savedLabel : ''}
+      </span>
+      <SubmitButton>{children}</SubmitButton>
+    </span>
   );
 }
 
