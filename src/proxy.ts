@@ -28,6 +28,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { legacyRedirect, paymentLinkFor } from '@/lib/store/legacy-redirects';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -68,6 +69,25 @@ export function proxy(request: NextRequest) {
 
   // Already rewritten (or someone hand-typed /s/ on a custom domain) — leave it.
   if (url.pathname.startsWith('/s/')) return NextResponse.next();
+
+  /*
+   * URLs the dealer's previous website served.
+   *
+   * Before the rewrite, because these are 301s to somewhere else rather than
+   * renders of this path, and after the `/s/` check so a hand-typed internal URL
+   * is never caught by them. `legacyRedirect` returns null for anything that is
+   * not recognisably a legacy URL, including every one of our own paths, so this
+   * cannot redirect the storefront to itself.
+   *
+   * Query strings are dropped deliberately: the targets carry their own filter
+   * params, and merging a CarsForSale `?page=3` into them would produce
+   * something neither side means.
+   */
+  const legacy = legacyRedirect(url.pathname, { paymentUrl: paymentLinkFor(apex) });
+  if (legacy) {
+    const target = legacy.startsWith('http') ? legacy : `https://${hostname}${legacy}`;
+    return NextResponse.redirect(target, 301);
+  }
 
   /*
    * The admin is not reachable on a dealer's domain. A dealer's customers should
