@@ -306,6 +306,25 @@ export async function saveVehicle(formData: FormData) {
   const before = await loadWritableVehicle(id);
   if (!before) return;
 
+  /* VIN on edit. Normalised the way every decoder reads it. Blank clears it —
+   * the column is nullable on purpose (see the create branch). A VIN another
+   * unit already holds is left as it was rather than tripping the unique index
+   * and losing the rest of the save. */
+  let vin = before.vin;
+  const vinIn = str('vin').toUpperCase().replace(/\s+/g, '');
+  if (vinIn !== (before.vin ?? '')) {
+    if (!vinIn) {
+      vin = null;
+    } else {
+      const taken = await db
+        .select({ id: t.vehicles.id })
+        .from(t.vehicles)
+        .where(eq(t.vehicles.vin, vinIn))
+        .limit(1);
+      if (!taken[0] || taken[0].id === id) vin = vinIn;
+    }
+  }
+
   const goingFrontLine =
     base.status === 'FRONT_LINE_READY' && before.status !== 'FRONT_LINE_READY';
   const goingSold = base.status === 'SOLD' && before.status !== 'SOLD';
@@ -315,12 +334,13 @@ export async function saveVehicle(formData: FormData) {
     .update(t.vehicles)
     .set({
       ...base,
+      vin,
       frontLineDate: goingFrontLine ? new Date() : before.frontLineDate,
       soldDate: soldAt,
     })
     .where(eq(t.vehicles.id, id));
 
-  const after = { ...before, ...base, frontLineDate: goingFrontLine ? new Date() : before.frontLineDate };
+  const after = { ...before, ...base, vin, frontLineDate: goingFrontLine ? new Date() : before.frontLineDate };
 
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const k of ['price', 'mileage', 'status', 'description'] as const) {
@@ -328,6 +348,7 @@ export async function saveVehicle(formData: FormData) {
       changes[k] = { from: before[k], to: (base as Record<string, unknown>)[k] };
     }
   }
+  if (vin !== before.vin) changes.vin = { from: before.vin, to: vin };
 
   if (before.price !== base.price) {
     await db.insert(t.priceChanges).values({

@@ -68,15 +68,15 @@ export function VehicleIdentityGrid({
         className="sm:col-span-2"
         scanned={has('trim')}
       />
-      {!v ? (
-        <Text
-          name="vin"
-          label={rv ? 'VIN (optional)' : 'VIN (blank to generate)'}
-          defaultValue={str(p, 'vin')}
-          className="sm:col-span-2"
-          scanned={has('vin')}
-        />
-      ) : null}
+      {/* Editable on an existing unit too. It used to show only when adding
+          one, so a mistyped VIN was read-only in the header forever. */}
+      <Text
+        name="vin"
+        label={v ? 'VIN' : rv ? 'VIN (optional)' : 'VIN (blank to generate)'}
+        defaultValue={v ? (v.vin ?? '') : str(p, 'vin')}
+        className="sm:col-span-2"
+        scanned={!v && has('vin')}
+      />
 
       <Select
         name="bodyStyle"

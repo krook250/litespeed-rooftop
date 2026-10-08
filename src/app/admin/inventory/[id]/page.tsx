@@ -135,9 +135,14 @@ export default async function VehiclePage({
             <h1 className="text-base font-semibold leading-snug sm:text-xl tracking-tight text-ink-900">
               {vehicleTitle(vehicle)}
             </h1>
-            <div className="tnum mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
+            {/* The VIN lives in the form's Identity section, where it can be
+                edited. Phone: one line, days folded in, no lot name — the
+                website link below is the lot. */}
+            <div className="tnum mt-1 text-xs text-ink-500 sm:hidden">
+              Stock {vehicle.stockNumber} · {num(vehicle.mileage)} mi · {dis} {dis === 1 ? 'day' : 'days'}
+            </div>
+            <div className="tnum mt-1 hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500 sm:flex">
               <span>Stock {vehicle.stockNumber}</span>
-              {vehicle.vin ? <span className="font-mono">{vehicle.vin}</span> : null}
               <span>{num(vehicle.mileage)} mi</span>
               <span>{vehicle.rooftop.name}</span>
             </div>
@@ -151,7 +156,12 @@ export default async function VehiclePage({
             >
               View on website ↗
             </a>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            {water ? (
+              <div className="mt-1.5 sm:hidden">
+                <Badge tone="red">Water unit</Badge>
+              </div>
+            ) : null}
+            <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
               <AgeBadge days={dis} />
               {/* The pinned bar's dropdown already says this on a phone. */}
               <span className="hidden sm:inline-flex">
