@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
+import { SaveButton } from '@/components/submit-button';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
 import { LotStatusControl } from '@/components/inventory/lot-status';
 import { MarkSold } from '@/components/inventory/mark-sold';
@@ -462,9 +463,9 @@ export default async function VehiclePage({
                               className="tnum ml-2 w-28 rounded-md border border-ink-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-ink-900"
                             />
                           </label>
-                          <Button size="sm" variant="secondary" className="ml-auto">
+                          <SaveButton size="sm" variant="secondary" className="ml-auto">
                             Save {ch.shortName} copy
-                          </Button>
+                          </SaveButton>
                         </div>
                       </form>
 

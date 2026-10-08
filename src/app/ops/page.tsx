@@ -15,6 +15,7 @@
 
 import Link from 'next/link';
 import { Card, CardHeader, Badge, Button, EmptyState, cn } from '@/components/ui';
+import { SaveButton } from '@/components/submit-button';
 import { relativeTime, CONNECTION_STATUS_INTERNAL } from '@/lib/domain';
 import {
   opsConnections,
@@ -176,7 +177,7 @@ function Row({ c, now }: { c: OpsConnection; now: Date }) {
             placeholder="internal note — incumbent feed, rep name"
             className="min-w-[18rem] flex-1 rounded border border-ink-300 px-2 py-1 text-xs"
           />
-          <Button type="submit" variant="secondary" size="sm">Save</Button>
+          <SaveButton variant="secondary" size="sm">Save</SaveButton>
         </form>
 
         {c.status !== 'ERROR' && c.status !== 'PENDING_SETUP' ? (

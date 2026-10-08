@@ -72,7 +72,21 @@ export function SubmitButton({
  * seconds. A server action that throws never gets here — it goes to the error
  * boundary — so reaching the end of `pending` without a throw means it saved.
  */
-export function SaveButton({ children, savedLabel = 'Saved' }: { children: React.ReactNode; savedLabel?: string }) {
+export function SaveButton({
+  children,
+  savedLabel = 'Saved',
+  pendingLabel,
+  variant,
+  size,
+  className,
+}: {
+  children: React.ReactNode;
+  savedLabel?: string;
+  pendingLabel?: string;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md';
+  className?: string;
+}) {
   const { pending } = useFormStatus();
   const was = useRef(false);
   const [shown, setShown] = useState(false);
@@ -89,7 +103,7 @@ export function SaveButton({ children, savedLabel = 'Saved' }: { children: React
   }, [pending]);
 
   return (
-    <span className="inline-flex items-center gap-3">
+    <span className={cn('inline-flex items-center gap-3', className)}>
       <span
         role="status"
         aria-live="polite"
@@ -104,7 +118,9 @@ export function SaveButton({ children, savedLabel = 'Saved' }: { children: React
         </svg>
         {shown ? savedLabel : ''}
       </span>
-      <SubmitButton>{children}</SubmitButton>
+      <SubmitButton pendingLabel={pendingLabel} variant={variant} size={size}>
+        {children}
+      </SubmitButton>
     </span>
   );
 }

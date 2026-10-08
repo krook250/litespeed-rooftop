@@ -1,6 +1,6 @@
 import type { Vehicle, Rooftop } from '@/db/schema';
 import { relativeTime } from '@/lib/domain';
-import { SubmitButton } from './submit-button';
+import { SaveButton, SubmitButton } from './submit-button';
 import { VehicleIdentityGrid } from './vehicle-identity-grid';
 import {
   FIELD, LABEL, Select, Text,
@@ -142,9 +142,13 @@ export function VehicleForm({
               changes, since every field keeps the value you just typed. */}
           {v ? <p className="mt-0.5 text-ink-400">Last saved {relativeTime(v.updatedAt)}</p> : null}
         </div>
-        <SubmitButton pendingLabel={v ? 'Saving…' : 'Adding…'}>
-          {v ? 'Save and syndicate' : 'Add vehicle'}
-        </SubmitButton>
+        {/* Editing stays on this page, so it gets the Saved check. Adding
+            redirects to the new unit, which is its own confirmation. */}
+        {v ? (
+          <SaveButton pendingLabel="Saving…" savedLabel="Saved and queued">Save and syndicate</SaveButton>
+        ) : (
+          <SubmitButton pendingLabel="Adding…">Add vehicle</SubmitButton>
+        )}
       </div>
     </form>
   );
