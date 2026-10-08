@@ -154,7 +154,7 @@ export default async function StorefrontLayout({
               </span>
             )}
             <span className="min-w-0">
-              <span className="block truncate text-[15px] font-semibold leading-tight text-[var(--header-fg)]">
+              <span className="block truncate text-lg font-semibold leading-tight sm:text-xl text-[var(--header-fg)]">
                 {sf.name}
               </span>
               {sf.tagline ? (
