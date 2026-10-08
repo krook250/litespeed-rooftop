@@ -48,22 +48,29 @@ const GLYPH: Record<FeedEventKind, { mark: string; tone: string; label: string }
   transfer_in:      { mark: '⇥',  tone: 'text-violet-700',   label: 'Arrived' },
 };
 
-/** Absolute, not relative: a log is read for "when exactly", a feed for "just now". */
-function stamp(d: Date) {
+/**
+ * Absolute, not relative: a log is read for "when exactly", a feed for "just now".
+ *
+ * In the lot's own time zone. This renders on the server, which runs in UTC, so
+ * without `timeZone` a 11:46 AM sale in Florida printed as 3:46 PM — and "today"
+ * rolled over at 8 PM Eastern.
+ */
+function stamp(d: Date, timeZone: string) {
   const dt = new Date(d);
-  const today = new Date().toDateString() === dt.toDateString();
-  const time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return today ? time : `${dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
+  const day = (x: Date) => x.toLocaleDateString('en-CA', { timeZone });
+  const today = day(new Date()) === day(dt);
+  const time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
+  return today ? time : `${dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone })} ${time}`;
 }
 
-export function LogRow({ card }: { card: FeedCard }) {
+export function LogRow({ card, timeZone }: { card: FeedCard; timeZone: string }) {
   const { event, vehicle, actor } = card;
   const g = GLYPH[event.kind];
 
   return (
     <div className="flex items-start gap-2.5 px-3 py-1.5 hover:bg-ink-50">
       <span className="tnum w-14 shrink-0 pt-0.5 text-right text-[11px] text-ink-400">
-        {stamp(event.createdAt)}
+        {stamp(event.createdAt, timeZone)}
       </span>
 
       <span

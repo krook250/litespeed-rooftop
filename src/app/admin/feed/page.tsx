@@ -138,9 +138,10 @@ export default async function LotWalkPage({
   const water = withDays.filter(isWaterUnit);
   const tiedUp = withDays.reduce((s, v) => s + totalCost(v), 0);
   const grossMtd = sales.reduce((s, v) => s + v.frontGross, 0);
-  const soldToday = sales.filter(
-    (s) => new Date(s.soldDate).toDateString() === new Date().toDateString(),
-  ).length;
+  /* The lot's clock, not the server's (UTC). Multi-lot groups use the first lot's. */
+  const timeZone = rooftops[0]?.timezone ?? 'America/New_York';
+  const lotDay = (d: Date) => new Date(d).toLocaleDateString('en-CA', { timeZone });
+  const soldToday = sales.filter((s) => lotDay(s.soldDate) === lotDay(new Date())).length;
 
   /* ------------------------------------------------------------ scoreboard */
   const freshAir = withDays.filter((v) => v.dis < 15).length;
@@ -270,7 +271,7 @@ export default async function LotWalkPage({
             <Card className="overflow-hidden">
               <div className="divide-y divide-ink-100">
                 {cards.map((card) => (
-                  <LogRow key={card.event.id} card={card} />
+                  <LogRow key={card.event.id} card={card} timeZone={timeZone} />
                 ))}
               </div>
               <p className="border-t border-ink-100 bg-ink-50 px-4 py-2 text-center text-[11px] text-ink-500">
