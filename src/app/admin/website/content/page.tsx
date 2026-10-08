@@ -83,7 +83,6 @@ export default async function WebsiteContentPage() {
                 <InstructionsView result={instructions} />
               </div>
             ) : null}
-            {live ? <InterimAddress url={interimUrl} live /> : null}
           </div>
         ) : phase === 'reserved' && readiness ? (
           <div className="mt-3">
