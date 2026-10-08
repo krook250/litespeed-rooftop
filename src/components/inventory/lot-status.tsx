@@ -56,6 +56,11 @@ export function LotStatusControl({
         </span>
       ) : (
         <select
+          /* Keyed on the saved status. React resets an uncontrolled form after
+             its action runs, and it resets to the defaultValue the select
+             MOUNTED with — so the header said "In recon" and the dropdown went
+             back to "Photos pending". Remounting on the new status fixes it. */
+          key={status}
           name="status"
           defaultValue={status}
           disabled={pending}

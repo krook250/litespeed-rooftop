@@ -438,6 +438,63 @@ export async function markFrontLineReady(formData: FormData) {
 }
 
 /**
+ * Sell a unit from the header.
+ *
+ * The same tail `saveVehicle` runs when the form's Status goes to Sold — the
+ * soldDate stamp, the `sales` row, the feed card — reachable without scrolling
+ * the whole vehicle record to find it. The one thing it does that the form
+ * cannot: take the price the car actually sold for. The form has no field for
+ * that and books the asking price as the sale.
+ */
+export async function markSold(formData: FormData) {
+  const id = String(formData.get('vehicleId'));
+  const me = await requireSession();
+  const before = await loadWritableVehicle(id);
+  if (!before || before.status === 'SOLD' || before.status === 'WHOLESALED') return;
+
+  const raw = Number(formData.get('soldPrice'));
+  const soldPrice = Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : before.price;
+
+  const now = new Date();
+  await db
+    .update(t.vehicles)
+    .set({ status: 'SOLD', soldDate: now, updatedAt: now })
+    .where(eq(t.vehicles.id, id));
+
+  const after = { ...before, status: 'SOLD' as const, soldDate: now };
+  const daysToSell = Math.max(
+    0,
+    Math.round((now.getTime() - new Date(before.acquiredDate).getTime()) / 86_400_000),
+  );
+  const frontGross = soldPrice - totalCost(after);
+
+  await db
+    .insert(t.sales)
+    .values({
+      vehicleId: id,
+      rooftopId: before.rooftopId,
+      soldDate: now,
+      soldPrice,
+      cost: before.cost,
+      pack: before.pack,
+      reconCost: before.reconCost,
+      frontGross,
+      daysToSell,
+    })
+    .onConflictDoNothing({ target: t.sales.vehicleId });
+
+  await feedSold(after, { soldPrice, frontGross, daysToSell, actorId: me.id });
+
+  await enqueueChange(
+    id,
+    'UPDATE_DETAILS',
+    { status: { from: before.status, to: 'SOLD' } },
+    'Sold — coming off every channel',
+  );
+  refreshAll(id);
+}
+
+/**
  * Flip a unit's lot status from the header, without opening the form.
  *
  * WHY THIS EXISTS SEPARATELY from the Status field in the vehicle form: moving a

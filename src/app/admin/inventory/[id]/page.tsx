@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
 import { LotStatusControl } from '@/components/inventory/lot-status';
+import { MarkSold } from '@/components/inventory/mark-sold';
 import { dealerSiteBase } from '@/lib/storefront-url';
 import {
   getChannels,
@@ -116,22 +117,22 @@ export default async function VehiclePage({
   const overrideFor = (channelId: string) => overrides.find((o) => o.channelId === channelId);
 
   return (
-    <div className="px-6 py-6 lg:px-8">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <Link href="/admin/inventory" className="text-xs font-medium text-ink-500 hover:text-ink-900">
         ← Inventory
       </Link>
 
       <header className="mt-2 mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <img
             src={vehicle.photos[0]?.url ?? ''}
             alt=""
             width={160}
             height={107}
-            className="h-[86px] w-32 rounded-lg border border-ink-200 bg-ink-100 object-cover"
+            className="h-[58px] w-[86px] shrink-0 rounded-lg border border-ink-200 bg-ink-100 object-cover sm:h-[86px] sm:w-32"
           />
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-ink-900">
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold leading-snug sm:text-xl tracking-tight text-ink-900">
               {vehicleTitle(vehicle)}
             </h1>
             <div className="tnum mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
@@ -161,14 +162,24 @@ export default async function VehiclePage({
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <SyncTicker />
-          <div className="flex items-center gap-2">
+        {/* On a phone this is one left-aligned row of actions directly under
+            the status control. It used to be a right-aligned column, which at
+            393px wide left the sync pill and View VDP stranded at two different
+            indents. The sync pill is desktop-only: it is reassurance, not an
+            action, and it was taking the first row. */}
+        <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+          <div className="hidden sm:block">
+            <SyncTicker />
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             {vehicle.status !== 'FRONT_LINE_READY' && vehicle.status !== 'PENDING_SALE' ? (
               <form action={markFrontLineReady}>
                 <input type="hidden" name="vehicleId" value={vehicle.id} />
                 <Button size="sm">Mark front-line ready</Button>
               </form>
+            ) : null}
+            {vehicle.status !== 'SOLD' && vehicle.status !== 'WHOLESALED' ? (
+              <MarkSold vehicleId={vehicle.id} askingPrice={vehicle.price} />
             ) : null}
             {/*
               Was `slug.includes('battle') ? 'battle-ground' : 'vancouver'` —
