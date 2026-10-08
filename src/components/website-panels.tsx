@@ -498,13 +498,24 @@ export function BringYourOwnPanel({
             <form action={reserveAction} className="rounded-lg border border-ink-200 bg-ink-50 p-3">
               <input type="hidden" name="storefrontId" value={storefrontId} />
               <input type="hidden" name="domain" value={domain} />
+              {/*
+                The label says what the click does, and that is not cosmetic.
+                This read "Save … for later" until 8 Oct 2026, which sounds like a
+                bookmark you can skip — so it got skipped, the domain was never
+                registered with our host, and the DNS records above it pointed at
+                a hostname no project claimed. The site could not have worked no
+                matter how long anyone waited for DNS.
+
+                "Check records" was considered and rejected for the same reason in
+                the opposite direction: this button does not check anything.
+              */}
               <p className="mb-2 text-sm text-ink-700">
-                Save it to your storefront now. <strong>Nothing moves</strong> — your website and your
-                email stay exactly where they are. When your site is ready we&apos;ll show you the two
-                records to change, and you can do it whenever suits you.
+                <strong>Nothing moves</strong> — your website and your email stay exactly where they
+                are. We&apos;ll hold the name and get the certificate ready, then show you the two
+                records to change whenever you want to switch.
               </p>
               <Button type="submit" disabled={reserving}>
-                {reserving ? 'Saving…' : `Save ${domain || 'this domain'} for later`}
+                {reserving ? 'Setting up…' : `Use ${domain || 'this domain'}`}
               </Button>
             </form>
           ) : null}
