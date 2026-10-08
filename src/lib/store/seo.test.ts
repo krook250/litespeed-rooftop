@@ -156,6 +156,16 @@ describe('autoDealerLd', () => {
     assert.equal('areaServed' in ld, false);
   });
 
+  it('links the Google profile as hasMap and sameAs, or not at all', () => {
+    const url = 'https://maps.app.goo.gl/AbC123';
+    const ld = autoDealerLd({ ...ROOFTOP, googleProfileUrl: url }, opts);
+    assert.equal(ld.hasMap, url);
+    assert.deepEqual(ld.sameAs, [url]);
+    const none = autoDealerLd({ ...ROOFTOP, googleProfileUrl: null }, opts);
+    assert.equal('hasMap' in none, false);
+    assert.equal('sameAs' in none, false);
+  });
+
   it('serves a 25-mile circle around the lot, in meters', () => {
     const ld = autoDealerLd(ROOFTOP, opts) as Record<string, Record<string, Record<string, unknown>>>;
     assert.equal(ld.areaServed!['@type'] as unknown, 'GeoCircle');

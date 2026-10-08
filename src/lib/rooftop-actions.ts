@@ -26,6 +26,7 @@ import { requireSession } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { parseLatLng } from '@/lib/geo';
+import { parseGoogleProfileUrl } from '@/lib/store/google-profile';
 
 /**
  * Read the map pin out of the single box the form now posts.
@@ -75,6 +76,7 @@ export async function saveRooftopDetails(formData: FormData) {
       phone: str('phone', 40),
       email: str('email', 200),
       ...readPin(formData),
+      googleProfileUrl: parseGoogleProfileUrl(str('googleProfileUrl', 500)),
     })
     .where(eq(t.rooftops.id, rooftopId));
 

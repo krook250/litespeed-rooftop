@@ -36,6 +36,7 @@ export type SeoRooftop = {
   latitude: number | null;
   longitude: number | null;
   hours: unknown;
+  googleProfileUrl?: string | null;
 };
 
 /** Everything the SEO helpers need from a storefront row. */
@@ -192,6 +193,8 @@ export function autoDealerLd(
         }
       : undefined,
     openingHoursSpecification: spec.length ? spec : undefined,
+    hasMap: r.googleProfileUrl || undefined,
+    sameAs: r.googleProfileUrl ? [r.googleProfileUrl] : undefined,
     image: opts.logoUrl ? `${opts.origin}${opts.logoUrl}` : undefined,
     parentOrganization: { '@id': `${opts.origin}${opts.basePath || '/'}#org` },
   });

@@ -20,6 +20,7 @@ import { saveRooftopDetails } from '@/lib/rooftop-actions';
 import { HoursCard } from '@/components/website/hours-card';
 import { MapPinField } from '@/components/website/map-pin-field';
 import { requireSection } from '@/lib/auth-guard';
+import { GOOGLE_PROFILE_PATTERN } from '@/lib/store/google-profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +113,25 @@ export default async function LotsPage() {
                   it straight into the box below.
                 </p>
                 <MapPinField latitude={lot.latitude} longitude={lot.longitude} />
+              </div>
+
+              <div className="mt-4 border-t border-ink-100 pt-4">
+                <p className="mb-2 text-xs text-ink-600">
+                  <b>Google Business Profile.</b> Ties your website to your listing on Google
+                  Maps, which is what shows up when someone searches &ldquo;car lot near
+                  me.&rdquo; Find your business in Google Maps, tap <b>Share</b>, then{' '}
+                  <b>Copy link</b>, and paste it here.
+                </p>
+                <Field
+                  label="Google profile link"
+                  name="googleProfileUrl"
+                  type="url"
+                  defaultValue={lot.googleProfileUrl ?? ''}
+                  placeholder="https://maps.app.goo.gl/…"
+                  pattern={GOOGLE_PROFILE_PATTERN}
+                  title="Paste the link from Google Maps → Share → Copy link"
+                  maxLength={500}
+                />
               </div>
 
               <div className="mt-4 flex justify-end">

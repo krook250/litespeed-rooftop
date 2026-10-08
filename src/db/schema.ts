@@ -464,6 +464,14 @@ export const rooftops = pgTable('rooftops', {
    */
   hours: jsonb().$type<WeekHours | null>(),
 
+  /**
+   * The lot's Google Business Profile, as the share link Google hands out.
+   * Published as `hasMap` / `sameAs` on the lot's `AutoDealer` node so search
+   * can tie the website to the map listing that answers "near me". Validated by
+   * `parseGoogleProfileUrl`; null when unset or not a Google link.
+   */
+  googleProfileUrl: text(),
+
   isActive: boolean().notNull().default(true),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

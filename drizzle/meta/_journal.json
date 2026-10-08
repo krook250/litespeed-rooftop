@@ -232,6 +232,13 @@
       "when": 1791431557989,
       "tag": "0032_glorious_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791487390074,
+      "tag": "0033_dusty_mojo",
+      "breakpoints": true
     }
   ]
 }
