@@ -18,6 +18,7 @@ import { Card, CardHeader, Badge } from '@/components/ui';
 import { getRooftops } from '@/lib/queries';
 import { saveRooftopDetails } from '@/lib/rooftop-actions';
 import { HoursCard } from '@/components/website/hours-card';
+import { HolidayHoursCard } from '@/components/website/holiday-hours-card';
 import { MapPinField } from '@/components/website/map-pin-field';
 import { requireSection } from '@/lib/auth-guard';
 import { SaveButton } from '@/components/submit-button';
@@ -153,6 +154,10 @@ export default async function LotsPage() {
                 timezone={lot.timezone}
                 hours={lot.hours}
               />
+            </div>
+
+            <div className="border-t border-ink-100 px-5 py-4">
+              <HolidayHoursCard rooftopId={lot.id} timezone={lot.timezone} specialHours={lot.specialHours} />
             </div>
           </Card>
         );

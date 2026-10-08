@@ -17,11 +17,18 @@ import Link from 'next/link';
 import {
   isWeekHours,
   openLabel,
-  openState,
   summarise,
   localNow,
+  formatTime,
   type WeekHours,
 } from '@/lib/store/hours';
+import {
+  formatSpecialDate,
+  lotDate,
+  openStateOn,
+  readSpecialHours,
+  upcomingSpecials,
+} from '@/lib/store/holidays';
 import {
   directionsUrl,
   fullAddress,
@@ -86,9 +93,19 @@ export function HoursTable({ hours }: { hours: unknown }) {
 export function OpenNow({ rooftop, className }: { rooftop: SeoRooftop; className?: string }) {
   if (!isWeekHours(rooftop.hours)) return null;
   const local = localNow(rooftop.timezone);
-  const state = openState(rooftop.hours as WeekHours, rooftop.timezone);
-  const label = openLabel(state, local?.day);
-  if (!label) return null;
+  const { state, today } = openStateOn(
+    rooftop.hours as WeekHours,
+    readSpecialHours(rooftop.specialHours),
+    rooftop.timezone,
+  );
+  const base = openLabel(state, local?.day);
+  if (!base) return null;
+  /* On a holiday the reason is the useful part: "Closed for Thanksgiving ·
+     opens Fri 9 AM" answers the question "is something wrong?" before it is asked. */
+  const label =
+    today && state && !state.open
+      ? base.replace(/^Closed/, today.label ? `Closed for ${today.label}` : 'Closed today')
+      : base;
   return (
     <span className={className}>
       <span
@@ -98,6 +115,38 @@ export function OpenNow({ rooftop, className }: { rooftop: SeoRooftop; className
       />
       <span className="align-middle">{label}</span>
     </span>
+  );
+}
+
+/**
+ * The next month of holiday hours, under the usual week. Nothing at all when
+ * there are none — an empty "Holiday hours" heading reads as missing data.
+ */
+export function UpcomingHolidays({ rooftop }: { rooftop: SeoRooftop }) {
+  const today = lotDate(rooftop.timezone);
+  if (!today) return null;
+  const soon = upcomingSpecials(readSpecialHours(rooftop.specialHours), today, 30);
+  if (!soon.length) return null;
+  return (
+    <div className="mt-3 border-t pt-3" style={{ borderColor: 'var(--line)' }}>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-3)]">Holiday hours</p>
+      <table className="w-full text-sm">
+        <caption className="sr-only">Holiday hours</caption>
+        <tbody>
+          {soon.map((s) => (
+            <tr key={s.date}>
+              <th scope="row" className="py-1 pr-4 text-left font-medium text-[var(--text-2)]">
+                {formatSpecialDate(s.date)}
+                {s.label ? <span className="font-normal text-[var(--text-3)]"> · {s.label}</span> : null}
+              </th>
+              <td className={`tnum py-1 text-right ${s.hours ? 'text-[var(--text)]' : 'text-[var(--text-3)]'}`}>
+                {s.hours ? `${formatTime(s.hours.open)} – ${formatTime(s.hours.close)}` : 'Closed'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -135,6 +184,7 @@ export function LocationCard({
 
       <div className="mt-4 border-t pt-3" style={{ borderColor: 'var(--line)' }}>
         <HoursTable hours={rooftop.hours} />
+        <UpcomingHolidays rooftop={rooftop} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

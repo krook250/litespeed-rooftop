@@ -18,6 +18,7 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope, assertStorefrontInScope } from '@/lib/scoped-db';
 import { isTime, isWeekHours, type DayHours, type WeekHours } from './hours';
 import { parseFacts, type AboutContext, type AboutFacts } from './about';
+import { lotDate, readSpecialHours, upcomingSpecials } from './holidays';
 import { writeAbout } from './about-writer';
 import { CREDIT_APP_MESSAGES, parseCreditAppUrl } from './credit-app';
 import { explainEmbed, probeEmbed } from './credit-app-probe';
@@ -80,6 +81,40 @@ export async function saveRooftopHours(_prev: unknown, formData: FormData): Prom
      A `revalidatePath('/s', 'layout')` here would look reassuring and do
      nothing — `/s` is not a route. */
   return { ok: true, message: 'Hours saved.' };
+}
+
+/* ---------------------------------------------------------- holiday hours */
+
+/**
+ * The whole list, posted as one JSON field by the client card. Past dates are
+ * dropped here so the column never accumulates last year's Christmas.
+ */
+export async function saveRooftopSpecialHours(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const scope = await sessionScope();
+  const rooftop = await assertRooftopInScope(scope, rooftopId);
+  if (!rooftop) return { ok: false, error: 'Lot not found.' };
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(formData.get('specials') ?? '[]'));
+  } catch {
+    return { ok: false, error: 'Could not read the dates. Reload and try again.' };
+  }
+  const posted = Array.isArray(raw) ? raw.length : 0;
+  const valid = readSpecialHours(raw);
+  /* A row that does not survive validation would vanish silently on save —
+     say so instead. (Two rows for one date also lands here, which is right.) */
+  if (valid.length < posted) {
+    return { ok: false, error: 'Check the dates — each needs a date, used once, and open days need a closing time later than the opening time.' };
+  }
+  const tz = rooftop.timezone;
+  const today = lotDate(tz) ?? new Date().toISOString().slice(0, 10);
+  const list = upcomingSpecials(valid, today);
+
+  await db.update(t.rooftops).set({ specialHours: list.length ? list : null }).where(eq(t.rooftops.id, rooftopId));
+  revalidatePath('/admin/lots');
+  return { ok: true, message: list.length ? 'Holiday hours saved.' : 'Holiday hours cleared.' };
 }
 
 /* ------------------------------------------------------------------ about */

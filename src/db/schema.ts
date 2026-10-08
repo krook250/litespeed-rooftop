@@ -29,6 +29,7 @@ import {
 
 import type { AboutFacts } from '@/lib/store/about';
 import type { WeekHours } from '@/lib/store/hours';
+import type { SpecialDay } from '@/lib/store/holidays';
 import { relations, sql } from 'drizzle-orm';
 
 const cuid = () => text().$defaultFn(() => crypto.randomUUID());
@@ -471,6 +472,13 @@ export const rooftops = pgTable('rooftops', {
    * `parseGoogleProfileUrl`; null when unset or not a Google link.
    */
   googleProfileUrl: text(),
+
+  /**
+   * Holiday hours: dates that differ from the usual week — see `SpecialDay` in
+   * `src/lib/store/holidays.ts`. Read through `readSpecialHours()`, which drops
+   * anything malformed, for the same reason `hours` goes through `isWeekHours`.
+   */
+  specialHours: jsonb().$type<SpecialDay[] | null>(),
 
   isActive: boolean().notNull().default(true),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

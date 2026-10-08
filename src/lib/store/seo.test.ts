@@ -166,6 +166,21 @@ describe('autoDealerLd', () => {
     assert.equal('sameAs' in none, false);
   });
 
+  it('carries upcoming holiday hours, closed as 00:00–00:00', () => {
+    const ld = autoDealerLd(
+      { ...ROOFTOP, specialHours: [{ date: '2026-11-26', hours: null, label: 'Thanksgiving' }] },
+      { ...opts, now: new Date('2026-10-08T18:00:00Z') },
+    ) as Record<string, unknown>;
+    assert.deepEqual(ld.specialOpeningHoursSpecification, [
+      { '@type': 'OpeningHoursSpecification', validFrom: '2026-11-26', validThrough: '2026-11-26', opens: '00:00', closes: '00:00' },
+    ]);
+    const after = autoDealerLd(
+      { ...ROOFTOP, specialHours: [{ date: '2026-11-26', hours: null, label: 'Thanksgiving' }] },
+      { ...opts, now: new Date('2026-12-01T18:00:00Z') },
+    );
+    assert.equal('specialOpeningHoursSpecification' in after, false);
+  });
+
   it('serves a 25-mile circle around the lot, in meters', () => {
     const ld = autoDealerLd(ROOFTOP, opts) as Record<string, Record<string, Record<string, unknown>>>;
     assert.equal(ld.areaServed!['@type'] as unknown, 'GeoCircle');

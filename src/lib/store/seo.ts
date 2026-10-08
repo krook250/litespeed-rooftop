@@ -21,6 +21,7 @@
  */
 
 import { openingHoursSpecification, isWeekHours, type WeekHours } from './hours';
+import { lotDate, readSpecialHours, specialOpeningHoursSpecification } from './holidays';
 
 /** Everything the SEO helpers need from a rooftop row. */
 export type SeoRooftop = {
@@ -37,6 +38,7 @@ export type SeoRooftop = {
   longitude: number | null;
   hours: unknown;
   googleProfileUrl?: string | null;
+  specialHours?: unknown;
 };
 
 /** Everything the SEO helpers need from a storefront row. */
@@ -171,10 +173,12 @@ const METERS_PER_MILE = 1609.344;
  */
 export function autoDealerLd(
   r: SeoRooftop,
-  opts: { origin: string; basePath: string; brandName: string; logoUrl?: string | null },
+  opts: { origin: string; basePath: string; brandName: string; logoUrl?: string | null; now?: Date },
 ): Json {
   const url = `${opts.origin}${visitPath(opts.basePath, r)}`;
   const spec = isWeekHours(r.hours) ? openingHoursSpecification(r.hours as WeekHours) : [];
+  const today = lotDate(r.timezone, opts.now) ?? (opts.now ?? new Date()).toISOString().slice(0, 10);
+  const special = specialOpeningHoursSpecification(readSpecialHours(r.specialHours), today);
   return clean({
     '@type': 'AutoDealer',
     '@id': url,
@@ -193,6 +197,7 @@ export function autoDealerLd(
         }
       : undefined,
     openingHoursSpecification: spec.length ? spec : undefined,
+    specialOpeningHoursSpecification: special.length ? special : undefined,
     hasMap: r.googleProfileUrl || undefined,
     sameAs: r.googleProfileUrl ? [r.googleProfileUrl] : undefined,
     image: opts.logoUrl ? `${opts.origin}${opts.logoUrl}` : undefined,
