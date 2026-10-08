@@ -116,5 +116,10 @@ export const config = {
    *
    * `/api` is excluded so auth and photo routes keep working on every host.
    */
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)'],
+  /*
+   * The file-extension exclusion above would also skip `/sitemap.xml` and
+   * `/robots.txt`, leaving the dealer's domain with neither. Matcher entries
+   * are OR'd, so naming them brings just those two back into the rewrite.
+   */
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)', '/sitemap.xml', '/robots.txt'],
 };
