@@ -225,6 +225,13 @@
       "when": 1789531959315,
       "tag": "0031_blue_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791431557989,
+      "tag": "0032_glorious_spiral",
+      "breakpoints": true
     }
   ]
 }

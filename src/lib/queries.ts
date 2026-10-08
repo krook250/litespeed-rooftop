@@ -10,6 +10,8 @@ export { resolveFeedStyle } from '@/lib/feed';
 import { scopeForGroup, type Scope } from '@/lib/scoped-db';
 import { newLeadEmail, sendEmail } from '@/lib/email';
 import { dealerSiteBase } from '@/lib/storefront-url';
+import { bumpSiteStat } from '@/lib/analytics/record';
+import { isSource } from '@/lib/analytics/source';
 
 /**
  * The vehicle-keyed helpers now live in `scoped-db.ts` and take a `Scope` they
@@ -505,6 +507,8 @@ export async function createLead(input: {
   message?: string;
   /** The exact disclosure the visitor ticked, or null. See `@/lib/store/sms-consent`. */
   smsConsentText?: string | null;
+  /** The visit's source bucket from the `rt_src` cookie. Anything unrecognised is dropped. */
+  source?: string | null;
 }) {
   /*
    * Consent is only recorded when there is a number to consent about. A ticked
@@ -526,9 +530,17 @@ export async function createLead(input: {
       message: input.message ?? '',
       smsConsentAt: consented ? new Date() : null,
       smsConsentText: consented ? input.smsConsentText! : null,
+      source: isSource(input.source) ? input.source : null,
     })
     .returning();
   const lead = rows[0]!;
+
+  // Counts toward the website's row in vehicle_daily_stats, so Reporting's lead
+  // figures stop being seed data.
+  const tz = (
+    await db.select({ tz: t.rooftops.timezone }).from(t.rooftops).where(eq(t.rooftops.id, input.rooftopId)).limit(1)
+  )[0]?.tz;
+  await bumpSiteStat(input.vehicleId, tz ?? 'America/New_York', 'leads');
 
   await notifyNewLead(lead.id, input.rooftopId, input.vehicleId);
 

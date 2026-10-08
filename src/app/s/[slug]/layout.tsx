@@ -11,6 +11,9 @@ import { creditAppFor } from '@/lib/store/credit-app';
 import { isWeekHours } from '@/lib/store/hours';
 import { pixelIdsForRooftops } from '@/lib/meta/pixel';
 import { MetaPixelBase } from '@/components/store/meta-pixel';
+import { TrackView } from '@/components/store/track-view';
+import { DealerGoogleAnalytics } from '@/components/store/dealer-ga';
+import { parseGaId } from '@/lib/analytics/ga-id';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -228,6 +231,9 @@ export default async function StorefrontLayout({
         bought a second location and kept its ad history.
       */}
       <MetaPixelBase pixelIds={pixelIds} />
+      {/* Our own count, for the Analytics screen. Not optional and not theirs. */}
+      <TrackView storefrontId={sf.id} basePath={`/s/${sf.slug}`} />
+      {parseGaId(sf.gaMeasurementId) ? <DealerGoogleAnalytics id={parseGaId(sf.gaMeasurementId)!} /> : null}
 
       <main className="flex-1">{children}</main>
 

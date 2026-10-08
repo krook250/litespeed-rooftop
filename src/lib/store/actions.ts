@@ -21,6 +21,7 @@ import { parseFacts, type AboutContext, type AboutFacts } from './about';
 import { writeAbout } from './about-writer';
 import { CREDIT_APP_MESSAGES, parseCreditAppUrl } from './credit-app';
 import { explainEmbed, probeEmbed } from './credit-app-probe';
+import { parseGaId } from '@/lib/analytics/ga-id';
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -232,4 +233,27 @@ export async function saveCreditApp(_prev: unknown, formData: FormData): Promise
 
 function appHost(): string {
   return (process.env.NEXT_PUBLIC_APP_HOST || 'app.rooftopauto.com').replace(/^https?:\/\//, '');
+}
+
+/* ------------------------------------------------------- google analytics */
+
+/**
+ * The dealer's own GA4 measurement ID. Empty clears it. Anything that is not a
+ * `G-` ID is refused: the value is written into a script tag on their site.
+ */
+export async function saveGaMeasurementId(_prev: unknown, formData: FormData): Promise<ActionResult> {
+  const storefrontId = String(formData.get('storefrontId') ?? '');
+  const scope = await sessionScope();
+  const sf = await assertStorefrontInScope(scope, storefrontId);
+  if (!sf) return { ok: false, error: 'Storefront not found.' };
+
+  const raw = String(formData.get('gaMeasurementId') ?? '').trim();
+  const id = raw ? parseGaId(raw) : null;
+  if (raw && !id) {
+    return { ok: false, error: 'That is not a GA4 measurement ID. It starts with G- (for example G-AB12CD34EF).' };
+  }
+
+  await db.update(t.storefronts).set({ gaMeasurementId: id }).where(eq(t.storefronts.id, storefrontId));
+  revalidatePath('/admin/website/analytics');
+  return { ok: true, message: id ? 'Saved. It loads on your site from the next page view.' : 'Removed.' };
 }

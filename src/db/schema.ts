@@ -637,6 +637,13 @@ export const storefronts = pgTable('storefronts', {
    */
   creditAppUrl: text(),
 
+  /**
+   * The dealer's own GA4 measurement ID (`G-XXXXXXXXXX`), injected into the
+   * storefront head. Optional and theirs: our own counting does not depend on
+   * it. Validated on save and again on render — it lands inside a script tag.
+   */
+  gaMeasurementId: text(),
+
   layout: storefrontLayoutEnum().notNull().default('CLASSIC'),
   theme: storefrontThemeEnum().notNull().default('LIGHT'),
   /**
@@ -1376,9 +1383,48 @@ export const leads = pgTable(
      */
     smsConsentAt: timestamp({ withTimezone: true }),
     smsConsentText: text(),
+    /**
+     * Where the shopper's visit came from — the same bucket `page_views.source`
+     * uses (`facebook`, `search`, `google_ads`, `marketplace`, `direct`,
+     * `other`). Read from the visit cookie at submit. Null on leads taken before
+     * tracking existed, which is every lead before Oct 2026.
+     */
+    source: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('leads_rooftop_idx').on(t.rooftopId, t.createdAt)],
+);
+
+/**
+ * One storefront page view, written by our own beacon (`/api/t`).
+ *
+ * WHAT IS NOT HERE, ON PURPOSE. No IP address, no user agent, no name. The
+ * visitor is a random id in a first-party cookie on the dealer's own domain —
+ * enough to count people instead of page loads, not enough to know who anyone
+ * is. Bots are dropped before insert, not filtered at read.
+ *
+ * `path` is relative to the storefront root, so the same page counts once
+ * whether it was reached on the dealer's domain or at `/s/<slug>`.
+ */
+export const pageViews = pgTable(
+  'page_views',
+  {
+    id: cuid().primaryKey(),
+    storefrontId: text().notNull().references(() => storefronts.id, { onDelete: 'cascade' }),
+    vehicleId: text().references(() => vehicles.id, { onDelete: 'set null' }),
+    visitorId: text().notNull(),
+    path: text().notNull(),
+    source: text().notNull(),
+    referrerHost: text(),
+    utmSource: text(),
+    utmMedium: text(),
+    utmCampaign: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('page_views_storefront_idx').on(t.storefrontId, t.createdAt),
+    index('page_views_vehicle_idx').on(t.vehicleId, t.createdAt),
+  ],
 );
 
 /* --------------------------------------------------------------- lot walk */
