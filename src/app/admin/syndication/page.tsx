@@ -102,9 +102,28 @@ export default async function SyndicationPage({
    * vehicles on Marketplace out of the Meta catalog, so a separate card could
    * only ever read "0 live / Not set up" beside a catalog that was working.
    */
-  const visibleChannels = channels.filter(
-    (ch) => connectedChannelIds.has(ch.id) && ch.key !== 'fb_marketplace',
-  );
+  /*
+   * Working channels first. A lot with two live destinations and seven that
+   * were never set up should not have to scroll past the seven to find the two.
+   * Ranked by the best connection a channel has among the shown rooftops:
+   * live, then something in motion or broken, then never set up. The sort is
+   * stable, so the catalogue's own order holds within each band.
+   */
+  const channelRank = (ch: (typeof channels)[number]) => {
+    const conns = shownConnections.filter((c) => c.channels.id === ch.id);
+    if (ch.key === 'meta_catalog') {
+      return conns.some((c) => metaCatalogs.get(c.rooftops.id) !== undefined) ? 0 : 2;
+    }
+    const statuses = conns.map((c) => c.channel_connections.status);
+    if (statuses.includes('CONNECTED')) return 0;
+    if (statuses.some((s) => s === 'ERROR' || s === 'SUBMITTED' || s === 'AWAITING_DEALER')) return 1;
+    return 2;
+  };
+  const visibleChannels = channels
+    .filter((ch) => connectedChannelIds.has(ch.id) && ch.key !== 'fb_marketplace')
+    .map((ch, i) => ({ ch, i, rank: channelRank(ch) }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((x) => x.ch);
 
   /**
    * The same grid, flattened for the phone. Built here rather than in the JSX
