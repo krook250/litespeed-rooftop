@@ -40,6 +40,7 @@ import {
 import { Gallery } from '@/components/store/gallery';
 import { SOLD_STATUSES, similarToSold } from '@/lib/store/sold';
 import { makePath } from '@/lib/store/facets';
+import { vdpDescription, vdpTitle } from '@/lib/store/vdp-meta';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
 import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
@@ -80,11 +81,22 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       alternates: { canonical: url },
     };
   }
-  const title = `${vehicleTitle(vehicle)} — Stock #${vehicle.stockNumber}`;
+  /* Searched words first, no stock number — see `src/lib/store/vdp-meta.ts`. */
+  const meta = {
+    year: vehicle.year,
+    make: vehicle.make,
+    model: vehicle.model,
+    trim: vehicle.trim,
+    mileage: hasOdometer(vehicle.bodyStyle) ? vehicle.mileage : null,
+    price: activePrice(vehicle),
+    city: vehicle.rooftop.city,
+    state: vehicle.rooftop.state,
+    dealer: storefront.name,
+    description: vehicle.description,
+  };
+  const title = vdpTitle(meta);
   const photo = primaryPhoto(vehicle);
-  const description =
-    vehicle.description ||
-    `${vehicleTitle(vehicle)} with ${miles(vehicle.mileage)} at ${usd(activePrice(vehicle))}.`;
+  const description = vdpDescription(meta, { miles, usd });
   /*
    * Must be set here. The layout's canonical is the homepage, and Next merges
    * metadata shallowly — a page that does not set `alternates` inherits it, which
