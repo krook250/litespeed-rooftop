@@ -37,6 +37,7 @@ const LINKS: Item[] = [
   { href: '/admin/feed', label: 'Lot Walk', section: 'feed' },
   { href: '/admin/dashboard', label: 'Dashboard', section: 'dashboard' },
   { href: '/admin/inventory', label: 'Inventory', section: 'inventory' },
+  { href: '/admin/leads', label: 'Leads', section: 'leads' },
   { href: '/admin/inventory?view=at-risk', label: 'At-risk list', section: 'at-risk', match: 'at-risk' },
   { href: '/admin/syndication', label: 'Syndication', section: 'syndication' },
   {

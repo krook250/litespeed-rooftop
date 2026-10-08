@@ -25,6 +25,7 @@ export const SECTIONS = [
   'feed',
   'dashboard',
   'inventory',
+  'leads',
   'at-risk',
   'syndication',
   'ad-desk',
@@ -61,6 +62,8 @@ export type Section = (typeof SECTIONS)[number];
 const MATRIX: Record<Section, readonly UserRole[]> = {
   feed: ['OWNER', 'SALES_MANAGER', 'SALES', 'RECEPTION', 'PARTS', 'SERVICE', 'MARKETING', 'LOT_PORTER'],
   inventory: ['OWNER', 'SALES_MANAGER', 'SALES', 'RECEPTION', 'PARTS', 'SERVICE', 'MARKETING', 'LOT_PORTER'],
+  // Whoever answers the phone answers the form. Same people, same leads.
+  leads: ['OWNER', 'SALES_MANAGER', 'SALES', 'RECEPTION'],
   dashboard: ['OWNER', 'SALES_MANAGER'],
   'at-risk': ['OWNER', 'SALES_MANAGER'],
   reporting: ['OWNER', 'SALES_MANAGER', 'MARKETING'],

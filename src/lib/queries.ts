@@ -536,6 +536,44 @@ export async function createLead(input: {
 }
 
 /**
+ * Every lead for the signed-in group, newest first, with the car it was about.
+ *
+ * The email is still the delivery; this is the record. A dealer who deleted the
+ * email, or a salesperson who never got it, needs one place to look. Capped
+ * because a list nobody scrolls past 500 rows does not need row 501.
+ *
+ * Left join on the vehicle: a sold or deleted unit must not make its lead
+ * vanish from the list. The lead outlives the car.
+ */
+export async function getLeads(limit = 500) {
+  const groupId = await requireGroupId();
+  return db
+    .select({
+      id: t.leads.id,
+      createdAt: t.leads.createdAt,
+      name: t.leads.name,
+      email: t.leads.email,
+      phone: t.leads.phone,
+      message: t.leads.message,
+      rooftopId: t.leads.rooftopId,
+      rooftopName: t.rooftops.name,
+      vehicleId: t.vehicles.id,
+      year: t.vehicles.year,
+      make: t.vehicles.make,
+      model: t.vehicles.model,
+      trim: t.vehicles.trim,
+      stockNumber: t.vehicles.stockNumber,
+      vehicleStatus: t.vehicles.status,
+    })
+    .from(t.leads)
+    .innerJoin(t.rooftops, eq(t.rooftops.id, t.leads.rooftopId))
+    .leftJoin(t.vehicles, eq(t.vehicles.id, t.leads.vehicleId))
+    .where(eq(t.rooftops.groupId, groupId))
+    .orderBy(desc(t.leads.createdAt))
+    .limit(limit);
+}
+
+/**
  * Tell the dealer a lead came in. Never throws, never blocks the visitor's
  * confirmation on a provider being up.
  *
