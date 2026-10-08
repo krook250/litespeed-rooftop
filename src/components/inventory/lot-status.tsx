@@ -33,9 +33,12 @@ const QUICK: Array<[string, string]> = [
 export function LotStatusControl({
   vehicleId,
   status,
+  big = false,
 }: {
   vehicleId: string;
   status: string;
+  /** The phone's pinned bottom bar: no label, full width, thumb-sized. */
+  big?: boolean;
 }) {
   const [pending, start] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -45,11 +48,13 @@ export function LotStatusControl({
   const locked = status === 'SOLD' || status === 'WHOLESALED';
 
   return (
-    <form ref={formRef} action={setLotStatus} className="flex items-center gap-2">
+    <form ref={formRef} action={setLotStatus} className={big ? 'flex min-w-0 flex-1 items-center gap-2' : 'flex items-center gap-2'}>
       <input type="hidden" name="vehicleId" value={vehicleId} />
-      <label className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
-        Lot status
-      </label>
+      {big ? null : (
+        <label className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
+          Lot status
+        </label>
+      )}
       {locked ? (
         <span className="rounded-lg border border-ink-300 bg-ink-50 px-2.5 py-1.5 text-xs font-semibold text-ink-700">
           {status === 'SOLD' ? 'Sold' : 'Wholesaled'}
@@ -62,13 +67,18 @@ export function LotStatusControl({
              back to "Photos pending". Remounting on the new status fixes it. */
           key={status}
           name="status"
+          aria-label="Lot status"
           defaultValue={status}
           disabled={pending}
           onChange={(e) => {
             const form = e.currentTarget.form;
             if (form) start(() => form.requestSubmit());
           }}
-          className="rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-900 disabled:opacity-60"
+          className={
+            big
+              ? 'h-11 w-full min-w-0 rounded-lg border border-ink-300 bg-white px-3 text-[15px] font-semibold text-ink-900 disabled:opacity-60'
+              : 'rounded-lg border border-ink-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-ink-900 disabled:opacity-60'
+          }
         >
           {QUICK.map(([value, label]) => (
             <option key={value} value={value}>

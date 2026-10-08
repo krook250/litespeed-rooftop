@@ -117,12 +117,12 @@ export default async function VehiclePage({
   const overrideFor = (channelId: string) => overrides.find((o) => o.channelId === channelId);
 
   return (
-    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+    <div className="px-4 pb-28 pt-5 sm:px-6 sm:py-6 lg:px-8">
       <Link href="/admin/inventory" className="text-xs font-medium text-ink-500 hover:text-ink-900">
         ← Inventory
       </Link>
 
-      <header className="mt-2 mb-6 flex flex-wrap items-start justify-between gap-4">
+      <header className="mt-2 mb-4 sm:mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <img
             src={vehicle.photos[0]?.url ?? ''}
@@ -141,11 +141,24 @@ export default async function VehiclePage({
               <span>{num(vehicle.mileage)} mi</span>
               <span>{vehicle.rooftop.name}</span>
             </div>
+            {/* Phone only: the header's one link. Status and Mark sold live in
+                the pinned bar at the bottom of the screen. */}
+            <a
+              href={`${vdpBase}/${vehicle.stockNumber.toLowerCase()}`}
+              target="_blank"
+              rel="noopener"
+              className="mt-1.5 inline-block text-xs font-semibold text-ink-700 underline-offset-2 hover:underline sm:hidden"
+            >
+              View on website ↗
+            </a>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <AgeBadge days={dis} />
-              <Badge tone={vehicle.status === 'FRONT_LINE_READY' ? 'green' : 'amber'}>
-                {VEHICLE_STATUS_LABEL[vehicle.status]}
-              </Badge>
+              {/* The pinned bar's dropdown already says this on a phone. */}
+              <span className="hidden sm:inline-flex">
+                <Badge tone={vehicle.status === 'FRONT_LINE_READY' ? 'green' : 'amber'}>
+                  {VEHICLE_STATUS_LABEL[vehicle.status]}
+                </Badge>
+              </span>
               {flDays != null ? (
                 <span className="text-[11px] text-ink-500">{flDays}d on the front line</span>
               ) : null}
@@ -156,22 +169,19 @@ export default async function VehiclePage({
             </div>
 
             {/* The most repeated action on this screen, at the top of it. */}
-            <div className="mt-3">
+            <div className="mt-3 hidden sm:block">
               <LotStatusControl vehicleId={vehicle.id} status={vehicle.status} />
             </div>
           </div>
         </div>
 
-        {/* On a phone this is one left-aligned row of actions directly under
-            the status control. It used to be a right-aligned column, which at
-            393px wide left the sync pill and View VDP stranded at two different
-            indents. The sync pill is desktop-only: it is reassurance, not an
-            action, and it was taking the first row. */}
-        <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
-          <div className="hidden sm:block">
-            <SyncTicker />
-          </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+        {/* Desktop only. On a phone the two actions done standing next to the
+            car — lot status and Mark sold — are pinned to the bottom of the
+            screen (see the end of this component), and View VDP is a link under
+            the title. */}
+        <div className="hidden flex-col items-end gap-2 sm:flex">
+          <SyncTicker />
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {vehicle.status !== 'FRONT_LINE_READY' && vehicle.status !== 'PENDING_SALE' ? (
               <form action={markFrontLineReady}>
                 <input type="hidden" name="vehicleId" value={vehicle.id} />
@@ -232,8 +242,28 @@ export default async function VehiclePage({
         </div>
       ) : null}
 
+      {/* money strip — phone. Three numbers in one card, not six cards stacked:
+          the six pushed the vehicle record a full screen down. Cost, pack and
+          recon are in the form directly below. */}
+      <div className="mb-4 grid grid-cols-3 rounded-xl border border-ink-200 bg-white sm:hidden">
+        {[
+          ['Asking', usd(activePrice(vehicle)), false],
+          ['In it', usd(totalCost(vehicle)), false],
+          ['Gross', usd(grossPotential(vehicle)), grossPotential(vehicle) < 0],
+        ].map(([label, value, bad]) => (
+          <div key={String(label)} className="min-w-0 px-3 py-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+              {label}
+            </div>
+            <div className={cn('tnum mt-0.5 truncate text-base font-semibold', bad ? 'text-red-600' : 'text-ink-900')}>
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* money strip */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 hidden gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-6">
         {[
           ['Asking', usd(activePrice(vehicle)), vehicle.salePrice ? `was ${usd(vehicle.price)}` : ''],
           ['Cost', usd(vehicle.cost), ''],
@@ -653,6 +683,22 @@ export default async function VehiclePage({
               </ul>
             )}
           </Card>
+        </div>
+      </div>
+
+      {/* Phone: status and Mark sold, pinned. These are the two things done
+          with the car in front of you, so they stay under the thumb however
+          far the record has been scrolled. The page's bottom padding (pb-28)
+          is what keeps the last card clear of this bar. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+          Lot status
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <LotStatusControl vehicleId={vehicle.id} status={vehicle.status} big />
+          {vehicle.status !== 'SOLD' && vehicle.status !== 'WHOLESALED' ? (
+            <MarkSold vehicleId={vehicle.id} askingPrice={vehicle.price} big />
+          ) : null}
         </div>
       </div>
     </div>

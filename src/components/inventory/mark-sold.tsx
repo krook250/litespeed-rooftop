@@ -14,10 +14,20 @@
  * which is what it actually sold for. Prefilled with the asking price.
  */
 
-import { useState, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 import { markSold } from '@/lib/actions';
 
-export function MarkSold({ vehicleId, askingPrice }: { vehicleId: string; askingPrice: number }) {
+export function MarkSold({
+  vehicleId,
+  askingPrice,
+  big = false,
+}: {
+  vehicleId: string;
+  askingPrice: number;
+  /** The phone's pinned bottom bar: a thumb-sized primary button. */
+  big?: boolean;
+}) {
+  const inputId = useId();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
@@ -26,7 +36,11 @@ export function MarkSold({ vehicleId, askingPrice }: { vehicleId: string; asking
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-ink-800 ring-1 ring-inset ring-ink-300 hover:bg-ink-50"
+        className={
+          big
+            ? 'h-11 shrink-0 rounded-lg bg-ink-900 px-5 text-sm font-semibold text-white hover:bg-ink-800'
+            : 'rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-ink-800 ring-1 ring-inset ring-ink-300 hover:bg-ink-50'
+        }
       >
         Mark sold
       </button>
@@ -39,13 +53,13 @@ export function MarkSold({ vehicleId, askingPrice }: { vehicleId: string; asking
       className="flex w-full flex-wrap items-center gap-2 rounded-lg bg-white p-2 ring-1 ring-inset ring-ink-300 sm:w-auto"
     >
       <input type="hidden" name="vehicleId" value={vehicleId} />
-      <label htmlFor="soldPrice" className="text-xs font-medium text-ink-700">
+      <label htmlFor={inputId} className="text-xs font-medium text-ink-700">
         Sold for
       </label>
       <div className="relative">
         <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ink-400">$</span>
         <input
-          id="soldPrice"
+          id={inputId}
           name="soldPrice"
           type="number"
           inputMode="numeric"
