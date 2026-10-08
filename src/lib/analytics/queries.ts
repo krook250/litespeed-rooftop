@@ -31,7 +31,13 @@ export type AnalyticsVehicle = {
 };
 
 export async function storefrontAnalytics(storefrontId: string, days: number, timeZone: string) {
-  const since = new Date(Date.now() - days * 86_400_000);
+  /*
+   * A string, not a Date. Drizzle's postgres-js driver passes timestamps through
+   * as text, so a Date interpolated into a raw `sql` template throws
+   * ERR_INVALID_ARG_TYPE at query time. The builder methods convert for you;
+   * raw templates do not.
+   */
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
   const pv = t.pageViews;
   const ld = t.leads;
 
@@ -39,24 +45,24 @@ export async function storefrontAnalytics(storefrontId: string, days: number, ti
     select
       count(distinct p."visitorId")::int as visitors,
       count(*) filter (where p."vehicleId" is not null)::int as "vdpViews",
-      (select count(*)::int from ${ld} l where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}) as leads,
+      (select count(*)::int from ${ld} l where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}::timestamptz) as leads,
       (select min(p2."createdAt") from ${pv} p2 where p2."storefrontId" = ${storefrontId}) as "firstSeen"
     from ${pv} p
-    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}
+    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}::timestamptz
   `)) as unknown as { visitors: number; vdpViews: number; leads: number; firstSeen: string | null }[];
 
   const visitorDays = (await db.execute(sql`
     select to_char((p."createdAt" at time zone ${timeZone})::date, 'YYYY-MM-DD') as date,
            count(distinct p."visitorId")::int as n
     from ${pv} p
-    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}
+    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}::timestamptz
     group by 1
   `)) as unknown as { date: string; n: number }[];
 
   const leadDays = (await db.execute(sql`
     select to_char((l."createdAt" at time zone ${timeZone})::date, 'YYYY-MM-DD') as date, count(*)::int as n
     from ${ld} l
-    where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}
+    where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}::timestamptz
     group by 1
   `)) as unknown as { date: string; n: number }[];
 
@@ -73,7 +79,7 @@ export async function storefrontAnalytics(storefrontId: string, days: number, ti
     select first_src as source, count(*)::int as n from (
       select distinct on (p."visitorId") p."visitorId", p."source" as first_src
       from ${pv} p
-      where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}
+      where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}::timestamptz
       order by p."visitorId", p."createdAt"
     ) x group by 1
   `)) as unknown as { source: string; n: number }[];
@@ -81,7 +87,7 @@ export async function storefrontAnalytics(storefrontId: string, days: number, ti
   const srcLeads = (await db.execute(sql`
     select coalesce(l."source", 'unknown') as source, count(*)::int as n
     from ${ld} l
-    where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}
+    where l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}::timestamptz
     group by 1
   `)) as unknown as { source: string; n: number }[];
 
@@ -104,10 +110,10 @@ export async function storefrontAnalytics(storefrontId: string, days: number, ti
            greatest(0, floor(extract(epoch from (coalesce(v."soldDate", now()) - v."acquiredDate")) / 86400))::int as "daysOnLot",
            count(p."id")::int as views,
            (select count(*)::int from ${ld} l
-              where l."vehicleId" = v."id" and l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}) as leads
+              where l."vehicleId" = v."id" and l."storefrontId" = ${storefrontId} and l."createdAt" >= ${since}::timestamptz) as leads
     from ${pv} p
     join ${t.vehicles} v on v."id" = p."vehicleId"
-    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}
+    where p."storefrontId" = ${storefrontId} and p."createdAt" >= ${since}::timestamptz
     group by v."id"
     order by views desc, v."stockNumber"
     limit 10
