@@ -11,6 +11,7 @@
  * always do, so the two can't collide.
  */
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getLiveInventory, getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
@@ -18,9 +19,45 @@ import { layoutFor } from '@/components/store/layouts';
 import { StoreSections } from '@/components/store/location';
 import { ShopByMake } from '@/components/store/shop-by-make';
 import { buildStorefrontView, PUBLIC_STATUSES } from '@/components/store/build-view';
-import { facetLinks } from '@/lib/store/facets';
+import { facetLine, facetLinks } from '@/lib/store/facets';
 import { canonicalOrigin, storefrontLd, type SeoRooftop } from '@/lib/store/seo';
 import type { RawSearchParams } from '@/components/store/srp-filters';
+import { activePrice, usd } from '@/lib/domain';
+import { homeDescription, homeHeading, homeTitle, lineup } from '@/lib/store/home-meta';
+
+/**
+ * Title, description and H1 for the home page, from the lot's address and what
+ * is actually on it. See `src/lib/store/home-meta.ts`.
+ */
+async function loadHome(slug: string) {
+  const storefront = await getStorefrontByKey(slug);
+  if (!storefront) return null;
+  const inventory = (await getLiveInventory({ rooftopIds: storefront.rooftopIds })).filter((v) =>
+    PUBLIC_STATUSES.has(v.status),
+  );
+  const lot = storefront.rooftops[0];
+  const place = lot ? { city: lot.city, state: lot.state } : null;
+  const words = lineup(inventory.map((v) => v.bodyStyle));
+  const fromPrice = inventory.length ? Math.min(...inventory.map(activePrice)) : null;
+  return {
+    storefront,
+    inventory,
+    title: homeTitle(words, place, storefront.name),
+    heading: homeHeading(words, place),
+    line: facetLine(inventory.length, storefront.name, fromPrice, usd),
+    description: homeDescription(
+      words, place, storefront.name, inventory.length, fromPrice, storefront.tagline ?? null, usd,
+    ),
+  };
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const home = await loadHome(slug);
+  if (!home) return {};
+  /* `absolute`: the brand is already in it, so the layout's "· name" template must not add it twice. */
+  return { title: { absolute: home.title }, description: home.description };
+}
 
 export default async function StorefrontSrp({
   params,
@@ -31,17 +68,19 @@ export default async function StorefrontSrp({
 }) {
   const { slug } = await params;
   const sp = await searchParams;
-  const storefront = await getStorefrontByKey(slug);
-  if (!storefront) notFound();
+  const home = await loadHome(slug);
+  if (!home) notFound();
+  const { storefront, inventory } = home;
 
   const host = (await headers()).get('host');
   const basePath = storefrontBasePath(storefront, host);
 
-  const inventory = (await getLiveInventory({ rooftopIds: storefront.rooftopIds })).filter((v) =>
-    PUBLIC_STATUSES.has(v.status),
-  );
-
-  const view = buildStorefrontView({ storefront, inventory, sp, basePath });
+  /* The town H1 is for the unfiltered page. Once a shopper filters, the layout's
+     own heading and result count say what they're looking at. */
+  const unfiltered = buildStorefrontView({ storefront, inventory, sp, basePath });
+  const view = unfiltered.activeFilterCount === 0
+    ? { ...unfiltered, heading: { title: home.heading, line: home.line } }
+    : unfiltered;
 
   const Layout = layoutFor(storefront.layout);
 
