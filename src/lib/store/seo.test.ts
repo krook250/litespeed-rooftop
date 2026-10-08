@@ -153,6 +153,14 @@ describe('autoDealerLd', () => {
   it('omits geo entirely on a lot with no coordinates', () => {
     const ld = autoDealerLd({ ...ROOFTOP, latitude: null, longitude: null }, opts);
     assert.equal('geo' in ld, false);
+    assert.equal('areaServed' in ld, false);
+  });
+
+  it('serves a 25-mile circle around the lot, in meters', () => {
+    const ld = autoDealerLd(ROOFTOP, opts) as Record<string, Record<string, Record<string, unknown>>>;
+    assert.equal(ld.areaServed!['@type'] as unknown, 'GeoCircle');
+    assert.equal(ld.areaServed!.geoMidpoint!.latitude, 45.6872);
+    assert.equal(ld.areaServed!.geoRadius as unknown, 40234);
   });
 
   /*

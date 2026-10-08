@@ -146,6 +146,18 @@ function postalAddress(r: SeoRooftop): Json {
 }
 
 /**
+ * The circle a lot says it serves, around its own coordinates.
+ *
+ * Deliberately not the Meta ad-group radius: that is a targeting knob the
+ * dealer turns for budget, and the site's claim about who it serves should not
+ * shrink because an ad set did. 25 miles is the commute a used-car buyer makes
+ * without thinking about it. Same number for every dealer, so no thin
+ * town-by-town pages are needed to say it.
+ */
+export const AREA_SERVED_MILES = 25;
+const METERS_PER_MILE = 1609.344;
+
+/**
  * One lot, as `AutoDealer`.
  *
  * `@id` is the lot's own page URL and is stable, so every other node — the
@@ -171,6 +183,13 @@ export function autoDealerLd(
     address: postalAddress(r),
     geo: r.latitude != null && r.longitude != null
       ? { '@type': 'GeoCoordinates', latitude: r.latitude, longitude: r.longitude }
+      : undefined,
+    areaServed: r.latitude != null && r.longitude != null
+      ? {
+          '@type': 'GeoCircle',
+          geoMidpoint: { '@type': 'GeoCoordinates', latitude: r.latitude, longitude: r.longitude },
+          geoRadius: Math.round(AREA_SERVED_MILES * METERS_PER_MILE),
+        }
       : undefined,
     openingHoursSpecification: spec.length ? spec : undefined,
     image: opts.logoUrl ? `${opts.origin}${opts.logoUrl}` : undefined,
