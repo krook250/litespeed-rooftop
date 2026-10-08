@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { sessionScope, getGroup, getRooftops } from '@/lib/queries';
 import { storefrontsInScope } from '@/lib/scoped-db';
-import { domainsConfigured } from '@/lib/domains/vercel';
+import { domainsConfigured, getDomainConfig, recommendedRecords } from '@/lib/domains/vercel';
 import { lookupDomain } from '@/lib/domains/lookup';
 import { buildInstructions } from '@/lib/domains/instructions';
 import { buildReadiness } from '@/lib/domains/readiness';
@@ -94,7 +94,17 @@ export async function loadWebsite({ withDomain = false }: { withDomain?: boolean
    * return to precisely because something has not happened yet.
    */
   const lookup = phase !== 'none' && !live ? await lookupDomain(sf.domain!) : null;
-  const instructions = lookup ? buildInstructions(lookup, sf.domainVerification) : null;
+  /*
+   * The recommended records come from Vercel per domain, because the www CNAME
+   * target is per-project — there is no constant that stays correct. A failed
+   * config call falls back to the legacy pair inside `recommendedRecords`.
+   */
+  const records = lookup?.ok
+    ? recommendedRecords(await getDomainConfig(lookup.domain).catch(() => null))
+    : null;
+  const instructions = lookup
+    ? buildInstructions(lookup, sf.domainVerification, records ?? undefined)
+    : null;
 
   const readiness =
     phase === 'reserved'

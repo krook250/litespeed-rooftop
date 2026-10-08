@@ -131,10 +131,19 @@ function hostLabel(l: DomainLookup): string {
  * @param lookup result of `lookupDomain()`
  * @param challenges Vercel's `verification[]` from the domain-add call, when it
  *        wants a TXT record. Empty for the overwhelming majority of dealers.
+ * @param records what Vercel currently wants in DNS, from `recommendedRecords()`.
+ *        Defaults to the legacy pair so this stays pure and callable from a test
+ *        without a network — but a caller showing a real dealer real records
+ *        should pass the live values, because the CNAME target is per-project
+ *        and the hardcoded one drifted within two months of being written.
  */
 export function buildInstructions(
   lookup: DomainLookupResult,
   challenges: DomainChallenge[] = [],
+  records: { aRecord: string; cnameTarget: string } = {
+    aRecord: VERCEL_A_RECORD,
+    cnameTarget: VERCEL_CNAME_TARGET,
+  },
 ): Instructions {
   if (!lookup.ok) return { ok: false, error: lookup.error };
 
@@ -301,7 +310,7 @@ export function buildInstructions(
       order: 1,
       type: 'ALIAS',
       name: '@',
-      value: VERCEL_CNAME_TARGET,
+      value: records.cnameTarget,
       ttl: 300,
       label: `Point ${l.domain} at Rooftop`,
       help:
@@ -311,7 +320,7 @@ export function buildInstructions(
       fallback: {
         type: 'A',
         name: '@',
-        value: VERCEL_A_RECORD,
+        value: records.aRecord,
         note: `If ${host} won't accept an ALIAS at the root, use this A record instead.`,
       },
     });
@@ -333,7 +342,7 @@ export function buildInstructions(
       order: 1,
       type: 'A',
       name: '@',
-      value: VERCEL_A_RECORD,
+      value: records.aRecord,
       ttl: 300,
       label: `Point ${l.domain} at Rooftop`,
       help:
@@ -347,7 +356,7 @@ export function buildInstructions(
         (l.dnsHost
           ? ''
           : ` If your provider does offer an ALIAS or ANAME record at the root, that one is slightly ` +
-            `better — point it at ${VERCEL_CNAME_TARGET} instead.`),
+            `better — point it at ${records.cnameTarget} instead.`),
     });
   }
 
@@ -355,7 +364,7 @@ export function buildInstructions(
     order: 2,
     type: 'CNAME',
     name: 'www',
-    value: VERCEL_CNAME_TARGET,
+    value: records.cnameTarget,
     ttl: 300,
     label: `Point www.${l.domain} at Rooftop`,
     help:

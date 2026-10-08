@@ -36,9 +36,10 @@ import {
   getDomainConfig,
   getProjectDomain,
   quoteDomain,
+  recommendedRecords,
   removeProjectDomain,
-  verifyProjectDomain,
   type QuoteResult,
+  verifyProjectDomain,
 } from './vercel';
 import {
   emitDomainBlocked,
@@ -47,6 +48,20 @@ import {
   emitDomainPurchased,
   emitDomainReserved,
 } from './feed';
+
+/**
+ * What Vercel currently wants in DNS for this domain.
+ *
+ * Never throws and never blocks the screen: for a domain Vercel has not seen —
+ * which is every first preview — the config call 404s and the dealer still needs
+ * records in front of them. `recommendedRecords(null)` returns the legacy pair,
+ * which Vercel states keeps working.
+ */
+async function liveRecords(domain: string) {
+  if (!domainsConfigured()) return recommendedRecords(null);
+  const cfg = await getDomainConfig(domain).catch(() => null);
+  return recommendedRecords(cfg);
+}
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -91,7 +106,7 @@ export async function previewDomain(
     return { ok: false, error: `${lookup.domain} is already connected to another Rooftop storefront.` };
   }
 
-  return { ok: true, data: buildInstructions(lookup) };
+  return { ok: true, data: buildInstructions(lookup, [], await liveRecords(lookup.domain)) };
 }
 
 /**
@@ -123,7 +138,7 @@ export async function attachDomain(_prev: unknown, formData: FormData): Promise<
    * design and this one is not — an override should let a dealer accept a
    * half-finished storefront, not attach a domain that does not exist.
    */
-  const instructions = buildInstructions(lookup);
+  const instructions = buildInstructions(lookup, [], await liveRecords(lookup.domain));
 
   if (instructions.ok && instructions.state === 'not-registered') {
     return {

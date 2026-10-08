@@ -30,6 +30,7 @@
  */
 
 import 'server-only';
+import { VERCEL_A_RECORD, VERCEL_CNAME_TARGET } from './lookup';
 import type { DomainChallenge, RegistrantContact } from '@/db/schema';
 
 const API = 'https://api.vercel.com';
@@ -198,8 +199,60 @@ export async function removeProjectDomain(domain: string): Promise<void> {
   );
 }
 
-/** Certificate state. Vercel issues automatically; this is what we poll to show it. */
-export type DomainConfig = { misconfigured: boolean; configuredBy?: string | null };
+/**
+ * Certificate state, plus what Vercel currently wants the DNS to look like.
+ *
+ * `recommendedIPv4` and `recommendedCNAME` are both **optional** in the API and
+ * both ranked, rank 1 preferred. They are the reason this type exists beyond
+ * `misconfigured`: the CNAME target is per-project, so there is no value we
+ * could hardcode that stays correct. See `recommendedRecords`.
+ */
+export type DomainConfig = {
+  misconfigured: boolean;
+  configuredBy?: string | null;
+  acceptedChallenges?: string[];
+  recommendedIPv4?: { rank: number; value: string[] }[];
+  recommendedCNAME?: { rank: number; value: string }[];
+};
+
+export type RecommendedRecords = {
+  /** What to put in the apex A record. */
+  aRecord: string;
+  /** What to point the `www` CNAME at. */
+  cnameTarget: string;
+  /** False when Vercel told us nothing and these are the legacy fallbacks. */
+  fromApi: boolean;
+};
+
+/**
+ * What to tell the dealer to type, preferring Vercel's live answer.
+ *
+ * Falls back to the legacy constants rather than throwing, because the common
+ * case for a *preview* is a domain Vercel has never seen — the config call
+ * fails or returns nothing, and a dealer still needs records on screen. The
+ * legacy pair keeps working by Vercel's own statement, so the fallback is
+ * correct rather than merely safe.
+ *
+ * Lowest rank wins. The API documents rank 1 as preferred and says a single IP
+ * is acceptable where several are offered, so we take the first value of the
+ * best-ranked entry.
+ */
+export function recommendedRecords(cfg: DomainConfig | null): RecommendedRecords {
+  const byRank = <T>(xs: { rank: number; value: T }[] | undefined) =>
+    xs && xs.length > 0 ? [...xs].sort((a, b) => a.rank - b.rank)[0]!.value : undefined;
+
+  const ipv4 = byRank(cfg?.recommendedIPv4);
+  const cname = byRank(cfg?.recommendedCNAME);
+
+  const aRecord = (Array.isArray(ipv4) ? ipv4[0] : undefined) ?? VERCEL_A_RECORD;
+  const cnameTarget = (typeof cname === 'string' ? cname : undefined) ?? VERCEL_CNAME_TARGET;
+
+  return {
+    aRecord,
+    cnameTarget,
+    fromApi: aRecord !== VERCEL_A_RECORD || cnameTarget !== VERCEL_CNAME_TARGET,
+  };
+}
 
 export async function getDomainConfig(domain: string): Promise<DomainConfig> {
   return vercelFetch<DomainConfig>(`/v6/domains/${encodeURIComponent(domain)}/config`);

@@ -12,7 +12,18 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyseCaa, normalizeDomain, type CaaRecord } from './lookup';
+import {
+  analyseCaa,
+  isVercelApexIp,
+  isVercelCname,
+  normalizeDomain,
+  VERCEL_A_RECORD,
+  VERCEL_CNAME_TARGET,
+  type CaaRecord,
+  type DomainLookup,
+} from './lookup';
+import { recommendedRecords } from './vercel';
+import { buildInstructions } from './instructions';
 
 /* ------------------------------------------------------------------ fetch stub */
 
@@ -354,5 +365,114 @@ describe('slug and domain key spaces', () => {
     const r = normalizeDomain('cascademotorswa.com');
     assert.equal(r.ok, true);
     if (r.ok) assert.ok(r.domain.includes('.'), 'a normalised domain always contains a dot');
+  });
+});
+
+/* ======================================================================
+ * Recommended DNS records — added 8 Oct 2026
+ *
+ * Vercel expanded its IP range and moved to per-project CNAME targets while
+ * this module hardcoded `76.76.21.21` and `cname.vercel-dns.com`. Two things
+ * broke at once and only one of them was visible:
+ *
+ *   - dealers were shown stale records (visible: an amber flag in Vercel)
+ *   - a dealer who used the NEW records was reported as not pointed at us
+ *     (invisible, and it would have read as "DNS hasn't propagated yet")
+ *
+ * The second is the expensive one, which is why detection is tested here and
+ * not only the printing.
+ * ====================================================================== */
+
+/**
+ * A domain parked on Squarespace — where Malabar started, and the shape every
+ * CarsForSale dealer arrives in.
+ *
+ * Typed, NOT cast. The first version of this used `as unknown as DomainLookup`
+ * and omitted `registrarStatuses`, which `buildInstructions` reads with
+ * `.find()` on its first line of real work. The cast hid a missing field and the
+ * test failed inside the module under test rather than at the fixture, which is
+ * the whole argument against casting a fixture into shape.
+ */
+function parkedLookup(): DomainLookup {
+  return {
+    ok: true,
+    domain: 'example-lot.com',
+    input: { raw: 'example-lot.com', hadWww: false, isSubdomain: false },
+    registered: true,
+    registrar: 'Squarespace Domains',
+    registrarStatuses: ['clienttransferprohibited'],
+    expiresAt: null,
+    rdapAvailable: true,
+    nameservers: ['ns1.squarespace.com'],
+    dnsHost: { name: 'Squarespace Domains', apexSupport: 'a-only' } as DomainLookup['dnsHost'],
+    apex: { a: ['198.185.165.105'], aaaa: [], pointsAtVercel: false, inUse: true },
+    www: { cname: [], a: ['198.185.165.105'], pointsAtVercel: false, inUse: true },
+    mx: [],
+    hasEmail: false,
+    txt: [],
+    caa: { records: [], blocks: false } as DomainLookup['caa'],
+    checkedAt: new Date('2026-10-08T00:00:00Z').toISOString(),
+  };
+}
+
+describe('vercel record recommendations', () => {
+  it('recognises the new apex IP as ours, and still the old one', () => {
+    assert.ok(isVercelApexIp('216.150.1.1'));
+    assert.ok(isVercelApexIp('76.76.21.21'));
+    assert.ok(isVercelApexIp(' 216.150.1.1 '));
+    assert.ok(!isVercelApexIp('198.185.165.105'));
+  });
+
+  it('recognises a per-project CNAME target as ours', () => {
+    assert.ok(isVercelCname('c091d81cb21c8dcc.vercel-dns-017.com'));
+    assert.ok(isVercelCname('cname.vercel-dns.com'));
+    assert.ok(isVercelCname('cname.vercel-dns.com.'));
+    assert.ok(!isVercelCname('ext-cust.squarespace.com'));
+    // Anchored at the end, so a lookalike hostname does not pass.
+    assert.ok(!isVercelCname('vercel-dns.com.evil.test'));
+  });
+
+  it('prefers rank 1 and takes the first IP offered', () => {
+    const r = recommendedRecords({
+      misconfigured: false,
+      recommendedIPv4: [
+        { rank: 2, value: ['9.9.9.9'] },
+        { rank: 1, value: ['216.150.1.1', '216.150.1.2'] },
+      ],
+      recommendedCNAME: [
+        { rank: 2, value: 'old.vercel-dns.com' },
+        { rank: 1, value: 'c091d81cb21c8dcc.vercel-dns-017.com' },
+      ],
+    });
+    assert.equal(r.aRecord, '216.150.1.1');
+    assert.equal(r.cnameTarget, 'c091d81cb21c8dcc.vercel-dns-017.com');
+    assert.equal(r.fromApi, true);
+  });
+
+  it('falls back to the legacy pair when Vercel says nothing', () => {
+    for (const cfg of [null, { misconfigured: true }]) {
+      const r = recommendedRecords(cfg);
+      assert.equal(r.aRecord, VERCEL_A_RECORD);
+      assert.equal(r.cnameTarget, VERCEL_CNAME_TARGET);
+      assert.equal(r.fromApi, false);
+    }
+  });
+
+  it('prints whatever records it is handed, and nothing stale', () => {
+    const out = buildInstructions(parkedLookup(), [], {
+      aRecord: '216.150.1.1',
+      cnameTarget: 'c091d81cb21c8dcc.vercel-dns-017.com',
+    });
+    assert.ok(out.ok);
+    const blob = JSON.stringify(out);
+    assert.ok(blob.includes('216.150.1.1'), 'new apex IP missing');
+    assert.ok(blob.includes('c091d81cb21c8dcc.vercel-dns-017.com'), 'new CNAME missing');
+    assert.ok(!blob.includes('76.76.21.21'), 'stale apex IP still printed');
+  });
+
+  it('still works with no records passed, for a caller with no network', () => {
+    const out = buildInstructions(parkedLookup());
+    assert.ok(out.ok);
+    assert.ok(JSON.stringify(out).includes(VERCEL_A_RECORD));
   });
 });

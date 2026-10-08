@@ -19,9 +19,56 @@
 import 'server-only';
 import { Resolver } from 'node:dns/promises';
 
-/** Vercel's documented apex A record and CNAME target. */
+/**
+ * Vercel's apex A record and CNAME target — the LEGACY pair, kept as the
+ * fallback when the API has not told us otherwise.
+ *
+ * **These are not the current recommendation and have not been since Vercel
+ * expanded its IP range.** As of Oct 2026 it recommends `216.150.1.1` at the
+ * apex and a CNAME that is *unique per project*
+ * (`c091d81cb21c8dcc.vercel-dns-017.com`), which is the real reason this can
+ * never be a constant: there is no single correct value to hardcode. Vercel
+ * states the legacy pair keeps working, and Malabar's site is live on it, so
+ * these stay as the fallback for the case where the config call fails — which
+ * is every preview for a domain Vercel has not seen yet.
+ *
+ * The live answer comes from `recommendedRecords()` in `vercel.ts`, reading
+ * `/v6/domains/{domain}/config`. Prefer it everywhere a dealer is being told
+ * what to type.
+ */
 export const VERCEL_A_RECORD = '76.76.21.21';
 export const VERCEL_CNAME_TARGET = 'cname.vercel-dns.com';
+
+/**
+ * Every apex IP we have ever told a dealer to use.
+ *
+ * Detection has to accept all of them at once: a dealer who followed today's
+ * instructions is on `216.150.1.1` and a dealer who set theirs up in September
+ * is on `76.76.21.21`, and both are correctly pointed at us. Checking only the
+ * constant above told the newer dealer their domain was not configured.
+ */
+const VERCEL_APEX_IPS = ['76.76.21.21', '216.150.1.1'];
+
+/**
+ * Any Vercel-operated CNAME target.
+ *
+ * `cname.vercel-dns.com` was the only shape until the per-project targets
+ * arrived on `vercel-dns-017.com` and similar. A substring test for
+ * `vercel-dns.com` matches the first and misses the second, so this is a
+ * pattern rather than a literal. The optional trailing dot is because a
+ * resolver may hand back the fully-qualified form.
+ */
+const VERCEL_CNAME_PATTERN = /\.vercel-dns(?:-\d+)?\.com\.?$/i;
+
+/** Is this apex A record one of ours? */
+export function isVercelApexIp(ip: string): boolean {
+  return VERCEL_APEX_IPS.includes(ip.trim());
+}
+
+/** Is this CNAME target one of ours, legacy or per-project? */
+export function isVercelCname(target: string): boolean {
+  return VERCEL_CNAME_PATTERN.test(target.trim());
+}
 
 const RESOLVERS = ['1.1.1.1', '8.8.8.8'];
 const LOOKUP_TIMEOUT_MS = 5_000;
@@ -324,14 +371,13 @@ export async function lookupDomain(rawDomain: string): Promise<DomainLookupResul
     apex: {
       a: apexA.ok ? apexA.value : [],
       aaaa: apexAaaa.ok ? apexAaaa.value : [],
-      pointsAtVercel: apexA.ok && apexA.value.includes(VERCEL_A_RECORD),
+      pointsAtVercel: apexA.ok && apexA.value.some(isVercelApexIp),
       inUse: apexA.ok && apexA.value.length > 0,
     },
     www: {
       cname: wwwCnames,
       a: wwwAs,
-      pointsAtVercel:
-        wwwCnames.some((c) => c.includes('vercel-dns.com')) || wwwAs.includes(VERCEL_A_RECORD),
+      pointsAtVercel: wwwCnames.some(isVercelCname) || wwwAs.some(isVercelApexIp),
       inUse: wwwCnames.length > 0 || wwwAs.length > 0,
     },
     mx: mx.ok ? mx.value.map((m) => ({ exchange: m.exchange.toLowerCase(), priority: m.priority })) : [],
