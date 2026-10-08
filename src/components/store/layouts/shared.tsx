@@ -111,7 +111,7 @@ export function VehicleRow({ v, basePath }: { v: LiveVehicle; basePath: string }
     >
       <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-[var(--paper-2)]">
         {photo ? (
-          <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img src={photo.url} alt={photo.alt || vehicleTitle(v)} className="h-full w-full object-cover" loading="lazy" />
         ) : null}
       </div>
 
