@@ -256,6 +256,31 @@ export function vpicClass(r: VpicRow): VpicClass {
   return 'CAR';
 }
 
+/**
+ * "Silverado" + Series "1500" → "Silverado 1500".
+ *
+ * vPIC gives GM's and similar pickups and vans their family as `Model` and the
+ * payload class as `Series`. Everyone else — CarsForSale, DealerCenter, every
+ * buyer typing a search — says "Silverado 1500". Left split, a unit added by
+ * VIN lands under "Silverado" and one imported from a listing under
+ * "Silverado 1500", and the storefront grows two model pages for one truck.
+ *
+ * Only a payload number (1500–5500, optional HD) is joined. Series holds trim
+ * names for most makes ("XSE", "LT"), and those stay trim. A model that
+ * already carries a number (Ram's "1500", Ford's "F-250") is left alone.
+ */
+const PAYLOAD = /^([1-5]500)\s*(HD)?\b/i;
+
+export function modelWithPayload(
+  model: string | null | undefined,
+  series: string | null | undefined,
+): { model: string | null; seriesUsed: boolean } {
+  if (!model) return { model: model ?? null, seriesUsed: false };
+  const m = series ? PAYLOAD.exec(series) : null;
+  if (!m || /\d/.test(model)) return { model, seriesUsed: false };
+  return { model: `${model} ${m[1]}${m[2] ? 'HD' : ''}`, seriesUsed: true };
+}
+
 export function vpicToExtraction(r: VpicRow): Extraction {
   const e: Extraction = {};
   const from = 'NHTSA vPIC';
@@ -273,10 +298,10 @@ export function vpicToExtraction(r: VpicRow): Extraction {
   if (make && kind !== 'INCOMPLETE') e.make = field(titleCase(make), 'vin', 'high', from);
 
   if (kind === 'CAR') {
-    const model = clean(r.Model);
+    const { model, seriesUsed } = modelWithPayload(clean(r.Model), clean(r.Series));
     if (model) e.model = field(model, 'vin', 'high', from);
 
-    const trim = clean(r.Trim) ?? clean(r.Series);
+    const trim = clean(r.Trim) ?? (seriesUsed ? null : clean(r.Series));
     if (trim) e.trim = field(trim, 'vin', 'medium', from);
   }
 

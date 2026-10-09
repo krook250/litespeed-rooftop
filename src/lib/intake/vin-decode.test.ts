@@ -21,7 +21,7 @@
 import 'dotenv/config';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { vpicClass, vpicToExtraction, type VpicRow } from './vin-decode';
+import { modelWithPayload, vpicClass, vpicToExtraction, type VpicRow } from './vin-decode';
 
 const base: VpicRow = { ErrorCode: '0' };
 const row = (r: Partial<VpicRow>): VpicRow => ({ ...base, ...r });
@@ -346,4 +346,26 @@ test('the classifier reads vPIC, not our own column', () => {
      treated as a car; that must keep being true or the importer quietly stops
      filling drivetrain on the whole existing fleet. */
   assert.equal(vpicClass(row({})), 'CAR');
+});
+
+test('joins a payload Series onto the model, as listings spell it', () => {
+  // Real vPIC output for a 2019 Silverado 1500 LT.
+  const e = vpicToExtraction(row({ Make: 'CHEVROLET', Model: 'Silverado', Series: '1500', Trim: 'LT', ModelYear: '2019', BodyClass: 'Pickup' }));
+  assert.equal(e.model?.value, 'Silverado 1500');
+  assert.equal(e.trim?.value, 'LT');
+});
+
+test('a consumed Series does not fall back into trim', () => {
+  const e = vpicToExtraction(row({ Make: 'GMC', Model: 'Sierra', Series: '1500', Trim: '', ModelYear: '2016' }));
+  assert.equal(e.model?.value, 'Sierra 1500');
+  assert.equal(e.trim, undefined);
+});
+
+test('modelWithPayload: HD, trim-name series, and models that already carry a number', () => {
+  assert.equal(modelWithPayload('Silverado', '2500 HD').model, 'Silverado 2500HD');
+  assert.equal(modelWithPayload('Silverado', '1500 / 1/2 ton').model, 'Silverado 1500');
+  assert.equal(modelWithPayload('Camry', 'XSE').model, 'Camry');
+  assert.equal(modelWithPayload('F-250', '2500').model, 'F-250');
+  assert.equal(modelWithPayload('1500', '1500').model, '1500');
+  assert.equal(modelWithPayload('Silverado', null).model, 'Silverado');
 });
