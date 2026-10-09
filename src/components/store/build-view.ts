@@ -54,6 +54,17 @@ export function buildStorefrontView({
     filters.sort,
   );
 
+  /* The dealer's pinned unit leads — but only under the default sort. A
+     shopper who asked for cheapest first gets cheapest first. If several lots
+     on one storefront each pin a unit, the most recent pin wins. */
+  if (filters.sort === 'newest') {
+    let pinIdx = -1;
+    results.forEach((v, i) => {
+      if (v.featuredAt && (pinIdx < 0 || v.featuredAt > results[pinIdx]!.featuredAt!)) pinIdx = i;
+    });
+    if (pinIdx > 0) results.unshift(...results.splice(pinIdx, 1));
+  }
+
   /* Facet counts are measured against every filter except the facet itself, so a
      dealer can see what switching to Trucks would actually return. */
   const makePool = inventory.filter((v) => matchesFilters(v, filters, 'make'));

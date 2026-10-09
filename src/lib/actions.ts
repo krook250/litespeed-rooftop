@@ -663,6 +663,28 @@ export async function reorderPhoto(formData: FormData) {
   refreshAll(photo.vehicleId);
 }
 
+/**
+ * Pin a unit as the storefront hero, or unpin it. One pin per lot: pinning
+ * clears any other pin on the same rooftop. A sold unit drops out of live
+ * inventory, so the hero falls back to the sort on its own — no stale pin.
+ */
+export async function setFeatured(formData: FormData) {
+  const vehicleId = String(formData.get('vehicleId'));
+  const on = formData.get('on') === '1';
+  const vehicle = await loadWritableVehicle(vehicleId);
+  if (!vehicle) return;
+  if (on) {
+    await db
+      .update(t.vehicles)
+      .set({ featuredAt: null })
+      .where(eq(t.vehicles.rooftopId, vehicle.rooftopId));
+    await db.update(t.vehicles).set({ featuredAt: new Date() }).where(eq(t.vehicles.id, vehicleId));
+  } else {
+    await db.update(t.vehicles).set({ featuredAt: null }).where(eq(t.vehicles.id, vehicleId));
+  }
+  refreshAll(vehicleId);
+}
+
 export async function setPrimaryPhoto(formData: FormData) {
   const photoId = String(formData.get('photoId'));
   const photo = (

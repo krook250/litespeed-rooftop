@@ -1,0 +1,1 @@
+ALTER TABLE "vehicles" ADD COLUMN "featuredAt" timestamp with time zone;

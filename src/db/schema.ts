@@ -969,6 +969,11 @@ export const vehicles = pgTable(
     acquiredDate: timestamp({ withTimezone: true }).notNull(),
     frontLineDate: timestamp({ withTimezone: true }),
     soldDate: timestamp({ withTimezone: true }),
+    /* Dealer's pick for the storefront hero. Null = not pinned. A timestamp
+     * rather than a boolean so "most recently pinned wins" needs no cleanup
+     * when a storefront spans several lots. Only `setFeatured` writes it; the
+     * feed import never touches it, so a re-sync cannot unpin. */
+    featuredAt: timestamp({ withTimezone: true }),
 
     // merchandising
     description: text().notNull().default(''),

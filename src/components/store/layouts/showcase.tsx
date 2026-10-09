@@ -23,10 +23,10 @@ export function ShowcaseLayout({ view }: { view: StorefrontView }) {
   const activeKeys = FILTER_KEYS.filter((k) => filters[k] !== '' && filters[k] !== null) as FilterKey[];
 
   /*
-   * The hero is the first result, not a hand-picked "featured" flag. That is
-   * deliberate: a featured flag is one more thing a dealer has to remember to
-   * update, and a stale hero is worse than no hero. Whatever sorts first is by
-   * definition what the dealer most wants seen under the current sort.
+   * The hero is the first result. Under the default sort that is the dealer's
+   * pinned unit if there is one (see `buildStorefrontView`), else the newest
+   * on the front line. A pinned unit that sells leaves live inventory, so the
+   * hero falls back on its own rather than going stale.
    */
   const hero = results[0] ?? null;
   const rest = results.slice(1);

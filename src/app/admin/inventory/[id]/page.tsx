@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
-import { SaveButton } from '@/components/submit-button';
+import { SaveButton, SubmitButton } from '@/components/submit-button';
 import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
 import { LotStatusControl } from '@/components/inventory/lot-status';
 import { MarkSold } from '@/components/inventory/mark-sold';
@@ -44,6 +44,7 @@ import {
   retryListing,
   saveOverride,
   saveVehicle,
+  setFeatured,
   setPhotoTag,
   setPrimaryPhoto,
   startTransfer,
@@ -157,6 +158,9 @@ export default async function VehiclePage({
             >
               View on website ↗
             </a>
+            <div className="mt-2 sm:hidden">
+              <FeatureToggle vehicleId={vehicle.id} featured={!!vehicle.featuredAt} />
+            </div>
             {water ? (
               <div className="mt-1.5 sm:hidden">
                 <Badge tone="red">Water unit</Badge>
@@ -202,6 +206,7 @@ export default async function VehiclePage({
             {vehicle.status !== 'SOLD' && vehicle.status !== 'WHOLESALED' ? (
               <MarkSold vehicleId={vehicle.id} askingPrice={vehicle.price} />
             ) : null}
+            <FeatureToggle vehicleId={vehicle.id} featured={!!vehicle.featuredAt} />
             {/*
               Was `slug.includes('battle') ? 'battle-ground' : 'vancouver'` —
               the two demo storefronts, hardcoded. Every real dealer's View VDP
@@ -713,5 +718,26 @@ export default async function VehiclePage({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Pins this unit as the storefront hero. The label is the confirmation: it
+ * flips to "Featured" the moment the save lands.
+ */
+function FeatureToggle({ vehicleId, featured }: { vehicleId: string; featured: boolean }) {
+  return (
+    <form action={setFeatured} className="flex items-center gap-2">
+      <input type="hidden" name="vehicleId" value={vehicleId} />
+      <input type="hidden" name="on" value={featured ? '0' : '1'} />
+      {featured ? (
+        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+          ★ Featured on website
+        </span>
+      ) : null}
+      <SubmitButton size="sm" variant="secondary" pendingLabel={featured ? 'Unpinning…' : 'Pinning…'}>
+        {featured ? 'Unpin' : '☆ Feature on website'}
+      </SubmitButton>
+    </form>
   );
 }
