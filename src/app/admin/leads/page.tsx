@@ -19,6 +19,7 @@ import { dealerSiteBase } from '@/lib/storefront-url';
 import { PUBLIC_STATUSES } from '@/lib/domains/units';
 import { LEADS_SEEN_COOKIE } from '@/lib/leads-seen';
 import { MarkLeadsSeen } from '@/components/leads-seen';
+import { DeleteLeadButton } from '@/components/delete-lead-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,11 +107,14 @@ export default async function LeadsPage() {
                         {l.name}
                       </span>
                     </div>
-                    <span
-                      className="text-xs text-ink-500"
-                      title={l.createdAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
-                    >
-                      {ago(l.createdAt, now)}
+                    <span className="flex items-baseline gap-3">
+                      <span
+                        className="text-xs text-ink-500"
+                        title={l.createdAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                      >
+                        {ago(l.createdAt, now)}
+                      </span>
+                      <DeleteLeadButton leadId={l.id} />
                     </span>
                   </div>
 

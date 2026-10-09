@@ -42,6 +42,7 @@ import { SOLD_STATUSES, similarToSold } from '@/lib/store/sold';
 import { makePath } from '@/lib/store/facets';
 import { vdpDescription, vdpTitle } from '@/lib/store/vdp-meta';
 import { LeadForm, type LeadState } from '@/components/store/lead-form';
+import { leadSpamReason } from '@/lib/store/lead-spam';
 import { smsConsentRecord } from '@/lib/store/sms-consent';
 import { PaymentEstimator } from '@/components/store/payment-estimator';
 import { VehicleCard, primaryPhoto } from '@/components/store/vehicle-card';
@@ -212,12 +213,27 @@ export default async function VehicleDetailPage({ params }: Params) {
   const privacyHref = `${basePath}/privacy`;
   const absolutePrivacyUrl = `${origin}${basePath}/privacy`;
 
+  /* Closed over by the action (and encrypted by Next), so it cannot be posted. See `lead-spam`. */
+  const renderedAt = Date.now();
+
   async function submitLead(_prev: LeadState, formData: FormData): Promise<LeadState> {
     'use server';
     const name = String(formData.get('name') ?? '').trim();
     const email = String(formData.get('email') ?? '').trim();
     const phone = String(formData.get('phone') ?? '').trim();
     const message = String(formData.get('message') ?? '').trim();
+
+    // Spam gets the same "Got it" a shopper gets, and is never stored or emailed.
+    const spam = leadSpamReason({
+      honeypot: String(formData.get('company') ?? ''),
+      message,
+      name,
+      elapsedMs: Date.now() - renderedAt,
+    });
+    if (spam) {
+      console.warn(`[lead-spam] dropped (${spam}) on ${storefrontName}`);
+      return { status: 'ok', firstName: name.split(/\s+/)[0] };
+    }
 
     /*
      * The consent record is built on the SERVER from the same constant the form

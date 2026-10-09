@@ -57,6 +57,14 @@ export function LeadForm({
 
   return (
     <form action={formAction} className="space-y-2.5">
+      {/* Honeypot — see `@/lib/store/lead-spam`. Hidden from people, screen
+          readers and password managers; bots fill it. */}
+      <div className="hidden" aria-hidden="true">
+        <label>
+          Company
+          <input name="company" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+        </label>
+      </div>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <input
           name="name"
