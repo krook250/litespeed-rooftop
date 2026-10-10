@@ -182,11 +182,14 @@ export default async function StorefrontLayout({
                 About
               </Link>
             ) : null}
-            {/* Only when there is a provider behind it — the route 404s otherwise. */}
+            {/* Only when there is a provider behind it — the route 404s otherwise.
+                The one nav link that stays on phones: the other links are a
+                scroll away on the home page, but the credit app is a separate
+                page with no other way in on mobile. */}
             {hasCreditApp ? (
               <Link
                 href={`${base}/loan-application`}
-                className="hidden text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100 sm:block"
+                className="block text-sm font-medium text-[var(--header-fg)] opacity-80 hover:opacity-100"
               >
                 Financing
               </Link>
