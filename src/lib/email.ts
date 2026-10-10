@@ -56,6 +56,8 @@ export type OutboundEmail = {
    * else leaves this unset and keeps REPLY_TO.
    */
   replyTo?: string;
+  /** Overrides the default sender for this one message (sales outreach). */
+  from?: string;
 };
 
 /**
@@ -89,7 +91,7 @@ export async function sendEmail(msg: OutboundEmail): Promise<boolean> {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        from: msg.from || FROM,
         to: [msg.to],
         reply_to: msg.replyTo || REPLY_TO,
         subject: msg.subject,
