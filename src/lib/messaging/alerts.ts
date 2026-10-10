@@ -101,7 +101,13 @@ export function leadAlertText(input: {
   vehicleUrl: string | null;
 }): string {
   const parts = [`New lead: ${input.name} - ${input.vehicleTitle} (#${input.stockNumber})`];
-  parts.push(input.phone.trim() ? input.phone.trim() : 'No phone given, check your email');
+  // Says what to do, not just what it is. The first dealer to get one asked
+  // "where do I respond" — the answer is: to the shopper, directly.
+  parts.push(
+    input.phone.trim()
+      ? `Call or text them: ${input.phone.trim()}`
+      : 'No phone given. Reply to the lead email to answer them.',
+  );
   const msg = input.message.trim().replace(/\s+/g, ' ');
   if (msg) parts.push(`"${msg.length > 120 ? msg.slice(0, 117) + '...' : msg}"`);
   if (input.vehicleUrl) parts.push(input.vehicleUrl);

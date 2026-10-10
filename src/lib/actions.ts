@@ -14,6 +14,7 @@ import {
   setChannelExclusion,
 } from '@/lib/sync-engine';
 import { buildVin } from '@/lib/vin';
+import { deriveStockNumber } from '@/lib/import/mapping';
 import { createHash } from 'node:crypto';
 import { del, put } from '@vercel/blob';
 import { PHOTO_SET, generatedPhotoUrl, photoBody } from '@/lib/photo-svg';
@@ -160,7 +161,12 @@ export async function saveVehicle(formData: FormData) {
       .filter(Boolean);
 
   const base = {
-    stockNumber: str('stockNumber'),
+    /* Blank is not allowed to reach the row. A vehicle with an empty stock
+     * number has `${site}/` as its page URL — the homepage — so its lead
+     * texts, emails and sitemap entry all point at nothing. The form has never
+     * required it; fill it from the VIN the same way the importer does
+     * (`deriveStockNumber`). No VIN either: left blank, as before. */
+    stockNumber: str('stockNumber') || (str('vin') ? deriveStockNumber(str('vin')) : ''),
     year: int('year') ?? 2020,
     make: str('make'),
     model: str('model'),
