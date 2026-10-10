@@ -25,7 +25,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
 import { CreditAppFrame } from '@/components/store/credit-app-frame';
-import { creditAppFor, standaloneUrl } from '@/lib/store/credit-app';
+import { creditAppFor } from '@/lib/store/credit-app';
 import { breadcrumbLd, canonicalOrigin, telHref } from '@/lib/store/seo';
 
 export const dynamic = 'force-dynamic';
@@ -102,7 +102,7 @@ export default async function LoanApplicationPage({ params }: Params) {
       >
         <h2 className="text-sm font-semibold text-[var(--text)]">Worth having ready</h2>
         <ul className="mt-2 grid gap-1.5 text-sm text-[var(--text-2)] sm:grid-cols-2">
-          <li>Your driver&apos;s licence</li>
+          <li>Your driver&apos;s license</li>
           <li>Your current address, and how long you have been there</li>
           <li>Where you work and roughly what you earn</li>
           <li>Your rent or mortgage payment</li>
@@ -117,36 +117,10 @@ export default async function LoanApplicationPage({ params }: Params) {
         actually receives it is the honest thing to do, and it is also the thing
         that makes the page look legitimate rather than like a harvesting form.
       */}
-      {/*
-        The button is primary and above the frame, not a footnote below it.
-
-        Providers gate embedding on the domain: DealerCenter reads the Referer
-        and refuses any address not registered to the dealer's account, so a
-        storefront still on the shared host — or on a domain nobody has told the
-        provider about — renders a red "cannot be embedded" box where the form
-        should be. There is no way to detect that from the page, because the
-        frame is cross-origin. So the path that always works is the one offered
-        first, and the frame below it is the bonus when it happens to load.
-      */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <a
-          href={standaloneUrl(app)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-md px-4 py-2.5 text-sm font-bold"
-          style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
-        >
-          Start your application ↗
-        </a>
-        <span className="text-xs text-[var(--text-3)]">
-          Opens {app.provider}&apos;s secure form in a new window.
-        </span>
-      </div>
-
       <p className="mt-4 text-xs text-[var(--text-3)]">
         This application is provided and secured by <b>{app.provider}</b> ({app.host}). It is
         submitted directly to {sf.name} and their lenders — {sf.name}&apos;s website does not store
-        what you type here. If the form below does not load, use the button above.
+        what you type here.
       </p>
 
       <div className="mt-3">
