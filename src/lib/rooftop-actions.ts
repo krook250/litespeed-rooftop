@@ -27,6 +27,7 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { parseLatLng } from '@/lib/geo';
 import { parseGoogleProfileUrl } from '@/lib/store/google-profile';
+import { toUsE164 } from '@/lib/messaging/alerts';
 
 /**
  * Read the map pin out of the single box the form now posts.
@@ -75,6 +76,9 @@ export async function saveRooftopDetails(formData: FormData) {
       postalCode: str('postalCode', 20),
       phone: str('phone', 40),
       email: str('email', 200),
+      // Unparseable clears it, so the field comes back empty and the dealer
+      // sees it didn't take, rather than lead texts silently going nowhere.
+      leadAlertPhone: toUsE164(str('leadAlertPhone', 40)),
       ...readPin(formData),
       googleProfileUrl: parseGoogleProfileUrl(str('googleProfileUrl', 500)),
     })

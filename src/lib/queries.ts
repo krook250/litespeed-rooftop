@@ -9,6 +9,7 @@ import { AGING_BUCKETS, bucketFor, daysInStock, type DisMode } from '@/lib/domai
 export { resolveFeedStyle } from '@/lib/feed';
 import { scopeForGroup, type Scope } from '@/lib/scoped-db';
 import { newLeadEmail, sendEmail } from '@/lib/email';
+import { leadAlertText, sendAlertSms } from '@/lib/messaging/alerts';
 import { dealerSiteBase } from '@/lib/storefront-url';
 import { bumpSiteStat } from '@/lib/analytics/record';
 import { isSource } from '@/lib/analytics/source';
@@ -614,18 +615,24 @@ async function notifyNewLead(
 
     const lot = (
       await db
-        .select({ name: t.rooftops.name, email: t.rooftops.email })
+        .select({
+          name: t.rooftops.name,
+          email: t.rooftops.email,
+          leadAlertPhone: t.rooftops.leadAlertPhone,
+        })
         .from(t.rooftops)
         .where(eq(t.rooftops.id, rooftopId))
         .limit(1)
     )[0];
+    if (!lot) return;
 
     /* No address on the rooftop is a setup gap, not a code path to invent a
      * recipient for. Loud, because the alternative is a silently unnotified
-     * dealer — the exact failure this function exists to end. */
-    if (!lot?.email) {
+     * dealer — the exact failure this function exists to end. Not a return:
+     * a lot with a cell and no email still gets its text. */
+    if (!lot.email && !lot.leadAlertPhone) {
       console.error(
-        `[lead] ${leadId} for rooftop ${rooftopId} could not be emailed: the rooftop has no email address.`,
+        `[lead] ${leadId} for rooftop ${rooftopId} could not be delivered: the rooftop has no email address or lead cell.`,
       );
       return;
     }
@@ -657,23 +664,45 @@ async function notifyNewLead(
       // A storefront without a resolvable base is not a reason to hold the email.
     }
 
-    const sent = await sendEmail(
-      newLeadEmail({
-        to: lot.email,
-        rooftopName: lot.name,
-        vehicleTitle: title,
-        stockNumber: stock,
-        vehicleUrl,
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        message: lead.message,
-      }),
-    );
+    /* Email and text in parallel, both awaited (see the note above on why
+     * nothing here is fire-and-forget). Neither throws. */
+    const [sent, texted] = await Promise.all([
+      lot.email
+        ? sendEmail(
+            newLeadEmail({
+              to: lot.email,
+              rooftopName: lot.name,
+              vehicleTitle: title,
+              stockNumber: stock,
+              vehicleUrl,
+              name: lead.name,
+              email: lead.email,
+              phone: lead.phone,
+              message: lead.message,
+            }),
+          )
+        : Promise.resolve(false),
+      lot.leadAlertPhone
+        ? sendAlertSms(
+            lot.leadAlertPhone,
+            leadAlertText({
+              name: lead.name,
+              phone: lead.phone,
+              vehicleTitle: title,
+              stockNumber: stock,
+              message: lead.message,
+              vehicleUrl,
+            }),
+          )
+        : Promise.resolve(false),
+    ]);
 
     // One line either way. A dealer asking "did you send it" deserves an answer
     // that is not a guess.
-    console.log(`[lead] ${leadId} -> ${lot.email} ${sent ? 'sent' : 'NOT SENT'}`);
+    console.log(
+      `[lead] ${leadId} email ${lot.email || '(none)'} ${sent ? 'sent' : 'NOT SENT'}; ` +
+        `text ${lot.leadAlertPhone ?? '(none)'} ${texted ? 'sent' : 'NOT SENT'}`,
+    );
   } catch (err) {
     console.error(`[lead] ${leadId} notification failed`, err);
   }

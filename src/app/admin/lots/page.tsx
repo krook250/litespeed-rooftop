@@ -104,6 +104,16 @@ export default async function LotsPage() {
                 <Field label="ZIP" name="postalCode" defaultValue={lot.postalCode} maxLength={20} />
                 <Field label="Phone" name="phone" defaultValue={lot.phone} maxLength={40} />
                 <Field label="Email for leads" name="email" type="email" defaultValue={lot.email} className="sm:col-span-2" maxLength={200} />
+                <Field
+                  label="Cell for lead texts"
+                  name="leadAlertPhone"
+                  type="tel"
+                  defaultValue={lot.leadAlertPhone ?? ''}
+                  placeholder="(360) 555-0142"
+                  className="sm:col-span-2"
+                  maxLength={40}
+                  hint="We text this number the moment a lead comes in. Must be a cell. Leave blank for email only."
+                />
               </div>
 
               <div className="mt-4 border-t border-ink-100 pt-4">

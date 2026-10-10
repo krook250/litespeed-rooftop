@@ -1,0 +1,1 @@
+ALTER TABLE "rooftops" ADD COLUMN "leadAlertPhone" text;

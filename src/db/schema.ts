@@ -426,6 +426,13 @@ export const rooftops = pgTable('rooftops', {
   postalCode: text().notNull(),
   phone: text().notNull(),
   email: text().notNull(),
+  /**
+   * The cell a new lead gets texted to, E.164. Separate from `phone` because
+   * the number on the sign is usually a landline, and a text to a landline
+   * fails without anyone finding out. Null means email only. Entering it in
+   * Lots is the dealer's opt-in; see `src/lib/messaging/alerts.ts`.
+   */
+  leadAlertPhone: text(),
   timezone: text().notNull().default('America/Los_Angeles'),
 
   /**
