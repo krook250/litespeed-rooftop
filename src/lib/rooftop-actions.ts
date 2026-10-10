@@ -28,6 +28,7 @@ import { assertRooftopInScope } from '@/lib/scoped-db';
 import { parseLatLng } from '@/lib/geo';
 import { parseGoogleProfileUrl } from '@/lib/store/google-profile';
 import { toUsE164 } from '@/lib/messaging/alerts';
+import { timezoneFor } from '@/lib/store/timezone';
 
 /**
  * Read the map pin out of the single box the form now posts.
@@ -65,6 +66,8 @@ export async function saveRooftopDetails(formData: FormData) {
   if (!(await assertRooftopInScope(scope, rooftopId))) return;
 
   const str = (k: string, max: number) => String(formData.get(k) ?? '').trim().slice(0, max);
+  // Follows the address. Unrecognized state keeps whatever the row had.
+  const timezone = timezoneFor(str('state', 40), str('postalCode', 20));
 
   await db
     .update(t.rooftops)
@@ -81,6 +84,7 @@ export async function saveRooftopDetails(formData: FormData) {
       leadAlertPhone: toUsE164(str('leadAlertPhone', 40)),
       ...readPin(formData),
       googleProfileUrl: parseGoogleProfileUrl(str('googleProfileUrl', 500)),
+      ...(timezone ? { timezone } : {}),
     })
     .where(eq(t.rooftops.id, rooftopId));
 
