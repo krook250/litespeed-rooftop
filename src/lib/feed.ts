@@ -255,13 +255,18 @@ export async function feedSold(
       opts.soldPrice == null
         ? `Stock #${v.stockNumber} sold after ${opts.daysToSell} days on the lot.`
         : `Stock #${v.stockNumber} retailed at ${usd(opts.soldPrice)} after ${opts.daysToSell} days on the lot.`,
-    stats: [
-      ...(opts.frontGross == null
-        ? []
-        : [{ k: 'Front gross', v: usd(opts.frontGross), good: opts.frontGross > 0, bad: opts.frontGross <= 0 }]),
-      { k: 'Days to turn', v: `${opts.daysToSell}d`, good: opts.daysToSell <= 45 },
-      ...(opts.soldPrice == null ? [] : [{ k: 'Sold price', v: usd(opts.soldPrice) }]),
-    ],
+    // NonEmpty<FeedStat>: build the optional ones, then pick a guaranteed head.
+    stats: ((): NonEmpty<FeedStat> => {
+      const days: FeedStat = { k: 'Days to turn', v: `${opts.daysToSell}d`, good: opts.daysToSell <= 45 };
+      const rest: FeedStat[] = [];
+      if (opts.soldPrice != null) rest.push({ k: 'Sold price', v: usd(opts.soldPrice) });
+      if (opts.frontGross == null) return [days, ...rest];
+      return [
+        { k: 'Front gross', v: usd(opts.frontGross), good: opts.frontGross > 0, bad: opts.frontGross <= 0 },
+        days,
+        ...rest,
+      ];
+    })(),
     dedupeKey: `sold:${v.id}`,
   });
 }
