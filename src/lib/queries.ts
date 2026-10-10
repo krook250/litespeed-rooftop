@@ -196,6 +196,41 @@ export async function getLiveInventory(opts: { rooftopIds?: string[] } = {}) {
   })) as LiveVehicle[];
 }
 
+/**
+ * Sold units in the window, newest first, with the sale row when there is one.
+ * Read from `vehicles`, not `sales`: a unit taken off the lot without a sale
+ * row is still sold, and still belongs on the list. Gross is not stored here —
+ * the page works it out from the vehicle's current cost, so cost entered after
+ * the sale shows up without a re-save.
+ */
+export async function getSoldUnits(days: number, opts: { rooftopIds?: string[] } = {}) {
+  const rooftopIds = await scopeRooftops(opts.rooftopIds);
+  if (!rooftopIds.length) return [];
+  const since = new Date(Date.now() - days * 86_400_000);
+  const soldAt = sql<Date>`coalesce(${t.vehicles.soldDate}, ${t.sales.soldDate}, ${t.vehicles.updatedAt})`;
+  const rows = await db
+    .select({ v: t.vehicles, s: t.sales, soldAt })
+    .from(t.vehicles)
+    .leftJoin(t.sales, eq(t.sales.vehicleId, t.vehicles.id))
+    .where(
+      and(
+        eq(t.vehicles.status, 'SOLD'),
+        inArray(t.vehicles.rooftopId, rooftopIds),
+        sql`${soldAt} >= ${since.toISOString()}::timestamptz`,
+      ),
+    )
+    .orderBy(desc(soldAt));
+  return rows.map((r) => ({
+    ...r.v,
+    soldAt: new Date(r.soldAt),
+    soldPrice: r.s?.soldPrice ?? null,
+    daysToSell:
+      r.s?.daysToSell ??
+      Math.max(0, Math.round((new Date(r.soldAt).getTime() - new Date(r.v.acquiredDate).getTime()) / 86_400_000)),
+  }));
+}
+export type SoldUnit = Awaited<ReturnType<typeof getSoldUnits>>[number];
+
 export async function getVehicleById(id: string, opts: { rooftopIds?: string[] } = {}) {
   const rooftopIds = await scopeRooftops(opts.rooftopIds);
   if (!rooftopIds.length) return null;

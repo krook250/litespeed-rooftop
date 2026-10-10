@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { AgeBadge, AgingBar, Badge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
 import { UnitCard } from '@/components/inventory/unit-card';
+import { SoldTable } from '@/components/inventory/sold-table';
 import {
   agingCounts,
   getLiveInventory,
+  getSoldUnits,
   getRooftops,
   getSyncMatrix,
   sessionScope,
@@ -30,6 +32,8 @@ import { can } from '@/lib/permissions';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+
+const SOLD_WINDOW_DAYS = 90;
 
 type SP = {
   view?: string;
@@ -62,7 +66,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   if (sp.view === 'at-risk' && !can(me.role, 'at-risk')) redirect('/admin/inventory');
   const clock: DisMode = sp.clock === 'frontLine' ? 'frontLine' : 'dateIn';
 
-  const [rooftops, all] = await Promise.all([getRooftops(), getLiveInventory()]);
+  const [rooftops, all, soldAll] = await Promise.all([
+    getRooftops(),
+    getLiveInventory(),
+    getSoldUnits(SOLD_WINDOW_DAYS),
+  ]);
   const traffic = await getTrafficPerVehicle(30);
   const matrix = await getSyncMatrix(await sessionScope(), all.map((v) => v.id));
 
@@ -75,6 +83,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   }
 
   const activeRooftop = rooftops.find((r) => r.slug === sp.rooftop) ?? null;
+  const soldView = sp.view === 'sold';
+  let sold = activeRooftop ? soldAll.filter((u) => u.rooftopId === activeRooftop.id) : soldAll;
+  if (sp.q) {
+    const q = sp.q.toLowerCase();
+    sold = sold.filter((u) =>
+      [u.year, u.make, u.model, u.trim, u.stockNumber, u.vin ?? ''].join(' ').toLowerCase().includes(q),
+    );
+  }
+  const soldWithGross = sold.filter((u) => u.soldPrice != null && hasCost(u));
+  const soldGross = soldWithGross.reduce((s, u) => s + (u.soldPrice! - totalCost(u)), 0);
 
   let rows = all.map((v) => ({ ...v, dis: daysInStock(v, clock) }));
 
@@ -114,6 +132,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     ['at-risk', 'At risk (30–45d)', all.filter((v) => isAtRisk(daysInStock(v, clock))).length],
     ['recon', 'In recon', all.filter((v) => ['IN_RECON', 'ARRIVED', 'PHOTOS_PENDING'].includes(v.status)).length],
     ['water', 'Water units', all.filter(isWaterUnit).length],
+    ['sold', `Sold (last ${SOLD_WINDOW_DAYS} days)`, soldAll.length],
   ];
 
   return (
@@ -122,8 +141,19 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink-900">Inventory</h1>
           <p className="mt-1 text-sm text-ink-600">
-            {rows.length} of {all.length} units · {usd(totalMoney)} in ·{' '}
-            {usd(totalRetail)} at retail
+            {soldView ? (
+              <>
+                {num(sold.length)} sold in the last {SOLD_WINDOW_DAYS} days
+                {soldWithGross.length
+                  ? <> · {usd(soldGross)} gross on the {num(soldWithGross.length)} with a cost entered</>
+                  : null}
+              </>
+            ) : (
+              <>
+                {rows.length} of {all.length} units · {usd(totalMoney)} in ·{' '}
+                {usd(totalRetail)} at retail
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -158,9 +188,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </div>
       </header>
 
-      <Card className="mb-5 px-5 py-4">
-        <AgingBar counts={agingCounts(rows, clock)} total={rows.length} />
-      </Card>
+      {soldView ? null : (
+        <Card className="mb-5 px-5 py-4">
+          <AgingBar counts={agingCounts(rows, clock)} total={rows.length} />
+        </Card>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {VIEWS.map(([key, label, n]) => (
@@ -224,6 +256,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </form>
       </div>
 
+      {soldView ? (
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="Sold units"
+            subtitle="Gross shows only where a cost is entered. Open a unit to add cost, pack or recon — its gross updates when you save."
+          />
+          <SoldTable units={sold} />
+        </Card>
+      ) : (
+      <>
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">
           Bucket
@@ -426,6 +468,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
           </>
         )}
       </Card>
+      </>
+      )}
 
       <p className="mt-4 text-xs text-ink-500">
         Cost, pack and recon are internal. They are never included in a syndication payload — the

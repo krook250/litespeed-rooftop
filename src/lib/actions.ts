@@ -423,6 +423,27 @@ export async function saveVehicle(formData: FormData) {
     await feedSold(after, { soldPrice, frontGross, daysToSell, actorId: me.id });
   }
 
+  /* Cost entered after the sale. The sales row froze cost and gross at the
+   * moment of sale; when a sold unit's cost, pack or recon is filled in later
+   * (imports arrive with none), the row follows, or reporting keeps the old
+   * zero-cost gross forever. Sold price and date are left as they were. */
+  if (
+    !goingSold &&
+    before.status === 'SOLD' &&
+    base.status === 'SOLD' &&
+    (before.cost !== base.cost || before.pack !== base.pack || before.reconCost !== base.reconCost)
+  ) {
+    await db
+      .update(t.sales)
+      .set({
+        cost: base.cost,
+        pack: base.pack,
+        reconCost: base.reconCost,
+        frontGross: sql`${t.sales.soldPrice} - ${totalCost(base)}`,
+      })
+      .where(eq(t.sales.vehicleId, id));
+  }
+
   if (Object.keys(changes).length) {
     await enqueueChange(
       id,
