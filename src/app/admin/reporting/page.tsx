@@ -130,7 +130,12 @@ export default async function ReportingPage({
   const turnStrong = turn != null && turn >= TURN_BENCHMARK.strong;
 
   const avgDaysToSell = mean(sales.map((s) => s.daysToSell));
-  const avgFrontGross = mean(sales.map((s) => s.frontGross));
+  /* Gross only counts on sales that carried a cost. An imported unit with no
+   * cost, pack or recon books its whole sale price as "gross" — averaging those
+   * in makes the number fiction. Units still count everywhere else. */
+  const costedSales = sales.filter((s) => s.cost + s.pack + s.reconCost > 0);
+  const uncostedSales = unitsSold - costedSales.length;
+  const avgFrontGross = mean(costedSales.map((s) => s.frontGross));
 
   const vdpViews = trafficRows.reduce((a, r) => a + r.vdpViews, 0);
   const windowLeads = trafficRows.reduce((a, r) => a + r.leads, 0);
@@ -152,6 +157,7 @@ export default async function ReportingPage({
   const counts = agingCounts(inventory, 'dateIn');
   const withAge = inventory.map((v) => ({ v, dis: daysInStock(v, 'dateIn', new Date(now)) }));
   const lotMoney = withAge.reduce((a, r) => a + totalCost(r.v), 0);
+  const lotNoCost = inventory.filter((v) => totalCost(v) === 0).length;
   const bucketRows = AGING_BUCKETS.map((b) => {
     const inBucket = withAge.filter(({ dis }) => bucketFor(dis)!.key === b.key);
     return {
@@ -222,7 +228,7 @@ export default async function ReportingPage({
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const m = monthMap.get(key) ?? { units: 0, gross: 0 };
     m.units += 1;
-    m.gross += s.frontGross;
+    if (s.cost + s.pack + s.reconCost > 0) m.gross += s.frontGross;
     monthMap.set(key, m);
   }
   const monthKeys = [...monthMap.keys()].sort();
@@ -236,7 +242,7 @@ export default async function ReportingPage({
       sublabel: `${usd(value.gross)} gross`,
     };
   });
-  const windowGross = sales.reduce((a, s) => a + s.frontGross, 0);
+  const windowGross = costedSales.reduce((a, s) => a + s.frontGross, 0);
 
   /* ----------------------------------------------------------------- view */
 
@@ -340,11 +346,15 @@ export default async function ReportingPage({
           />
           <Stat
             label="Avg front gross"
-            value={usd(avgFrontGross)}
-            hint="Front-end only. No F&I, no reserve — this is not a DMS."
+            value={avgFrontGross == null ? '—' : usd(avgFrontGross)}
+            hint={
+              uncostedSales
+                ? `On ${num(costedSales.length)} of ${num(unitsSold)} units — ${num(uncostedSales)} have no cost entered`
+                : 'Front-end only. No F&I, no reserve — this is not a DMS.'
+            }
             benchmark={
-              unitsSold
-                ? `${usd(windowGross)} total front gross on ${num(unitsSold)} units`
+              costedSales.length
+                ? `${usd(windowGross)} total front gross on ${num(costedSales.length)} units`
                 : undefined
             }
           />
@@ -365,7 +375,7 @@ export default async function ReportingPage({
         <Card>
           <CardHeader
             title="Aging distribution"
-            subtitle={`${num(inventory.length)} live units · ${usd(lotMoney)} of cost, pack and recon on the ground`}
+            subtitle={`${num(inventory.length)} live units · ${usd(lotMoney)} of cost, pack and recon on the ground${lotNoCost ? ` · ${num(lotNoCost)} with no cost entered aren't in that figure` : ''}`}
           />
           {inventory.length === 0 ? (
             <EmptyState title="No live inventory in this scope" />
@@ -606,7 +616,7 @@ export default async function ReportingPage({
         <Card>
           <CardHeader
             title="Sales by month"
-            subtitle={`Units retailed and front gross per month · ${num(unitsSold)} units and ${usd(windowGross)} in the last ${days} days. First and last month in the window are partial.`}
+            subtitle={`Units retailed and front gross per month · ${num(unitsSold)} units and ${usd(windowGross)} in the last ${days} days${uncostedSales ? ` (gross from the ${num(costedSales.length)} with a cost entered)` : ''}. First and last month in the window are partial.`}
           />
           {monthCols.length === 0 ? (
             <EmptyState title="No units retailed in this window" />

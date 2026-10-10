@@ -137,7 +137,10 @@ export default async function LotWalkPage({
   const inRecon = withDays.filter((v) => v.status === 'IN_RECON' || v.status === 'ARRIVED');
   const water = withDays.filter(isWaterUnit);
   const tiedUp = withDays.reduce((s, v) => s + totalCost(v), 0);
-  const grossMtd = sales.reduce((s, v) => s + v.frontGross, 0);
+  // Sales with no cost on file would book the whole sale price as gross.
+  const grossMtd = sales
+    .filter((v) => v.cost + v.pack + v.reconCost > 0)
+    .reduce((s, v) => s + v.frontGross, 0);
   /* The lot's clock, not the server's (UTC). Multi-lot groups use the first lot's. */
   const timeZone = rooftops[0]?.timezone ?? 'America/New_York';
   const lotDay = (d: Date) => new Date(d).toLocaleDateString('en-CA', { timeZone });
