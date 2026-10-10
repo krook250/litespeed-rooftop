@@ -14,6 +14,7 @@ import {
   turnRate,
   usd,
   vehicleTitle,
+  saleGross,
 } from '@/lib/domain';
 import {
   getLiveInventory,
@@ -133,9 +134,11 @@ export default async function ReportingPage({
   /* Gross only counts on sales that carried a cost. An imported unit with no
    * cost, pack or recon books its whole sale price as "gross" — averaging those
    * in makes the number fiction. Units still count everywhere else. */
-  const costedSales = sales.filter((s) => s.cost + s.pack + s.reconCost > 0);
+  const costedSales = sales
+    .map((s) => ({ ...s, gross: saleGross(s) }))
+    .filter((s): s is typeof s & { gross: number } => s.gross != null);
   const uncostedSales = unitsSold - costedSales.length;
-  const avgFrontGross = mean(costedSales.map((s) => s.frontGross));
+  const avgFrontGross = mean(costedSales.map((s) => s.gross));
 
   const vdpViews = trafficRows.reduce((a, r) => a + r.vdpViews, 0);
   const windowLeads = trafficRows.reduce((a, r) => a + r.leads, 0);
@@ -228,7 +231,7 @@ export default async function ReportingPage({
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const m = monthMap.get(key) ?? { units: 0, gross: 0 };
     m.units += 1;
-    if (s.cost + s.pack + s.reconCost > 0) m.gross += s.frontGross;
+    m.gross += saleGross(s) ?? 0;
     monthMap.set(key, m);
   }
   const monthKeys = [...monthMap.keys()].sort();
@@ -242,7 +245,7 @@ export default async function ReportingPage({
       sublabel: `${usd(value.gross)} gross`,
     };
   });
-  const windowGross = costedSales.reduce((a, s) => a + s.frontGross, 0);
+  const windowGross = costedSales.reduce((a, s) => a + s.gross, 0);
 
   /* ----------------------------------------------------------------- view */
 
@@ -349,7 +352,7 @@ export default async function ReportingPage({
             value={avgFrontGross == null ? '—' : usd(avgFrontGross)}
             hint={
               uncostedSales
-                ? `On ${num(costedSales.length)} of ${num(unitsSold)} units — ${num(uncostedSales)} have no cost entered`
+                ? `On ${num(costedSales.length)} of ${num(unitsSold)} units — ${num(uncostedSales)} have no cost or no sale price`
                 : 'Front-end only. No F&I, no reserve — this is not a DMS.'
             }
             benchmark={
@@ -616,7 +619,7 @@ export default async function ReportingPage({
         <Card>
           <CardHeader
             title="Sales by month"
-            subtitle={`Units retailed and front gross per month · ${num(unitsSold)} units and ${usd(windowGross)} in the last ${days} days${uncostedSales ? ` (gross from the ${num(costedSales.length)} with a cost entered)` : ''}. First and last month in the window are partial.`}
+            subtitle={`Units retailed and front gross per month · ${num(unitsSold)} units and ${usd(windowGross)} in the last ${days} days${uncostedSales ? ` (gross from the ${num(costedSales.length)} with a cost and sale price)` : ''}. First and last month in the window are partial.`}
           />
           {monthCols.length === 0 ? (
             <EmptyState title="No units retailed in this window" />

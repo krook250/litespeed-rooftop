@@ -20,7 +20,7 @@ import { del, put } from '@vercel/blob';
 import { PHOTO_SET, generatedPhotoUrl, photoBody } from '@/lib/photo-svg';
 import { requireSession } from '@/lib/auth';
 import { assertVehicleInScope, sessionScope } from '@/lib/queries';
-import { VEHICLE_STATUS_LABEL, daysInStock, totalCost, vehicleTypeForBody } from '@/lib/domain';
+import { saleGross, VEHICLE_STATUS_LABEL, daysInStock, totalCost, vehicleTypeForBody } from '@/lib/domain';
 import {
   feedAcquired,
   feedFrontLine,
@@ -400,8 +400,11 @@ export async function saveVehicle(formData: FormData) {
       0,
       Math.round((soldAt!.getTime() - new Date(before.acquiredDate).getTime()) / 86_400_000),
     );
-    const soldPrice = base.price;
-    const frontGross = soldPrice - totalCost(after);
+    /* The form has no sold-price field. Booking the asking price as the sale
+     * invented a number; the sale is recorded with no price instead. "Mark
+     * sold" is where a price gets entered. */
+    const soldPrice = null;
+    const frontGross = null;
 
     // A sale is the one lifecycle change with a second table behind it. Without
     // this row the unit vanishes from reporting instead of turning into gross.
@@ -500,8 +503,11 @@ export async function markSold(formData: FormData) {
   const before = await loadWritableVehicle(id);
   if (!before || before.status === 'SOLD' || before.status === 'WHOLESALED') return;
 
-  const raw = Number(formData.get('soldPrice'));
-  const soldPrice = Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : before.price;
+  /* Blank means the price isn't known — recorded as null, never as the asking
+   * price. The unit still counts as sold; it just never counts as gross. */
+  const rawIn = formData.get('priceUnknown') ? '' : String(formData.get('soldPrice') ?? '').trim();
+  const raw = Number(rawIn);
+  const soldPrice = rawIn !== '' && Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : null;
 
   const now = new Date();
   await db
@@ -514,7 +520,7 @@ export async function markSold(formData: FormData) {
     0,
     Math.round((now.getTime() - new Date(before.acquiredDate).getTime()) / 86_400_000),
   );
-  const frontGross = soldPrice - totalCost(after);
+  const frontGross = soldPrice == null ? null : soldPrice - totalCost(after);
 
   await db
     .insert(t.sales)
@@ -531,7 +537,7 @@ export async function markSold(formData: FormData) {
     })
     .onConflictDoNothing({ target: t.sales.vehicleId });
 
-  await feedSold(after, { soldPrice, frontGross, daysToSell, actorId: me.id });
+  await feedSold(after, { soldPrice, frontGross: saleGross({ ...after, soldPrice }), daysToSell, actorId: me.id });
 
   await enqueueChange(
     id,

@@ -12,6 +12,9 @@
  * locks the unit and writes gross into reporting, so it gets a confirm — and
  * the confirm earns its keep by asking the one thing only the dealer knows,
  * which is what it actually sold for. Prefilled with the asking price.
+ *
+ * "Price unknown" is for units taken off the lot without a sale amount: the
+ * unit counts as sold, the asking price is never booked as the sale.
  */
 
 import { useId, useState, useTransition } from 'react';
@@ -76,6 +79,16 @@ export function MarkSold({
         className="rounded-md bg-ink-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink-800 disabled:opacity-60"
       >
         {pending ? 'Saving…' : 'Confirm sale'}
+      </button>
+      <button
+        name="priceUnknown"
+        value="1"
+        formNoValidate
+        disabled={pending}
+        title="Counts as sold. Left out of gross."
+        className="rounded-md px-2 py-1.5 text-xs font-medium text-ink-700 ring-1 ring-inset ring-ink-300 hover:bg-ink-50"
+      >
+        Sold, price unknown
       </button>
       <button
         type="button"

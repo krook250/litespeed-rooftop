@@ -243,7 +243,7 @@ export async function feedPriceChange(
 
 export async function feedSold(
   v: VehicleLike,
-  opts: { soldPrice: number; frontGross: number; daysToSell: number; actorId?: string | null },
+  opts: { soldPrice: number | null; frontGross: number | null; daysToSell: number; actorId?: string | null },
 ) {
   return emitFeedEvent({
     rooftopId: v.rooftopId,
@@ -251,11 +251,16 @@ export async function feedSold(
     vehicleId: v.id,
     actorId: opts.actorId,
     title: `Sold — ${shortTitle(v)}`,
-    body: `Stock #${v.stockNumber} retailed at ${usd(opts.soldPrice)} after ${opts.daysToSell} days on the lot.`,
+    body:
+      opts.soldPrice == null
+        ? `Stock #${v.stockNumber} sold after ${opts.daysToSell} days on the lot.`
+        : `Stock #${v.stockNumber} retailed at ${usd(opts.soldPrice)} after ${opts.daysToSell} days on the lot.`,
     stats: [
-      { k: 'Front gross', v: usd(opts.frontGross), good: opts.frontGross > 0, bad: opts.frontGross <= 0 },
+      ...(opts.frontGross == null
+        ? []
+        : [{ k: 'Front gross', v: usd(opts.frontGross), good: opts.frontGross > 0, bad: opts.frontGross <= 0 }]),
       { k: 'Days to turn', v: `${opts.daysToSell}d`, good: opts.daysToSell <= 45 },
-      { k: 'Sold price', v: usd(opts.soldPrice) },
+      ...(opts.soldPrice == null ? [] : [{ k: 'Sold price', v: usd(opts.soldPrice) }]),
     ],
     dedupeKey: `sold:${v.id}`,
   });

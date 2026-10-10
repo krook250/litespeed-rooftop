@@ -112,6 +112,22 @@ export function isWaterUnit(
  * `isWaterUnit` has the quieter version of this: with no cost it can never be
  * true, so an unknown unit is silently "fine".
  */
+/**
+ * Front gross on a sale, or null when it can't be known: no sale price
+ * entered, or no cost, pack or recon on the unit. A sale with no cost would
+ * book its whole price as gross, so it counts as a unit and never as gross.
+ */
+export function saleGross(s: {
+  soldPrice: number | null;
+  cost: number;
+  pack: number;
+  reconCost: number;
+}): number | null {
+  if (s.soldPrice == null) return null;
+  const c = s.cost + s.pack + s.reconCost;
+  return c > 0 ? s.soldPrice - c : null;
+}
+
 export function hasCost(v: Pick<Vehicle, 'cost' | 'pack' | 'reconCost'>) {
   return totalCost(v) > 0;
 }

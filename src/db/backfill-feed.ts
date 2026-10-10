@@ -33,7 +33,7 @@ import {
   feedSold,
   sweepDerivedFeedEvents,
 } from '@/lib/feed';
-import { daysInStock, shortTitle, totalCost, usd } from '@/lib/domain';
+import { saleGross, daysInStock, shortTitle, totalCost, usd } from '@/lib/domain';
 
 const DAY = 86_400_000;
 
@@ -203,7 +203,7 @@ export async function backfillFeed(opts: BackfillOptions) {
       await withCreatedAt(s.soldDate, () =>
         feedSold(v, {
           soldPrice: s.soldPrice,
-          frontGross: s.frontGross,
+          frontGross: saleGross(s),
           daysToSell: s.daysToSell,
         }),
       ),

@@ -16,7 +16,7 @@ import * as t from '@/db/schema';
 import { requireSession } from '@/lib/auth';
 import { assertFeedEventInScope, sessionScope } from '@/lib/queries';
 import { emitFeedEvent } from '@/lib/feed';
-import { isAtRisk, daysInStock, shortTitle, totalCost, usd } from '@/lib/domain';
+import { saleGross, isAtRisk, daysInStock, shortTitle, totalCost, usd } from '@/lib/domain';
 
 function refreshFeed() {
   revalidatePath('/admin', 'layout');
@@ -179,7 +179,7 @@ export async function ringTheBell(formData: FormData) {
     rooftopInventory(target),
   ]);
 
-  const grossMtd = monthSales.reduce((sum, x) => sum + x.frontGross, 0);
+  const grossMtd = monthSales.reduce((sum, x) => sum + (saleGross(x) ?? 0), 0);
 
   await emitFeedEvent({
     rooftopId: target,
