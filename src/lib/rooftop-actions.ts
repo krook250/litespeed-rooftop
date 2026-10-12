@@ -27,7 +27,6 @@ import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
 import { parseLatLng } from '@/lib/geo';
 import { parseGoogleProfileUrl } from '@/lib/store/google-profile';
-import { toUsE164 } from '@/lib/messaging/alerts';
 import { timezoneFor } from '@/lib/store/timezone';
 
 /**
@@ -78,10 +77,8 @@ export async function saveRooftopDetails(formData: FormData) {
       state: str('state', 40),
       postalCode: str('postalCode', 20),
       phone: str('phone', 40),
-      email: str('email', 200),
-      // Unparseable clears it, so the field comes back empty and the dealer
-      // sees it didn't take, rather than lead texts silently going nowhere.
-      leadAlertPhone: toUsE164(str('leadAlertPhone', 40)),
+      // Lead email and cells are set on Leads (`saveLeadDelivery`), not here.
+      // This form no longer posts them, so writing them would blank them.
       ...readPin(formData),
       googleProfileUrl: parseGoogleProfileUrl(str('googleProfileUrl', 500)),
       ...(timezone ? { timezone } : {}),

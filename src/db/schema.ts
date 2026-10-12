@@ -433,6 +433,9 @@ export const rooftops = pgTable('rooftops', {
    * Lots is the dealer's opt-in; see `src/lib/messaging/alerts.ts`.
    */
   leadAlertPhone: text(),
+  /** Second cell and second inbox for leads. Both optional; set on Leads. */
+  leadAlertPhone2: text(),
+  leadEmail2: text(),
   timezone: text().notNull().default('America/Los_Angeles'),
 
   /**

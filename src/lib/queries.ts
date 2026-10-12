@@ -654,6 +654,8 @@ async function notifyNewLead(
           name: t.rooftops.name,
           email: t.rooftops.email,
           leadAlertPhone: t.rooftops.leadAlertPhone,
+          leadAlertPhone2: t.rooftops.leadAlertPhone2,
+          leadEmail2: t.rooftops.leadEmail2,
         })
         .from(t.rooftops)
         .where(eq(t.rooftops.id, rooftopId))
@@ -665,7 +667,10 @@ async function notifyNewLead(
      * recipient for. Loud, because the alternative is a silently unnotified
      * dealer — the exact failure this function exists to end. Not a return:
      * a lot with a cell and no email still gets its text. */
-    if (!lot.email && !lot.leadAlertPhone) {
+    const toEmails = [...new Set([lot.email, lot.leadEmail2].filter((x): x is string => !!x))];
+    const toCells = [...new Set([lot.leadAlertPhone, lot.leadAlertPhone2].filter((x): x is string => !!x))];
+
+    if (!toEmails.length && !toCells.length) {
       console.error(
         `[lead] ${leadId} for rooftop ${rooftopId} could not be delivered: the rooftop has no email address or lead cell.`,
       );
@@ -699,45 +704,42 @@ async function notifyNewLead(
       // A storefront without a resolvable base is not a reason to hold the email.
     }
 
-    /* Email and text in parallel, both awaited (see the note above on why
-     * nothing here is fire-and-forget). Neither throws. */
-    const [sent, texted] = await Promise.all([
-      lot.email
-        ? sendEmail(
-            newLeadEmail({
-              to: lot.email,
-              rooftopName: lot.name,
-              vehicleTitle: title,
-              stockNumber: stock,
-              vehicleUrl,
-              name: lead.name,
-              email: lead.email,
-              phone: lead.phone,
-              message: lead.message,
-            }),
-          )
-        : Promise.resolve(false),
-      lot.leadAlertPhone
-        ? sendAlertSms(
-            lot.leadAlertPhone,
-            leadAlertText({
-              name: lead.name,
-              phone: lead.phone,
-              vehicleTitle: title,
-              stockNumber: stock,
-              message: lead.message,
-              vehicleUrl,
-            }),
-          )
-        : Promise.resolve(false),
+    /* Every email and text in parallel, all awaited (see the note above on
+     * why nothing here is fire-and-forget). None of them throw. */
+    const body = leadAlertText({
+      name: lead.name,
+      phone: lead.phone,
+      vehicleTitle: title,
+      stockNumber: stock,
+      message: lead.message,
+      vehicleUrl,
+    });
+    const results = await Promise.all([
+      ...toEmails.map(async (to) => {
+        const ok = await sendEmail(
+          newLeadEmail({
+            to,
+            rooftopName: lot.name,
+            vehicleTitle: title,
+            stockNumber: stock,
+            vehicleUrl,
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            message: lead.message,
+          }),
+        );
+        return `email ${to} ${ok ? 'sent' : 'NOT SENT'}`;
+      }),
+      ...toCells.map(async (to) => {
+        const ok = await sendAlertSms(to, body);
+        return `text ${to} ${ok ? 'sent' : 'NOT SENT'}`;
+      }),
     ]);
 
     // One line either way. A dealer asking "did you send it" deserves an answer
     // that is not a guess.
-    console.log(
-      `[lead] ${leadId} email ${lot.email || '(none)'} ${sent ? 'sent' : 'NOT SENT'}; ` +
-        `text ${lot.leadAlertPhone ?? '(none)'} ${texted ? 'sent' : 'NOT SENT'}`,
-    );
+    console.log(`[lead] ${leadId} ${results.join('; ')}`);
   } catch (err) {
     console.error(`[lead] ${leadId} notification failed`, err);
   }
