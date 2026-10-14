@@ -433,7 +433,11 @@ export const rooftops = pgTable('rooftops', {
    * Lots is the dealer's opt-in; see `src/lib/messaging/alerts.ts`.
    */
   leadAlertPhone: text(),
-  /** Second cell and second inbox for leads. Both optional; set on Leads. */
+  /**
+   * RETIRED. Copied into `lead_recipients` by migration 0039 and no longer read
+   * or written. Left in place so the code that was live while that migration
+   * ran kept working; drop in a later migration.
+   */
   leadAlertPhone2: text(),
   leadEmail2: text(),
   timezone: text().notNull().default('America/Los_Angeles'),
@@ -714,6 +718,12 @@ export const users = pgTable('users', {
   email: text().notNull().unique(),
   name: text().notNull(),
   role: userRoleEnum().notNull().default('SALES'),
+  /**
+   * Their own cell, E.164. Asked for when they accept an invite, changed on
+   * Account. Optional: it exists so a manager can pick this person as a lead
+   * recipient on Leads without retyping a number the person already gave.
+   */
+  cell: text(),
   /** Landing screen. Lot Walk is the bet, so it is the default. */
   homeView: homeViewEnum().notNull().default('FEED'),
   /**
@@ -792,6 +802,39 @@ export const invites = pgTable(
  * INSERT on purpose — there is no UI, and there should not be one until there
  * is someone other than David to grant it to.
  */
+/**
+ * Everyone, beyond the lot itself, who gets a lot's new leads.
+ *
+ * The lot's own email and cell (`rooftops.email`, `rooftops.leadAlertPhone`)
+ * stay on the rooftop and always receive; these rows are the salespeople added
+ * on Leads. Every lead goes to every row -- no round robin.
+ *
+ * Two kinds of row:
+ *  - `userId` set: a staff member picked from the dropdown. Name, email and
+ *    cell are read live from `users`, so a person who changes their cell on
+ *    Account keeps getting leads, and one whose login is deleted drops off.
+ *    The `name`/`email`/`cell` columns here are ignored for these rows.
+ *  - `userId` null: someone typed in, who may never log in. At least one of
+ *    `email` / `cell` is set; the action refuses a row with neither.
+ */
+export const leadRecipients = pgTable(
+  'lead_recipients',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    userId: text().references(() => users.id, { onDelete: 'cascade' }),
+    name: text().notNull().default(''),
+    email: text(),
+    /** E.164. */
+    cell: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('lead_recipients_rooftop_idx').on(t.rooftopId),
+    uniqueIndex('lead_recipients_rooftop_user_uq').on(t.rooftopId, t.userId),
+  ],
+);
+
 export const staff = pgTable('staff', {
   id: cuid().primaryKey(),
   userId: text().notNull().unique().references(() => users.id, { onDelete: 'cascade' }),

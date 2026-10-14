@@ -9,6 +9,7 @@ import { Card, CardHeader } from '@/components/ui';
 import { RolePicker } from '@/components/settings/role-picker';
 import { InviteForm, ResendButton, RevokeButton } from '@/components/settings/invite-form';
 import { pendingInvites } from '@/lib/invites';
+import { prettyCell } from '@/components/lead-recipients';
 import { emailConfigured } from '@/lib/email';
 import { getRegistration } from '@/lib/messaging/setup';
 import type { UserRole } from '@/db/schema';
@@ -39,7 +40,7 @@ export default async function SettingsPage() {
   const [group, people, invites, messaging] = await Promise.all([
     getGroup(),
     db
-      .select({ id: t.users.id, name: t.users.name, email: t.users.email, role: t.users.role })
+      .select({ id: t.users.id, name: t.users.name, email: t.users.email, cell: t.users.cell, role: t.users.role })
       .from(t.users)
       .where(eq(t.users.groupId, me.groupId))
       .orderBy(asc(t.users.name)),
@@ -95,7 +96,10 @@ export default async function SettingsPage() {
                     {p.name}
                     {p.id === me.id ? <span className="ml-1.5 text-xs font-medium text-ink-400">you</span> : null}
                   </div>
-                  <div className="truncate text-xs text-ink-500">{p.email}</div>
+                  <div className="truncate text-xs text-ink-500">
+                    {p.email}
+                    {p.cell ? ` · ${prettyCell(p.cell)}` : ''}
+                  </div>
                 </div>
                 <RolePicker
                   userId={p.id}

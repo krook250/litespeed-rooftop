@@ -85,10 +85,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <InstallButton />
 
           <form action={doSignOut} className="mt-3 border-t border-ink-800 pt-3">
-            <div className="px-2 text-xs font-medium text-white">{user.name}</div>
-            <div className="px-2 text-[11px] text-ink-400">
-              {ROLE_LABEL[user.role] ?? user.role} · {group.name}
-            </div>
+            {/* Name links to Account: where you set your own cell for lead texts. */}
+            <Link href="/admin/account" className="block rounded-md px-2 py-1 hover:bg-ink-800">
+              <div className="text-xs font-medium text-white">{user.name}</div>
+              <div className="text-[11px] text-ink-400">
+                {ROLE_LABEL[user.role] ?? user.role} · {group.name}
+              </div>
+            </Link>
             <button className="mt-2 w-full rounded-md px-2 py-1.5 text-left text-xs text-ink-400 hover:bg-ink-800 hover:text-white">
               Sign out
             </button>

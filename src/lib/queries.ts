@@ -93,6 +93,46 @@ export async function getRooftops() {
     .orderBy(asc(t.rooftops.name));
 }
 
+/**
+ * The people on each lot's lead list, resolved to what actually gets used: a
+ * picked staff member's name, email and cell come from `users` (live), a typed
+ * row's from the row. No tenant check here -- callers pass rooftop ids they
+ * already scoped (the Leads page from `getRooftops`, the lead notifier from
+ * the lead's own rooftop).
+ */
+export async function leadRecipientsFor(rooftopIds: string[]) {
+  if (!rooftopIds.length) return [];
+  const rows = await db
+    .select({
+      id: t.leadRecipients.id,
+      rooftopId: t.leadRecipients.rooftopId,
+      userId: t.leadRecipients.userId,
+      typedName: t.leadRecipients.name,
+      typedEmail: t.leadRecipients.email,
+      typedCell: t.leadRecipients.cell,
+      userName: t.users.name,
+      userEmail: t.users.email,
+      userCell: t.users.cell,
+    })
+    .from(t.leadRecipients)
+    .leftJoin(t.users, eq(t.users.id, t.leadRecipients.userId))
+    .where(inArray(t.leadRecipients.rooftopId, rooftopIds))
+    .orderBy(asc(t.leadRecipients.createdAt));
+
+  return rows.map((r) => {
+    const linked = r.userId !== null;
+    return {
+      id: r.id,
+      rooftopId: r.rooftopId,
+      userId: r.userId,
+      name: (linked ? r.userName : r.typedName) ?? '',
+      email: (linked ? r.userEmail : r.typedEmail) || null,
+      cell: (linked ? r.userCell : r.typedCell) || null,
+    };
+  });
+}
+export type LeadRecipient = Awaited<ReturnType<typeof leadRecipientsFor>>[number];
+
 export async function getStorefronts() {
   const groupId = await requireGroupId();
   return db
@@ -654,8 +694,6 @@ async function notifyNewLead(
           name: t.rooftops.name,
           email: t.rooftops.email,
           leadAlertPhone: t.rooftops.leadAlertPhone,
-          leadAlertPhone2: t.rooftops.leadAlertPhone2,
-          leadEmail2: t.rooftops.leadEmail2,
         })
         .from(t.rooftops)
         .where(eq(t.rooftops.id, rooftopId))
@@ -667,8 +705,13 @@ async function notifyNewLead(
      * recipient for. Loud, because the alternative is a silently unnotified
      * dealer — the exact failure this function exists to end. Not a return:
      * a lot with a cell and no email still gets its text. */
-    const toEmails = [...new Set([lot.email, lot.leadEmail2].filter((x): x is string => !!x))];
-    const toCells = [...new Set([lot.leadAlertPhone, lot.leadAlertPhone2].filter((x): x is string => !!x))];
+    const people = await leadRecipientsFor([rooftopId]);
+    const toEmails = [
+      ...new Set([lot.email, ...people.map((p) => p.email)].filter((x): x is string => !!x)),
+    ];
+    const toCells = [
+      ...new Set([lot.leadAlertPhone, ...people.map((p) => p.cell)].filter((x): x is string => !!x)),
+    ];
 
     if (!toEmails.length && !toCells.length) {
       console.error(

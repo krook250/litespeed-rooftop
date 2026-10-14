@@ -115,6 +115,10 @@ export const auth = betterAuth({
       // defaultValue for exactly that reason: null is the intended initial
       // state, not a value waiting to be filled in.
       feedStyle: { type: 'string', required: false, input: false },
+      // Their own cell for lead texts. Nullable like feedStyle, and set by the
+      // invite page and Account rather than through the signup body. Declared
+      // so the session user carries it instead of a silent undefined.
+      cell: { type: 'string', required: false, input: false },
     },
   },
   session: { modelName: 'sessions' },

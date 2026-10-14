@@ -13,15 +13,17 @@
 
 import { cookies } from 'next/headers';
 import { Card, EmptyState, cn } from '@/components/ui';
-import { getLeads, getRooftops } from '@/lib/queries';
+import { getLeads, getRooftops, leadRecipientsFor } from '@/lib/queries';
 import { requireSection } from '@/lib/auth-guard';
 import { dealerSiteBase } from '@/lib/storefront-url';
 import { PUBLIC_STATUSES } from '@/lib/domains/units';
 import { LEADS_SEEN_COOKIE } from '@/lib/leads-seen';
 import { MarkLeadsSeen } from '@/components/leads-seen';
 import { DeleteLeadButton } from '@/components/delete-lead-button';
-import { SaveButton } from '@/components/submit-button';
-import { saveLeadDelivery } from '@/lib/lead-actions';
+import { LeadRecipients } from '@/components/lead-recipients';
+import { db } from '@/db';
+import * as t from '@/db/schema';
+import { asc, eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,43 +38,6 @@ function ago(d: Date, now: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-/** +13605550142 -> (360) 555-0142, for showing back a stored cell. */
-function prettyCell(e164: string | null): string {
-  const d = (e164 ?? '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
-  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : '';
-}
-
-function DeliveryInput({
-  label,
-  name,
-  defaultValue,
-  type,
-  placeholder,
-  readOnly,
-}: {
-  label: string;
-  name: string;
-  defaultValue: string;
-  type: 'email' | 'tel';
-  placeholder: string;
-  readOnly: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-ink-600">{label}</span>
-      <input
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        maxLength={200}
-        className="w-full rounded-lg border border-ink-300 px-2.5 py-1.5 text-sm read-only:bg-ink-50 read-only:text-ink-600"
-      />
-    </label>
-  );
-}
-
 function telHref(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   return digits.length === 10 ? `tel:+1${digits}` : `tel:${digits}`;
@@ -82,7 +47,18 @@ export default async function LeadsPage() {
   const me = await requireSection('leads');
   const canEditDelivery = me.role === 'OWNER' || me.role === 'SALES_MANAGER';
 
-  const [leads, rooftops, jar] = await Promise.all([getLeads(), getRooftops(), cookies()]);
+  const [leads, rooftops, jar, staff] = await Promise.all([
+    getLeads(),
+    getRooftops(),
+    cookies(),
+    // Everyone with a login here, for the "Pick an employee" dropdown.
+    db
+      .select({ id: t.users.id, name: t.users.name, email: t.users.email, cell: t.users.cell })
+      .from(t.users)
+      .where(eq(t.users.groupId, me.groupId))
+      .orderBy(asc(t.users.name)),
+  ]);
+  const recipients = await leadRecipientsFor(rooftops.map((r) => r.id));
 
   const seenRaw = jar.get(LEADS_SEEN_COOKIE)?.value;
   const seenAt = seenRaw ? Date.parse(decodeURIComponent(seenRaw)) : NaN;
@@ -122,29 +98,31 @@ export default async function LeadsPage() {
         <div className="px-5 pt-4">
           <h2 className="text-sm font-semibold text-ink-900">Where new leads are sent</h2>
           <p className="mt-0.5 text-xs text-ink-500">
-            Every lead goes to each address and cell below the moment it comes in. Cells only
-            &mdash; a text to a landline never arrives.
+            Every lead goes to everyone on this list the moment it comes in.
           </p>
         </div>
         {rooftops.map((lot) => (
-          <form key={lot.id} action={saveLeadDelivery} className="border-b border-ink-100 px-5 py-4 last:border-b-0">
-            <input type="hidden" name="rooftopId" value={lot.id} />
-            {multiLot ? <div className="mb-2 text-sm font-medium text-ink-800">{lot.name}</div> : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DeliveryInput label="Email" name="email" type="email" defaultValue={lot.email} placeholder="you@yourlot.com" readOnly={!canEditDelivery} />
-              <DeliveryInput label="Second email (optional)" name="leadEmail2" type="email" defaultValue={lot.leadEmail2 ?? ''} placeholder="sales@yourlot.com" readOnly={!canEditDelivery} />
-              <DeliveryInput label="Text to (cell)" name="leadAlertPhone" type="tel" defaultValue={prettyCell(lot.leadAlertPhone)} placeholder="(360) 555-0142" readOnly={!canEditDelivery} />
-              <DeliveryInput label="Second cell (optional)" name="leadAlertPhone2" type="tel" defaultValue={prettyCell(lot.leadAlertPhone2)} placeholder="(360) 555-0199" readOnly={!canEditDelivery} />
-            </div>
-            {canEditDelivery ? (
-              <div className="mt-3 flex justify-end">
-                <SaveButton size="sm">Save</SaveButton>
+          <div key={lot.id} className="mt-3 border-t border-ink-100">
+            {multiLot ? (
+              <div className="px-5 pt-3 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                {lot.name}
               </div>
-            ) : (
-              <p className="mt-2 text-xs text-ink-500">Only the owner or a sales manager can change these.</p>
-            )}
-          </form>
+            ) : null}
+            <LeadRecipients
+              rooftopId={lot.id}
+              lotEmail={lot.email}
+              lotCell={lot.leadAlertPhone}
+              people={recipients.filter((r) => r.rooftopId === lot.id)}
+              staff={staff}
+              canEdit={canEditDelivery}
+            />
+          </div>
         ))}
+        {canEditDelivery ? null : (
+          <p className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
+            Only the owner or a sales manager can change these.
+          </p>
+        )}
       </Card>
 
       <Card>

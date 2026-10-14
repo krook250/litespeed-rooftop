@@ -6,6 +6,10 @@ import { AuthShell, Field, SubmitButton } from '@/components/auth-shell';
 import { findLiveInvite } from '@/lib/invites';
 import { ROLE_LABEL, ROLE_BLURB } from '@/lib/permissions';
 import type { UserRole } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import * as t from '@/db/schema';
+import { toUsE164 } from '@/lib/messaging/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +19,7 @@ const ERRORS: Record<string, string> = {
   taken: 'An account already exists for that email address. Try signing in instead.',
   stale: 'This invitation is no longer valid. Ask for a new one.',
   failed: 'Something went wrong creating the account. Try again.',
+  cell: "That cell doesn't look like a 10-digit US number. Fix it or leave it blank.",
 };
 
 /**
@@ -75,6 +80,9 @@ export default async function InvitePage({
 
     if (!name || !password) redirect(`${back}?error=missing`);
     if (password.length < 8) redirect(`${back}?error=weak`);
+    const cellText = String(formData.get('cell') ?? '').trim();
+    const cell = toUsE164(cellText);
+    if (cellText && !cell) redirect(`${back}?error=cell`);
 
     try {
       // `inviteToken` rides in the body and is read by the user-create hook in
@@ -89,6 +97,16 @@ export default async function InvitePage({
       if (message.includes('no longer valid')) redirect(`${back}?error=stale`);
       if (message.includes('exist') || message.includes('unique')) redirect(`${back}?error=taken`);
       redirect(`${back}?error=failed`);
+    }
+    // After the account exists, not through the signup body: `cell` is
+    // input:false on purpose (see auth-config.ts). A failure here costs them a
+    // number they can add on Account, not their account.
+    if (cell) {
+      try {
+        await db.update(t.users).set({ cell }).where(eq(t.users.email, invite!.email.toLowerCase()));
+      } catch (e) {
+        console.error('[invite] could not save cell', e);
+      }
     }
     redirect('/admin');
   }
@@ -120,6 +138,15 @@ export default async function InvitePage({
 
       <form action={submit}>
         <Field label="Your name" name="name" autoComplete="name" required maxLength={120} />
+        <Field
+          label="Your cell (optional)"
+          name="cell"
+          type="tel"
+          autoComplete="tel"
+          maxLength={40}
+          placeholder="(360) 555-0199"
+          hint="So new leads can be texted to you. You can change it later."
+        />
         <Field
           label="Password"
           name="password"
