@@ -25,7 +25,10 @@ import * as t from '@/db/schema';
 import { requireGroupId } from '@/lib/auth';
 import { sessionScope } from '@/lib/queries';
 import { assertRooftopInScope } from '@/lib/scoped-db';
-import { buildFeed, fullWindow, type FeedPhoto, type FeedRow, type FeedVehicle } from './feed-spec';
+import {
+  blocksFeed, buildFeed, evaluate, fullWindow,
+  type FeedPhoto, type FeedRow, type FeedVehicle,
+} from './feed-spec';
 import { CAMPAIGN_BUCKETS, type BucketKey } from './buckets';
 import type { TargetableUnit } from './group-filter';
 
@@ -208,4 +211,79 @@ export async function previewFeedFor(
       return b.count - a.count;
     }),
   };
+}
+
+/**
+ * Where ONE vehicle stands in its lot's Meta catalog, for the vehicle page.
+ *
+ * The catalog is fed by Facebook pulling our feed, not by the sync worker, so
+ * this unit's `vehicle_sync_states` row for Meta never moves off NOT_LISTED and
+ * cannot be read for this. Instead it runs `evaluate()` — the same check the
+ * live feed runs on every row — so the vehicle page and the file Facebook
+ * fetches cannot disagree.
+ *
+ * Says what we know: whether the unit is in the file, and when Facebook last
+ * fetched it. Not whether Facebook accepted it; that would be a Graph call per
+ * page view.
+ *
+ * Null when the lot has no catalog — the row is then simply not shown.
+ * The caller must already have authorized `vehicle` (it came through scope).
+ */
+export type VehicleMetaStatus = {
+  fetchedAt: Date | null;
+  /** In the feed and eligible for every placement. */
+  state: 'IN_FEED' | 'IN_FEED_NO_MARKETPLACE' | 'SOLD' | 'LEFT_OUT';
+  /** The first reason, when there is one. */
+  reason: string | null;
+};
+
+export async function metaStatusForVehicle(
+  vehicle: typeof t.vehicles.$inferSelect & { photos: FeedPhoto[] },
+): Promise<VehicleMetaStatus | null> {
+  const [asset] = await db
+    .select({
+      catalogId: t.metaRooftopAssets.catalogId,
+      pageId: t.metaRooftopAssets.pageId,
+      lastFeedPushAt: t.metaRooftopAssets.lastFeedPushAt,
+    })
+    .from(t.metaRooftopAssets)
+    .where(eq(t.metaRooftopAssets.rooftopId, vehicle.rooftopId))
+    .limit(1);
+  if (!asset?.catalogId) return null;
+
+  const [lot] = await db.select().from(t.rooftops).where(eq(t.rooftops.id, vehicle.rooftopId)).limit(1);
+  if (!lot) return null;
+
+  const fetchedAt = asset.lastFeedPushAt ?? null;
+  if (vehicle.status === 'SOLD' || vehicle.status === 'WHOLESALED') {
+    return { fetchedAt, state: 'SOLD', reason: null };
+  }
+
+  const issues = evaluate(
+    {
+      ...vehicle,
+      photos: vehicle.photos.map((p) => ({
+        url: p.url, tag: p.tag, sortOrder: p.sortOrder, isPrimary: p.isPrimary,
+      })),
+    },
+    {
+      id: lot.id,
+      name: lot.name,
+      addressLine1: lot.addressLine1,
+      city: lot.city,
+      state: lot.state,
+      postalCode: lot.postalCode,
+      phone: lot.phone,
+      latitude: lot.latitude,
+      longitude: lot.longitude,
+      pageId: asset.pageId ?? null,
+    },
+  );
+
+  if (blocksFeed(issues)) {
+    const first = issues.find((i) => i.scope === 'FEED')!;
+    return { fetchedAt, state: 'LEFT_OUT', reason: first.reason };
+  }
+  if (issues.length) return { fetchedAt, state: 'IN_FEED_NO_MARKETPLACE', reason: issues[0].reason };
+  return { fetchedAt, state: 'IN_FEED', reason: null };
 }

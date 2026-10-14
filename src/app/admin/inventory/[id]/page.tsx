@@ -6,6 +6,7 @@ import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
 import { LotStatusControl } from '@/components/inventory/lot-status';
 import { MarkSold } from '@/components/inventory/mark-sold';
 import { dealerSiteBase } from '@/lib/storefront-url';
+import { metaStatusForVehicle } from '@/lib/meta/feed-preview';
 import {
   getChannels,
   getGroup,
@@ -23,6 +24,7 @@ import {
   SYNC_STATUS_LABEL,
   VEHICLE_STATUS_LABEL,
   activePrice,
+  carriesListings,
   daysInStock,
   grossPotential,
   isWaterUnit,
@@ -83,7 +85,7 @@ export default async function VehiclePage({
   const moveError = move ? TRANSFER_REFUSAL_MESSAGE[move as TransferRefusal] : undefined;
 
   const scope = await sessionScope();
-  const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers] =
+  const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers, meta] =
     await Promise.all([
       getSyncStatesForVehicle(scope, id),
       getChannels(),
@@ -94,7 +96,23 @@ export default async function VehiclePage({
       getRooftops(),
       getOpenTransfer(scope, id),
       getTransferHistory(scope, id),
+      metaStatusForVehicle(vehicle),
     ]);
+
+  /*
+   * The Channel status card lists only what this lot actually sends to.
+   * Meta Catalog and Marketplace are left out of the sync rows on purpose:
+   * the catalog is fed by Facebook pulling our feed, so its sync row never
+   * leaves NOT_LISTED, and Marketplace is an ad placement out of that same
+   * catalog, not a destination. Meta gets its own row below, read from the
+   * feed check (`metaStatusForVehicle`).
+   */
+  const carriedStates = syncStates.filter(
+    (s) =>
+      s.channels.key !== 'meta_catalog' &&
+      s.channels.key !== 'fb_marketplace' &&
+      carriesListings(s.channel_connections.status),
+  );
 
   const lotName = (rooftopId: string) => {
     const r = rooftops.find((x) => x.id === rooftopId);
@@ -524,6 +542,94 @@ export default async function VehiclePage({
             </div>
           </Card>
 
+          <Card>
+            <CardHeader title="Traffic · 30 days" />
+            <div className="grid grid-cols-3 divide-x divide-ink-100">
+              {[
+                ['VDP views', traffic.vdpViews],
+                ['Leads', traffic.leads],
+                ['Saves', traffic.saves],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="px-4 py-3 text-center">
+                  <div className="tnum text-lg font-semibold text-ink-900">{num(Number(value))}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-ink-500">{label}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="Channel status" />
+            <ul className="divide-y divide-ink-100">
+              {carriedStates.map((s) => {
+                const st = s.vehicle_sync_states;
+                return (
+                  <li key={st.id} className="flex items-center gap-2.5 px-5 py-2.5">
+                    <span className={cn('h-2 w-2 shrink-0 rounded-full', DOT[st.status], st.status === 'SYNCING' && 'pulse-ring')} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-semibold text-ink-900">{s.channels.shortName}</div>
+                      <div className="truncate text-[10px] text-ink-500">
+                        {st.errorMessage
+                          ? st.errorMessage
+                          : st.status === 'QUEUED' || st.status === 'SYNCING'
+                            ? s.channels.syncMode === 'PUSH_API'
+                              ? 'Pushing now'
+                              : 'Waiting for next feed fetch'
+                            : st.status === 'LIVE' && st.lastSyncedAt
+                              ? `synced ${relativeTime(st.lastSyncedAt)}`
+                              : SYNC_STATUS_LABEL[st.status]}
+                      </div>
+                    </div>
+                    {st.dueAt ? (
+                      <span className="shrink-0 text-[10px]">
+                        <Countdown to={st.dueAt.toISOString()} />
+                      </span>
+                    ) : null}
+                    {st.status === 'ERROR' ? (
+                      <form action={retryListing}>
+                        <input type="hidden" name="syncStateId" value={st.id} />
+                        <button className="shrink-0 rounded border border-ink-300 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-50">
+                          Retry
+                        </button>
+                      </form>
+                    ) : null}
+                  </li>
+                );
+              })}
+              {meta ? (
+                <li className="flex items-center gap-2.5 px-5 py-2.5">
+                  <span
+                    className={cn(
+                      'h-2 w-2 shrink-0 rounded-full',
+                      meta.state === 'LEFT_OUT'
+                        ? 'bg-amber-400'
+                        : meta.state === 'SOLD'
+                          ? 'bg-ink-300'
+                          : 'bg-emerald-500',
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-semibold text-ink-900">Meta Catalog</div>
+                    <div className="text-[10px] leading-snug text-ink-500">
+                      {meta.state === 'LEFT_OUT'
+                        ? `Left out: ${meta.reason}`
+                        : meta.state === 'SOLD'
+                          ? 'Marked sold in the feed'
+                          : meta.fetchedAt
+                            ? `In the feed · Facebook fetched ${relativeTime(meta.fetchedAt)}`
+                            : 'In the feed · Facebook has not fetched it yet'}
+                    </div>
+                    {meta.state === 'IN_FEED' ? (
+                      <div className="text-[10px] text-ink-400">Ads can also run on Marketplace</div>
+                    ) : meta.state === 'IN_FEED_NO_MARKETPLACE' ? (
+                      <div className="text-[10px] leading-snug text-amber-700">Not on Marketplace: {meta.reason}</div>
+                    ) : null}
+                  </div>
+                </li>
+              ) : null}
+            </ul>
+          </Card>
+
           {/*
             Moving a unit between the group's own lots. Only rendered for a
             multi-rooftop dealer, because for a single-lot store there is
@@ -611,62 +717,6 @@ export default async function VehiclePage({
             </Card>
           ) : null}
 
-          <Card>
-            <CardHeader title="Channel status" />
-            <ul className="divide-y divide-ink-100">
-              {syncStates.map((s) => {
-                const st = s.vehicle_sync_states;
-                return (
-                  <li key={st.id} className="flex items-center gap-2.5 px-5 py-2.5">
-                    <span className={cn('h-2 w-2 shrink-0 rounded-full', DOT[st.status], st.status === 'SYNCING' && 'pulse-ring')} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-semibold text-ink-900">{s.channels.shortName}</div>
-                      <div className="truncate text-[10px] text-ink-500">
-                        {st.errorMessage
-                          ? st.errorMessage
-                          : st.status === 'QUEUED' || st.status === 'SYNCING'
-                            ? s.channels.syncMode === 'PUSH_API'
-                              ? 'Pushing now'
-                              : 'Waiting for next feed fetch'
-                            : st.status === 'LIVE' && st.lastSyncedAt
-                              ? `synced ${relativeTime(st.lastSyncedAt)}`
-                              : SYNC_STATUS_LABEL[st.status]}
-                      </div>
-                    </div>
-                    {st.dueAt ? (
-                      <span className="shrink-0 text-[10px]">
-                        <Countdown to={st.dueAt.toISOString()} />
-                      </span>
-                    ) : null}
-                    {st.status === 'ERROR' ? (
-                      <form action={retryListing}>
-                        <input type="hidden" name="syncStateId" value={st.id} />
-                        <button className="shrink-0 rounded border border-ink-300 px-1.5 py-0.5 text-[10px] font-medium text-ink-700 hover:bg-ink-50">
-                          Retry
-                        </button>
-                      </form>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-
-          <Card>
-            <CardHeader title="Traffic · 30 days" />
-            <div className="grid grid-cols-3 divide-x divide-ink-100">
-              {[
-                ['VDP views', traffic.vdpViews],
-                ['Leads', traffic.leads],
-                ['Saves', traffic.saves],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="px-4 py-3 text-center">
-                  <div className="tnum text-lg font-semibold text-ink-900">{num(Number(value))}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-ink-500">{label}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
 
           <Card>
             <CardHeader title="Price history" />
