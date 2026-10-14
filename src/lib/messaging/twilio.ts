@@ -1,140 +1,139 @@
-/**
- * Twilio REST, by hand.
- *
- * The Compliance Embeddable endpoints are **not in the Twilio Node SDK** —
- * Twilio's own guide says so outright. There is no `client.trusthub.v1
- * .complianceInquiries` to reach for; go looking for one and you will lose an
- * afternoon. So this is `fetch` with Basic auth and form encoding, which is all
- * the API ever wanted.
- *
- * Credentials never leave the server. Nothing in here may be imported from a
- * client component.
- */
-
-const API = 'https://api.twilio.com/2010-04-01';
-const TRUSTHUB = 'https://trusthub.twilio.com/v1';
-
-export type TwilioConfig = {
-  accountSid: string;
-  authToken: string;
-  /** The ISV primary profile every dealer's secondary profile hangs off. */
-  primaryProfileSid: string;
-};
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /**
- * Null when this deployment has no Twilio credentials, which is the normal
- * state of a preview branch and of anyone's laptop. Callers render "not
- * configured on this deployment" rather than throwing — the same shape the Ad
- * Desk uses, for the same reason: a missing env var is a deployment fact, not
- * an error the dealer caused.
+ * Twilio over plain REST, for dealer numbers and dealer texting registration.
+ *
+ * Everything lives in Litespeed's own (parent) account: numbers are bought
+ * there, and each dealer group's brand and campaign are filed there under the
+ * ISV primary profile. No per-dealer subaccounts — decided 14 Oct 2026, the
+ * same shape just.diy runs. A per-dealer brand already keeps one dealer's
+ * carrier trouble off every other dealer's texting.
+ *
+ * Lead alerts to dealers are a different thing on a different brand; see
+ * `./alerts.ts`. Server only.
  */
-export function twilioConfig(): TwilioConfig | null {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const primaryProfileSid = process.env.TWILIO_PRIMARY_PROFILE_SID;
-  if (!accountSid || !authToken || !primaryProfileSid) return null;
-  return { accountSid, authToken, primaryProfileSid };
-}
 
-export function messagingConfigured() {
-  return twilioConfig() !== null;
-}
+const SID = process.env.TWILIO_ACCOUNT_SID ?? '';
+const TOKEN = process.env.TWILIO_AUTH_TOKEN ?? '';
+/** Litespeed's ISV primary profile, which every dealer's secondary profile hangs off. */
+export const PRIMARY_PROFILE = process.env.TWILIO_PRIMARY_PROFILE_SID ?? '';
 
-export class TwilioError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: number | null,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'TwilioError';
+/** Numbers and calls need only credentials. */
+export const TWILIO_READY = Boolean(SID && TOKEN);
+/** Carrier registration also needs the primary profile. */
+export const REGISTRATION_READY = TWILIO_READY && Boolean(PRIMARY_PROFILE);
+
+export const TRUSTHUB = 'https://trusthub.twilio.com/v1';
+export const MESSAGING = 'https://messaging.twilio.com/v1';
+export const API = `https://api.twilio.com/2010-04-01/Accounts/${SID}`;
+
+export type Res<T> = { data: T; error?: undefined } | { data?: undefined; error: string };
+
+/** One Twilio call. Never throws; Twilio's wording comes back as `error` and the detail goes to the log. */
+export async function call<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  url: string,
+  form?: Record<string, string | string[]>,
+): Promise<Res<T>> {
+  let body: string | undefined;
+  if (form) {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(form)) for (const one of Array.isArray(v) ? v : [v]) p.append(k, one);
+    body = p.toString();
   }
-}
-
-async function post<T>(cfg: TwilioConfig, url: string, form: Record<string, string>): Promise<T> {
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     headers: {
-      Authorization:
-        'Basic ' + Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString('base64'),
-      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${Buffer.from(`${SID}:${TOKEN}`).toString('base64')}`,
+      ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
     },
-    body: new URLSearchParams(form).toString(),
+    body,
     cache: 'no-store',
-  });
-
-  const text = await res.text();
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    body = null;
-  }
-
+    signal: AbortSignal.timeout(20000),
+  }).catch(() => null);
+  if (!res) return { error: "The phone company didn't answer." };
+  if (res.status === 204) return { data: {} as T };
+  const json = (await res.json().catch(() => ({}))) as T & { message?: string; code?: number };
   if (!res.ok) {
-    const e = body as { message?: string; code?: number } | null;
-    throw new TwilioError(res.status, e?.code ?? null, e?.message ?? text.slice(0, 400));
+    console.error('[twilio]', method, url.replace(SID, 'AC…'), res.status, json.code, json.message);
+    return { error: json.message ?? `The phone company said no (${res.status}).` };
   }
-  return body as T;
+  return { data: json };
 }
 
+/* ---- where Twilio calls us back ------------------------------------------- */
+
 /**
- * One subaccount per dealer group.
- *
- * Isolation is the point: a campaign suspension takes down the account it sits
- * in, and one dealer's bad afternoon must not silence every other dealer's
- * texting. It also makes per-dealer rebilling a matter of reading one account
- * rather than apportioning a shared bill.
+ * Twilio signs each webhook against the exact URL it was given, so the URL set
+ * on a number and the URL checked here must be built the same way. Production
+ * is `https://app.rooftopauto.com`.
  */
-export async function createSubaccount(cfg: TwilioConfig, friendlyName: string) {
-  const r = await post<{ sid: string }>(cfg, `${API}/Accounts.json`, {
-    FriendlyName: friendlyName,
+const appOrigin = () => (process.env.BETTER_AUTH_URL ?? 'https://app.rooftopauto.com').replace(/\/+$/, '');
+export const voiceUrl = () => `${appOrigin()}/api/messaging/voice`;
+export const inboundUrl = () => `${appOrigin()}/api/messaging/inbound`;
+
+/** Did Twilio really send this? An HMAC of the URL and the sorted form fields. */
+export function fromTwilio(url: string, params: Record<string, string>, signature: string | null): boolean {
+  if (!TOKEN || !signature) return false;
+  const data = Object.keys(params)
+    .sort()
+    .reduce((s, k) => s + k + params[k], url);
+  const want = createHmac('sha1', TOKEN).update(data, 'utf8').digest();
+  const got = Buffer.from(signature, 'base64');
+  return got.length === want.length && timingSafeEqual(got, want);
+}
+
+/* ---- numbers ---------------------------------------------------------------- */
+
+/** A number Twilio has free right now. */
+export type FreeNumber = { e164: string; area: string; city: string; state: string };
+
+/** Free local numbers that take calls and texts, by area code or by state. */
+export async function searchNumbers(by: {
+  area?: string;
+  state?: string;
+  contains?: string;
+  size: number;
+}): Promise<Res<FreeNumber[]>> {
+  const q = new URLSearchParams({ SmsEnabled: 'true', VoiceEnabled: 'true', PageSize: String(by.size) });
+  if (by.area) q.set('AreaCode', by.area);
+  if (by.state) q.set('InRegion', by.state);
+  if (by.contains) q.set('Contains', by.contains);
+  const r = await call<{
+    available_phone_numbers?: { phone_number: string; locality?: string | null; region?: string | null }[];
+  }>('GET', `${API}/AvailablePhoneNumbers/US/Local.json?${q}`);
+  if (r.error !== undefined) return { error: r.error };
+  return {
+    data: (r.data.available_phone_numbers ?? []).map((n) => ({
+      e164: n.phone_number,
+      area: n.phone_number.slice(2, 5),
+      city: n.locality ?? '',
+      state: n.region ?? '',
+    })),
+  };
+}
+
+/** Buy it. Spends real money. Calls go to `voiceUrl`, which says where to ring. */
+export async function buyNumber(e164: string, name: string): Promise<Res<{ sid: string }>> {
+  const r = await call<{ sid: string }>('POST', `${API}/IncomingPhoneNumbers.json`, {
+    PhoneNumber: e164,
+    FriendlyName: name.slice(0, 64),
+    VoiceUrl: voiceUrl(),
+    VoiceMethod: 'POST',
   });
-  return r.sid;
+  if (r.error !== undefined) return { error: r.error };
+  return { data: { sid: r.data.sid } };
 }
 
-export type InquiryInit = {
-  customer_id: string;
-  inquiry_id: string;
-  inquiry_session_token: string;
-};
-
-/**
- * Open (or resume) a Secondary Customer Profile inquiry.
- *
- * Pass `customerId` to resume: a dealer who walked away at the EIN field —
- * which is in a drawer, in a folder, in the other office — comes back to the
- * fields they already filled. Twilio keeps that data 30 days. Without the id
- * they start from the top, and nobody starts from the top twice.
- *
- * The returned `inquiry_session_token` is a Persona JWT valid 24 hours. Mint it
- * per page load. Never store it, never log it.
- */
-export async function initCustomerInquiry(
-  cfg: TwilioConfig,
-  opts: { customerId?: string | null; notificationEmail?: string },
-) {
-  const url = opts.customerId
-    ? `${TRUSTHUB}/ComplianceInquiries/Customers/${encodeURIComponent(opts.customerId)}/Initialize`
-    : `${TRUSTHUB}/ComplianceInquiries/Customers/Initialize`;
-
-  const form: Record<string, string> = { PrimaryProfileSid: cfg.primaryProfileSid };
-  if (opts.notificationEmail) form.NotificationEmail = opts.notificationEmail;
-
-  return post<InquiryInit>(cfg, url, form);
+/** Put a number on its group's approved messaging service. True if it is there. */
+export async function joinService(service: string, numberSid: string): Promise<boolean> {
+  const r = await call('POST', `${MESSAGING}/Services/${service}/PhoneNumbers`, { PhoneNumberSid: numberSid });
+  // 21710: already on this service.
+  return r.error === undefined || /already/i.test(r.error);
 }
 
-/**
- * The Secondary Customer Profile SID buried in a `customer_id`.
- *
- * Twilio hands back `tri1.us1.account.ACxxx.profile.BUxxx` and the BU is the
- * part every later call wants. Parsing a composite id is normally a smell, but
- * the alternative is a second round-trip to learn something we were already
- * told, and the shape is stable across the documented examples.
- *
- * Returns null rather than guessing if the shape ever changes.
- */
-export function profileSidFrom(customerId: string): string | null {
-  const m = /\.profile\.(BU[0-9a-f]{32})$/i.exec(customerId);
-  return m ? m[1] : null;
+/** `+13605550142` → `(360) 555-0142`. */
+export function prettyNumber(e164: string | null | undefined): string {
+  const d = (e164 ?? '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : '';
 }

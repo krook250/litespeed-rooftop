@@ -327,6 +327,21 @@ export const messagingRegistrationStatusEnum = pgEnum('messaging_registration_st
   'READY',
 ]);
 
+/**
+ * How far a group's carrier registration has got. Status says whether anyone
+ * has to act; this says what Twilio is chewing on.
+ */
+export const messagingRegistrationStepEnum = pgEnum('messaging_registration_step', [
+  /** Profiles being built and submitted. */
+  'PROFILE',
+  /** Brand filed, waiting on the carriers. */
+  'BRAND',
+  /** Campaign filed, waiting on the carriers. */
+  'CAMPAIGN',
+  /** Approved; the group's number is on its messaging service. */
+  'DONE',
+]);
+
 /* ---------------------------------------------------------------- tenancy */
 
 /**
@@ -1797,6 +1812,53 @@ export const messagingRegistrations = pgTable(
      */
     actionNeeded: text(),
 
+    /* -- filed by our own form, through the API (Oct 2026) ------------------
+     * Ported from just.diy's `text_registrations`. The Compliance Embeddable
+     * and the per-dealer subaccount are retired: everything files under the
+     * parent account, one brand and campaign per group. The `subaccountSid`
+     * and `*InquiryId` columns above are no longer read or written; drop them
+     * in a later migration.
+     */
+
+    /** Where `advance` has got to. Null until the owner presses Send. */
+    step: messagingRegistrationStepEnum(),
+
+    /** The business, exactly as on the IRS letter. The carriers match it character for character. */
+    legalName: text(),
+    /** LLC, CORPORATION, PARTNERSHIP, NONPROFIT. Sole proprietors are refused: no EIN. */
+    businessType: text(),
+    /** Nine digits, stored bare. Formatted 12-3456789 only when sent. */
+    ein: text(),
+    street: text(),
+    city: text(),
+    state: text(),
+    zip: text(),
+    website: text(),
+
+    /** The person the carriers want behind the business. */
+    contactFirst: text(),
+    contactLast: text(),
+    contactTitle: text(),
+    /** Twilio's job_position: Director, GM, VP, CEO, CFO, General Counsel, Other. */
+    contactPosition: text(),
+    contactEmail: text(),
+    /** E.164. */
+    contactPhone: text(),
+
+    /* Twilio ids, each saved the moment it exists so a run that dies halfway resumes. */
+    businessUserSid: text(),
+    repUserSid: text(),
+    addressSid: text(),
+    addressDocSid: text(),
+    profileSubmitted: boolean().notNull().default(false),
+    a2pSid: text(),
+    a2pUserSid: text(),
+    a2pSubmitted: boolean().notNull().default(false),
+    campaignSid: text(),
+
+    /** The one text a new lead gets, once texting is approved. Owner switches it. */
+    autoReply: boolean().notNull().default(false),
+
     /** When the carriers got it. The clock we quote "a few days" against. */
     submittedAt: timestamp({ withTimezone: true }),
     /** When texting actually started working. */
@@ -1836,6 +1898,8 @@ export const messagingNumbers = pgTable(
     phoneNumber: text().notNull(),
     twilioSid: text().notNull(),
     isActive: boolean().notNull().default(true),
+    /** E.164. The phone a call to this number rings. */
+    forwardTo: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

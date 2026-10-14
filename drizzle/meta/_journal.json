@@ -281,6 +281,13 @@
       "when": 1792005385615,
       "tag": "0039_lead_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792007167694,
+      "tag": "0040_messaging_own_form",
+      "breakpoints": true
     }
   ]
 }

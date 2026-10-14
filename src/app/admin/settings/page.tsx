@@ -11,7 +11,8 @@ import { InviteForm, ResendButton, RevokeButton } from '@/components/settings/in
 import { pendingInvites } from '@/lib/invites';
 import { prettyCell } from '@/components/lead-recipients';
 import { emailConfigured } from '@/lib/email';
-import { getRegistration } from '@/lib/messaging/setup';
+import { getRegistration } from '@/lib/messaging/registration';
+import { numberState } from '@/lib/messaging/numbers';
 import type { UserRole } from '@/db/schema';
 
 export const dynamic = 'force-dynamic';
@@ -27,17 +28,21 @@ export const dynamic = 'force-dynamic';
  * permissions is a lie waiting to happen — this one cannot drift, because it is
  * the same table the guard reads.
  */
-const MESSAGING_SUBTITLE: Record<string, string> = {
-  NOT_STARTED: 'Not set up. Text buyers from your own number.',
-  COLLECTING: 'Part-way through — your form is waiting.',
-  SUBMITTED: 'Waiting on the phone carriers.',
-  ACTION_NEEDED: 'The carriers sent it back. Needs a correction.',
-  READY: 'On.',
-};
+/** One line under Texting & calls: the number first, then where texting stands. */
+function messagingSubtitle(
+  num: { number: string } | null,
+  reg: { step: string | null; status: string } | null,
+): string {
+  if (!num) return 'No number yet. Get a local number buyers can call and text.';
+  if (!reg?.step) return `${num.number} takes calls. Texting not sent for approval.`;
+  if (reg.status === 'READY') return `${num.number}: calls and texting on.`;
+  if (reg.status === 'ACTION_NEEDED') return `${num.number} takes calls. Texting needs a fix.`;
+  return `${num.number} takes calls. Texting waiting on the phone carriers.`;
+}
 
 export default async function SettingsPage() {
   const me = await requireSection('settings');
-  const [group, people, invites, messaging] = await Promise.all([
+  const [group, people, invites, messaging, number] = await Promise.all([
     getGroup(),
     db
       .select({ id: t.users.id, name: t.users.name, email: t.users.email, cell: t.users.cell, role: t.users.role })
@@ -46,6 +51,7 @@ export default async function SettingsPage() {
       .orderBy(asc(t.users.name)),
     pendingInvites(me.groupId),
     getRegistration(me.groupId),
+    numberState(me.groupId),
   ]);
 
   const owners = people.filter((p) => p.role === 'OWNER').length;
@@ -64,13 +70,13 @@ export default async function SettingsPage() {
         quiet enough not to look like a step anyone has skipped.
       */}
       <Card>
-        <CardHeader title="Texting" subtitle={MESSAGING_SUBTITLE[messaging?.status ?? 'NOT_STARTED']} />
+        <CardHeader title="Texting & calls" subtitle={messagingSubtitle(number, messaging)} />
         <div className="px-5 py-4">
           <Link
             href="/admin/settings/texting"
             className="text-sm font-medium text-ink-900 underline underline-offset-4 hover:text-ink-600"
           >
-            {messaging ? 'View texting setup' : 'Set up texting'}
+            {number ? 'Open texting & calls' : 'Get a number'}
           </Link>
         </div>
       </Card>
