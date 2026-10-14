@@ -9,6 +9,7 @@ import { requireSession } from '@/lib/auth';
 import { can, ROLE_LABEL } from '@/lib/permissions';
 import { sendEmail } from '@/lib/email';
 import { inviteEmail, inviteExpiry, inviteToken, inviteUrl } from '@/lib/invites';
+import { toUsE164 } from '@/lib/messaging/alerts';
 
 const ROLES = new Set<string>([
   'OWNER', 'SALES_MANAGER', 'SALES', 'RECEPTION', 'PARTS', 'SERVICE', 'MARKETING', 'LOT_PORTER',
@@ -239,4 +240,37 @@ export async function revokeInvite(formData: FormData) {
     .where(and(eq(t.invites.id, id), eq(t.invites.groupId, me.groupId)));
 
   revalidatePath('/admin/settings');
+}
+
+/**
+ * Change someone's name or cell from Settings -> People.
+ *
+ * Same gate and scoping as `setUserRole`: the caller can open Settings, and
+ * the write is scoped by group in the WHERE clause. The cell is the one Leads
+ * reads when this person is picked as a lead recipient, so fixing it here
+ * moves their lead texts with it. Email is not editable: it is their sign-in.
+ */
+export async function updatePerson(input: {
+  userId: string;
+  name: string;
+  cell: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const me = await requireSession();
+  if (!can(me.role, 'settings')) return { ok: false, error: 'Only the owner can change people.' };
+
+  const name = String(input.name ?? '').trim().slice(0, 120);
+  const cellText = String(input.cell ?? '').trim().slice(0, 40);
+  const cell = toUsE164(cellText);
+  if (!name) return { ok: false, error: 'Name can’t be blank.' };
+  if (cellText && !cell) return { ok: false, error: 'That cell doesn’t look like a 10-digit US number.' };
+
+  const done = await db
+    .update(t.users)
+    .set({ name, cell, updatedAt: new Date() })
+    .where(and(eq(t.users.id, input.userId), eq(t.users.groupId, me.groupId)))
+    .returning({ id: t.users.id });
+  if (!done.length) return { ok: false, error: 'Could not find that person.' };
+
+  revalidatePath('/admin', 'layout');
+  return { ok: true };
 }

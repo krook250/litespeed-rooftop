@@ -9,7 +9,7 @@ import { Card, CardHeader } from '@/components/ui';
 import { RolePicker } from '@/components/settings/role-picker';
 import { InviteForm, ResendButton, RevokeButton } from '@/components/settings/invite-form';
 import { pendingInvites } from '@/lib/invites';
-import { prettyCell } from '@/components/lead-recipients';
+import { PersonRow } from '@/components/settings/person-row';
 import { emailConfigured } from '@/lib/email';
 import { getRegistration } from '@/lib/messaging/registration';
 import { numberState } from '@/lib/messaging/numbers';
@@ -96,24 +96,22 @@ export default async function SettingsPage() {
              */
             const locked = p.role === 'OWNER' && owners === 1;
             return (
-              <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-ink-900">
-                    {p.name}
-                    {p.id === me.id ? <span className="ml-1.5 text-xs font-medium text-ink-400">you</span> : null}
-                  </div>
-                  <div className="truncate text-xs text-ink-500">
-                    {p.email}
-                    {p.cell ? ` · ${prettyCell(p.cell)}` : ''}
-                  </div>
-                </div>
-                <RolePicker
-                  userId={p.id}
-                  role={p.role}
-                  locked={locked}
-                  lockedReason={locked ? 'The last owner cannot change their own role.' : undefined}
-                />
-              </div>
+              <PersonRow
+                key={p.id}
+                userId={p.id}
+                name={p.name}
+                email={p.email}
+                cell={p.cell}
+                isMe={p.id === me.id}
+                rolePicker={
+                  <RolePicker
+                    userId={p.id}
+                    role={p.role}
+                    locked={locked}
+                    lockedReason={locked ? 'The last owner cannot change their own role.' : undefined}
+                  />
+                }
+              />
             );
           })}
         </div>
