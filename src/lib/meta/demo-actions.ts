@@ -31,6 +31,7 @@ import {
   validateCampaignInput,
 } from './campaign-build';
 import { readAdFields, validateAdCopy } from './ad-copy-spec';
+import { readGroupVehicles, type GroupVehicles } from './group-vehicles';
 import { upsertAdCopy } from './ad-copy';
 
 export type ActionResult<T = undefined> =
@@ -199,4 +200,21 @@ export async function setGroupRunningAction(
       ? 'Running. Facebook usually takes a few minutes to start delivering.'
       : 'Stopped. Nothing more will spend on this group.',
   };
+}
+
+/** What a group is advertising right now, read live from Facebook. Read-only. */
+export async function groupVehiclesAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<ActionResult<GroupVehicles>> {
+  const groupId = await requireGroupId();
+  const rooftopId = String(formData.get('rooftopId') ?? '');
+  const adSetId = String(formData.get('adSetId') ?? '').trim();
+
+  const rooftop = await assertRooftopInScope(await sessionScope(), rooftopId);
+  if (!rooftop) return { ok: false, error: 'That lot was not found.' };
+
+  const outcome = await readGroupVehicles({ groupId, rooftop, adSetId });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  return { ok: true, data: outcome.data };
 }

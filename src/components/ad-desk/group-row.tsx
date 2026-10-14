@@ -28,6 +28,7 @@ import { useActionState, useState } from 'react';
 import { Badge, Button } from '../ui';
 import { adoptGroupAction, setGroupRunningAction } from '@/lib/meta/demo-actions';
 import { dollars, money } from './format';
+import { GroupVehicles } from './group-vehicles';
 import type { LotGroup } from '@/lib/meta/campaigns';
 
 export function GroupRow({
@@ -193,6 +194,7 @@ export function GroupRow({
               ? ` Too early to call a winner — each ad needs about ${ENOUGH_CLICKS} clicks first.`
               : ''}
           </p>
+          <GroupVehicles rooftopId={rooftopId} adSetId={group.id} />
         </div>
       ) : null}
 
