@@ -24,7 +24,7 @@ async function owner() {
 
 const PATH = '/admin/settings/texting';
 
-export type SearchState = { numbers?: FreeNumber[]; elsewhere?: boolean; error?: string; at?: number } | null;
+export type SearchState = { numbers?: FreeNumber[]; elsewhere?: null | 'nearby' | 'state'; error?: string; at?: number } | null;
 
 export async function searchNumbersAction(_prev: SearchState, fd: FormData): Promise<SearchState> {
   const me = await owner();
@@ -32,7 +32,11 @@ export async function searchNumbersAction(_prev: SearchState, fd: FormData): Pro
   const contains = String(fd.get('contains') ?? '').replace(/\D/g, '').slice(0, 7);
   if (!/^[2-9]\d{2}$/.test(area)) return { error: 'Enter a three-digit area code.' };
   const lot = await db.query.rooftops.findFirst({ where: eq(t.rooftops.groupId, me.groupId) });
-  const r = await numberChoices(area, contains, (lot?.state ?? '').toUpperCase());
+  const r = await numberChoices(area, contains, {
+    state: (lot?.state ?? '').toUpperCase(),
+    lat: lot?.latitude ?? null,
+    lng: lot?.longitude ?? null,
+  });
   if (r.error || !r.data) return { error: r.error ?? 'Search failed. Try again.' };
   if (!r.data.numbers.length) return { error: 'Nothing free there. Try another area code, or leave the digits blank.' };
   return { ...r.data, at: Date.now() };

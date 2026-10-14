@@ -52,7 +52,11 @@ export function NumberPicker({ area, rings }: { area: string; rings: string }) {
       {found?.numbers?.length ? (
         <form action={take} className="space-y-4" key={found.at}>
           {found.elsewhere ? (
-            <p className="text-xs text-ink-500">Nothing free in that area code. These are elsewhere in your state.</p>
+            <p className="text-xs text-ink-500">
+              {found.elsewhere === 'nearby'
+                ? 'Nothing free in that area code. These are within 50 miles of your lot.'
+                : 'Nothing free in that area code or near your lot. These are elsewhere in your state.'}
+            </p>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {found.numbers.map((n) => (

@@ -92,12 +92,18 @@ export type FreeNumber = { e164: string; area: string; city: string; state: stri
 export async function searchNumbers(by: {
   area?: string;
   state?: string;
+  /** Near a point, within `miles` (Twilio's default is 25). */
+  near?: { lat: number; lng: number; miles: number };
   contains?: string;
   size: number;
 }): Promise<Res<FreeNumber[]>> {
   const q = new URLSearchParams({ SmsEnabled: 'true', VoiceEnabled: 'true', PageSize: String(by.size) });
   if (by.area) q.set('AreaCode', by.area);
   if (by.state) q.set('InRegion', by.state);
+  if (by.near) {
+    q.set('NearLatLong', `${by.near.lat},${by.near.lng}`);
+    q.set('Distance', String(by.near.miles));
+  }
   if (by.contains) q.set('Contains', by.contains);
   const r = await call<{
     available_phone_numbers?: { phone_number: string; locality?: string | null; region?: string | null }[];

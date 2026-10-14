@@ -40,20 +40,38 @@ export async function numberState(groupId: string): Promise<NumberState | null> 
 
 export type Choices = {
   numbers: FreeNumber[];
-  /** True when nothing was free in that area code and these are from elsewhere in the state. */
-  elsewhere: boolean;
+  /** Where these came from when the area code had nothing free. Null when they are in it. */
+  elsewhere: null | 'nearby' | 'state';
 };
 
-/** Up to 8 in the area code; failing that, up to 8 from the lot's state. */
-export async function numberChoices(area: string, contains: string, state: string): Promise<{ error?: string; data?: Choices }> {
+/** Miles from the lot that still reads as local to a buyer. */
+const NEAR_MILES = 50;
+
+/**
+ * Up to 8 in the area code. Failing that, up to 8 within 50 miles of the lot
+ * (an overlay or the next code over, which is what a buyer reads as local).
+ * Only when the lot has no map point, or nothing is near, the rest of the state.
+ */
+export async function numberChoices(
+  area: string,
+  contains: string,
+  lot: { state: string; lat: number | null; lng: number | null },
+): Promise<{ error?: string; data?: Choices }> {
   if (!TWILIO_READY) return { error: "Phone numbers aren't switched on on this deployment." };
   const c = contains || undefined;
   const exact = await searchNumbers({ area, contains: c, size: 8 });
   if (exact.error !== undefined) return { error: exact.error };
-  if (exact.data.length || !state) return { data: { numbers: exact.data, elsewhere: false } };
-  const near = await searchNumbers({ state, contains: c, size: 8 });
-  if (near.error !== undefined) return { error: near.error };
-  return { data: { numbers: near.data, elsewhere: true } };
+  if (exact.data.length) return { data: { numbers: exact.data, elsewhere: null } };
+
+  if (lot.lat != null && lot.lng != null) {
+    const near = await searchNumbers({ near: { lat: lot.lat, lng: lot.lng, miles: NEAR_MILES }, contains: c, size: 8 });
+    if (near.error !== undefined) return { error: near.error };
+    if (near.data.length) return { data: { numbers: near.data, elsewhere: 'nearby' } };
+  }
+  if (!lot.state) return { data: { numbers: [], elsewhere: null } };
+  const wide = await searchNumbers({ state: lot.state, contains: c, size: 8 });
+  if (wide.error !== undefined) return { error: wide.error };
+  return { data: { numbers: wide.data, elsewhere: 'state' } };
 }
 
 /**
