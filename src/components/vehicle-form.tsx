@@ -92,6 +92,13 @@ export function VehicleForm({
               No accidents
             </label>
           </div>
+          <Text
+            name="carfaxUrl"
+            label="Carfax report link"
+            defaultValue={v?.carfaxUrl}
+            placeholder="https://www.carfax.com/vehiclehistory/..."
+            className="sm:col-span-2 lg:col-span-4"
+          />
         </div>
       </section>
 

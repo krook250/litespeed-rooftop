@@ -218,6 +218,9 @@ export async function saveVehicle(formData: FormData) {
     options: list('options'),
     carfaxOneOwner: formData.get('carfaxOneOwner') === 'on',
     carfaxNoAccidents: formData.get('carfaxNoAccidents') === 'on',
+    // Pasted from the dealer's own Carfax account. https only, so a pasted
+    // javascript: URL can never become a storefront link. Blank clears it.
+    carfaxUrl: /^https:\/\/\S+$/i.test(str('carfaxUrl')) ? str('carfaxUrl') : null,
     keysCount: int('keysCount') ?? 2,
     updatedAt: new Date(),
   };
