@@ -909,9 +909,14 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
             call_to_action: { type: copy.callToAction },
           },
         }),
-        template_url_spec: JSON.stringify({
-          web: { url: `${landingUrl}?utm_source=meta&utm_medium=aia&stock={{vehicle.stock_number}}` },
-        }),
+        /*
+         * NO template_url_spec. It used to send every click to
+         * `${landingUrl}?…&stock=…` — the dealer's HOMEPAGE, which ignores
+         * `stock` — so an ad showing one truck landed on the front page. Meta
+         * disapproved both of Malabar's ads for it as deceptive links (15 Oct
+         * 2026). Without the override, a click goes to the catalog item's own
+         * `url`, which the feed already builds as that vehicle's page.
+         */
       },
     });
 
@@ -1128,6 +1133,13 @@ export type GroupAd = {
   effectiveStatus: string;
   creativeId: string | null;
   /**
+   * Meta's own words for why it rejected or flagged the ad — `review_feedback`
+   * on a disapproval, `issues_info` on WITH_ISSUES. Null when there is nothing
+   * wrong. Shown to the dealer as-is: paraphrasing a policy reason is how the
+   * fix ends up aimed at the wrong thing.
+   */
+  review: string | null;
+  /**
    * What this ad, specifically, has done since it started.
    *
    * Two ads in one group exist to be compared — same cars, same budget, same
@@ -1283,9 +1295,11 @@ export async function listLotGroups(
             status?: string;
             effective_status?: string;
             creative?: { id?: string };
+            review_feedback?: unknown;
+            issues_info?: { error_summary?: string; error_message?: string }[];
           }>(`/${s.id}/ads`, {
             token,
-            fields: 'id,name,status,effective_status,creative{id}',
+            fields: 'id,name,status,effective_status,creative{id},review_feedback,issues_info',
             maxPages: 1,
           }).catch(() => []),
         ]);
@@ -1326,6 +1340,7 @@ export async function listLotGroups(
                 status: a.status ?? 'UNKNOWN',
                 effectiveStatus: a.effective_status ?? a.status ?? 'UNKNOWN',
                 creativeId: a.creative?.id ?? null,
+                review: reviewText(a.review_feedback, a.issues_info),
                 spend: Number(r?.spend ?? 0),
                 impressions: Number(r?.impressions ?? 0),
                 clicks: Number(r?.clicks ?? 0),
@@ -1579,4 +1594,29 @@ export async function previewUrlForCreative(
     );
     return null;
   }
+}
+
+/**
+ * Flatten Meta's `review_feedback` (`{ global: { reason: text }, placement: {…} }`,
+ * nested to whatever depth) and `issues_info` into one line of Meta's own text.
+ */
+function reviewText(
+  feedback: unknown,
+  issues?: { error_summary?: string; error_message?: string }[],
+): string | null {
+  const out: string[] = [];
+  const walk = (v: unknown) => {
+    if (typeof v === 'string') {
+      if (v.trim()) out.push(v.trim());
+    } else if (v && typeof v === 'object') {
+      for (const x of Object.values(v)) walk(x);
+    }
+  };
+  walk(feedback);
+  for (const i of issues ?? []) {
+    const t = i.error_message || i.error_summary;
+    if (t) out.push(t);
+  }
+  const unique = [...new Set(out)];
+  return unique.length ? unique.join(' ') : null;
 }

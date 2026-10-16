@@ -30,6 +30,7 @@ import { adoptGroupAction, setGroupRunningAction } from '@/lib/meta/demo-actions
 import { dollars, money } from './format';
 import { GroupVehicles } from './group-vehicles';
 import type { LotGroup } from '@/lib/meta/campaigns';
+import { adState, AD_STATE_LABEL } from '@/lib/meta/ad-status';
 
 export function GroupRow({
   rooftopId,
@@ -167,7 +168,20 @@ export function GroupRow({
                             Best so far
                           </span>
                         ) : null}
-                        {off ? <span className="ml-2 text-[10px]">Off</span> : null}
+                        {off ? (
+                          <span
+                            className={`ml-2 text-[10px] ${
+                              adState(ad.effectiveStatus) === 'rejected'
+                                ? 'font-medium text-red-700'
+                                : adState(ad.effectiveStatus) === 'off'
+                                  ? ''
+                                  : 'font-medium text-amber-700'
+                            }`}
+                            title={ad.review ?? undefined}
+                          >
+                            {AD_STATE_LABEL[adState(ad.effectiveStatus)]}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-1 pr-3 text-right">{money(ad.spend)} spent</td>
                       <td className="py-1 pr-3 text-right">

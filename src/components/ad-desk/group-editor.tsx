@@ -32,6 +32,7 @@ import { bucketByKey, type BucketKey } from '@/lib/meta/buckets';
 import type { LotGroup } from '@/lib/meta/campaigns';
 import { WhichCars } from './which-cars';
 import { suggestName, type AdGroupFilters, type TargetableUnit } from '@/lib/meta/group-filter';
+import { adState } from '@/lib/meta/ad-status';
 
 const MAX_ADS = 3;
 
@@ -566,12 +567,25 @@ function AdPane({
             <span className="text-amber-700">Not saved yet.</span>
           ) : !metaAd ? (
             <span className="text-amber-700">Saved, but not on Facebook yet — press Update.</span>
-          ) : metaAd.effectiveStatus === 'ACTIVE' ? (
+          ) : adState(metaAd.effectiveStatus) === 'running' ? (
             <span className="font-medium text-emerald-700">Running</span>
+          ) : adState(metaAd.effectiveStatus) === 'rejected' ? (
+            <span className="font-medium text-red-700">Rejected by Facebook</span>
+          ) : adState(metaAd.effectiveStatus) === 'review' ? (
+            <span className="font-medium text-amber-700">Facebook is reviewing it</span>
+          ) : adState(metaAd.effectiveStatus) === 'issues' ? (
+            <span className="font-medium text-amber-700">Facebook flagged a problem</span>
           ) : (
             <span className="text-ink-500">On Facebook, not running</span>
           )}
         </div>
+
+        {metaAd && (adState(metaAd.effectiveStatus) === 'rejected' || adState(metaAd.effectiveStatus) === 'issues') ? (
+          <Note tone="bad">
+            {metaAd.review ? <>Facebook says: {metaAd.review} </> : null}
+            Fix it below and press Update — that sends it back to Facebook for review.
+          </Note>
+        ) : null}
 
         <AdFields prefix="" initial={row} />
 
