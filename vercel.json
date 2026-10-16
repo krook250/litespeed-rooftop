@@ -26,6 +26,10 @@
       "schedule": "0 5 * * *"
     },
     {
+      "path": "/api/cron/ad-review",
+      "schedule": "40 */2 * * *"
+    },
+    {
       "path": "/api/cron/texting",
       "schedule": "20 */6 * * *"
     }
