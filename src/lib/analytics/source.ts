@@ -36,7 +36,14 @@ export function classifySource(input: {
   search: string | null | undefined;
   /** The host the page was served on — a referrer from here is internal. */
   ownHost: string | null | undefined;
-}): { source: Classified; referrerHost: string | null; utmSource: string | null; utmMedium: string | null; utmCampaign: string | null } {
+}): {
+  source: Classified;
+  referrerHost: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+} {
   let q: URLSearchParams;
   try {
     q = new URLSearchParams(input.search ?? '');
@@ -46,6 +53,7 @@ export function classifySource(input: {
   const utmSource = clip(q.get('utm_source'));
   const utmMedium = clip(q.get('utm_medium'));
   const utmCampaign = clip(q.get('utm_campaign'));
+  const utmContent = clip(q.get('utm_content'));
 
   let referrerHost: string | null = null;
   try {
@@ -55,7 +63,7 @@ export function classifySource(input: {
   }
   const own = (input.ownHost ?? '').toLowerCase().split(':')[0]!.replace(/^www\./, '');
 
-  const base = { referrerHost, utmSource, utmMedium, utmCampaign };
+  const base = { referrerHost, utmSource, utmMedium, utmCampaign, utmContent };
   const us = (utmSource ?? '').toLowerCase();
 
   if (q.has('gclid') || q.has('gbraid') || q.has('wbraid') || (/google|adwords/.test(us) && PAID.test(utmMedium ?? ''))) {
@@ -106,3 +114,15 @@ export function isBot(userAgent: string | null | undefined): boolean {
 /** Cookie names, shared by the beacon and the lead form. */
 export const VISITOR_COOKIE = 'rt_vid';
 export const SOURCE_COOKIE = 'rt_src';
+/**
+ * `<utm_campaign>|<utm_content>` from the page the visit landed on, so a lead
+ * taken three pages later can still say which Facebook group and ad sent it.
+ */
+export const CAMPAIGN_COOKIE = 'rt_cmp';
+
+/** Rooftop's ad links carry the ad set id and ad id — Meta ids are all digits. */
+export function readCampaignCookie(v: string | null | undefined): { utmCampaign: string | null; utmContent: string | null } {
+  const [c, a] = (v ?? '').split('|');
+  const ok = (x: string | undefined) => (x && /^[\w.-]{1,120}$/.test(x) ? x : null);
+  return { utmCampaign: ok(c), utmContent: ok(a) };
+}

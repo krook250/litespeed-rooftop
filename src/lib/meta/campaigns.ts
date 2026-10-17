@@ -917,6 +917,16 @@ export async function createDemoCampaign(input: DemoCampaignInput): Promise<Demo
          * 2026). Without the override, a click goes to the catalog item's own
          * `url`, which the feed already builds as that vehicle's page.
          */
+        /*
+         * THE GROUP TAG. Appended by Meta to whatever link a click follows —
+         * here the catalog item's own vehicle page — with the macros filled in
+         * per impression. The storefront beacon stores utm_campaign/utm_content
+         * on the landing page view and carries them to the lead form, which is
+         * how the Ads screen can say which GROUP and which AD sent a visit or a
+         * lead rather than just "Facebook". Creatives are immutable, so this
+         * reaches an existing ad only when its group is built again.
+         */
+        url_tags: AD_URL_TAGS,
       },
     });
 
@@ -1125,6 +1135,23 @@ export function groupNameFor(bucket: CampaignBucket): string {
 
 /* ------------------------------------------------- reading the lot's ads */
 
+/** What every Rooftop ad link carries. `{{adset.id}}` is the group. */
+export const AD_URL_TAGS =
+  'utm_source=facebook&utm_medium=paid&utm_campaign={{adset.id}}&utm_content={{ad.id}}';
+
+/**
+ * The days a report covers, as dates in the ad account's calendar. Null means
+ * everything since the group started.
+ */
+export type ReportWindow = { since: string; until: string } | null;
+
+/** One day of a group's delivery, for the chart. */
+export type DailyRow = { date: string; spend: number; linkClicks: number; impressions: number };
+
+function windowParams(w: ReportWindow | undefined): Record<string, string> {
+  return w ? { time_range: JSON.stringify(w) } : { date_preset: 'maximum' };
+}
+
 /** One ad inside a group, as Meta holds it. */
 export type GroupAd = {
   id: string;
@@ -1149,6 +1176,19 @@ export type GroupAd = {
   spend: number;
   impressions: number;
   clicks: number;
+  /**
+   * Clicks that went to a car page — what the dealer is paying for. `clicks`
+   * also counts likes, profile taps and carousel swipes. Zero unless the read
+   * asked for the report fields.
+   */
+  linkClicks: number;
+  /** People who saw this ad at least once. Zero unless the report fields were asked for. */
+  reach: number;
+  /**
+   * The ad's links carry the group tag (`AD_URL_TAGS`), so the site can credit
+   * its visits and leads to it. False on ads built before the tag existed.
+   */
+  tagged: boolean;
 };
 
 /**
@@ -1176,6 +1216,12 @@ export type LotGroup = {
   spend: number;
   impressions: number;
   clicks: number;
+  /** See `GroupAd.linkClicks`. */
+  linkClicks: number;
+  /** De-duplicated across the group's ads, so its own read — not a sum. Null when not read. */
+  reach: number | null;
+  /** Day by day across the window. Empty unless the report fields were asked for. */
+  daily: DailyRow[];
   ads: GroupAd[];
 };
 
@@ -1192,6 +1238,8 @@ export type LotGroups = {
   campaignId: string | null;
   groups: LotGroup[];
   legacy: LegacyCampaign[];
+  /** People reached across every group, de-duplicated. Null when not read. */
+  reach: number | null;
 };
 
 /**
@@ -1208,7 +1256,14 @@ export async function listLotGroups(
   adAccountId: string,
   dealerName: string,
   max = 8,
+  /**
+   * `report` adds what the Ads screen shows and nothing else needs — link
+   * clicks, reach, and a day-by-day series — at two more calls per group and
+   * one for the lot. The build and the review sweep leave it off.
+   */
+  opts: { window?: ReportWindow; report?: boolean } = {},
 ): Promise<LotGroups> {
+  const span = windowParams(opts.window);
   const act = actPath(adAccountId);
   const wanted = lotCampaignName(dealerName);
   const legacyPrefix = legacyCampaignPrefix(dealerName);
@@ -1251,7 +1306,7 @@ export async function listLotGroups(
       }),
   );
 
-  if (!mine) return { campaignId: null, groups: [], legacy };
+  if (!mine) return { campaignId: null, groups: [], legacy, reach: null };
 
   type AdSetRow = {
     id: string;
@@ -1274,7 +1329,7 @@ export async function listLotGroups(
       .filter((s) => !DEAD_STATUSES.has(s.status ?? ''))
       .slice(0, max)
       .map(async (s): Promise<LotGroup> => {
-        const [insights, ads] = await Promise.all([
+        const [insights, ads, groupReach, daily] = await Promise.all([
           /*
            * ONE ROW PER AD, NOT ONE PER GROUP.
            *
@@ -1285,8 +1340,10 @@ export async function listLotGroups(
            */
           graphEdge<InsightsRow>(`/${s.id}/insights`, {
             token,
-            fields: 'ad_id,spend,impressions,clicks',
-            params: { date_preset: 'maximum', level: 'ad' },
+            fields: opts.report
+              ? 'ad_id,spend,impressions,clicks,inline_link_clicks,reach'
+              : 'ad_id,spend,impressions,clicks',
+            params: { ...span, level: 'ad' },
             maxPages: 1,
           }).catch(() => [] as InsightsRow[]),
           graphEdge<{
@@ -1294,14 +1351,33 @@ export async function listLotGroups(
             name?: string;
             status?: string;
             effective_status?: string;
-            creative?: { id?: string };
+            creative?: { id?: string; url_tags?: string };
             review_feedback?: unknown;
             issues_info?: { error_summary?: string; error_message?: string }[];
           }>(`/${s.id}/ads`, {
             token,
-            fields: 'id,name,status,effective_status,creative{id},review_feedback,issues_info',
+            fields: 'id,name,status,effective_status,creative{id,url_tags},review_feedback,issues_info',
             maxPages: 1,
           }).catch(() => []),
+          opts.report
+            ? graphEdge<InsightsRow>(`/${s.id}/insights`, {
+                token,
+                fields: 'reach',
+                params: span,
+                maxPages: 1,
+              })
+                .then((r) => (r[0] ? Number(r[0].reach ?? 0) : 0))
+                .catch(() => null)
+            : Promise.resolve(null),
+          opts.report
+            ? graphEdge<InsightsRow>(`/${s.id}/insights`, {
+                token,
+                fields: 'spend,impressions,inline_link_clicks',
+                params: { ...span, time_increment: '1' },
+                limit: 100,
+                maxPages: 4,
+              }).catch(() => [] as InsightsRow[])
+            : Promise.resolve([] as InsightsRow[]),
         ]);
 
         const byAd = new Map(insights.filter((r) => r.ad_id).map((r) => [r.ad_id!, r]));
@@ -1310,8 +1386,9 @@ export async function listLotGroups(
             spend: acc.spend + Number(r.spend ?? 0),
             impressions: acc.impressions + Number(r.impressions ?? 0),
             clicks: acc.clicks + Number(r.clicks ?? 0),
+            linkClicks: acc.linkClicks + Number(r.inline_link_clicks ?? 0),
           }),
-          { spend: 0, impressions: 0, clicks: 0 },
+          { spend: 0, impressions: 0, clicks: 0, linkClicks: 0 },
         );
         const bucket = CAMPAIGN_BUCKETS.find((b) => groupNameFor(b) === s.name);
 
@@ -1328,6 +1405,16 @@ export async function listLotGroups(
           spend: total.spend,
           impressions: total.impressions,
           clicks: total.clicks,
+          linkClicks: total.linkClicks,
+          reach: groupReach,
+          daily: daily
+            .filter((d) => d.date_start)
+            .map((d) => ({
+              date: d.date_start!,
+              spend: Number(d.spend ?? 0),
+              linkClicks: Number(d.inline_link_clicks ?? 0),
+              impressions: Number(d.impressions ?? 0),
+            })),
           ads: ads
             .filter((a) => !DEAD_STATUSES.has(a.status ?? ''))
             .map((a) => {
@@ -1344,13 +1431,27 @@ export async function listLotGroups(
                 spend: Number(r?.spend ?? 0),
                 impressions: Number(r?.impressions ?? 0),
                 clicks: Number(r?.clicks ?? 0),
+                linkClicks: Number(r?.inline_link_clicks ?? 0),
+                reach: Number(r?.reach ?? 0),
+                tagged: (a.creative?.url_tags ?? '').includes('utm_campaign={{adset.id}}'),
               };
             }),
         };
       }),
   );
 
-  return { campaignId: mine.id, groups, legacy };
+  const reach = opts.report
+    ? await graphEdge<InsightsRow>(`/${mine.id}/insights`, {
+        token,
+        fields: 'reach',
+        params: span,
+        maxPages: 1,
+      })
+        .then((r) => (r[0] ? Number(r[0].reach ?? 0) : 0))
+        .catch(() => null)
+    : null;
+
+  return { campaignId: mine.id, groups, legacy, reach };
 }
 
 /* --------------------------------------------------------- start and stop */
@@ -1489,6 +1590,8 @@ export type InsightsRow = {
   spend?: string;
   impressions?: string;
   clicks?: string;
+  inline_link_clicks?: string;
+  reach?: string;
   /** Present only on `level: 'ad'` reads, which is how a group's rows arrive. */
   ad_id?: string;
   ctr?: string;

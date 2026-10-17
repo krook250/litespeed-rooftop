@@ -8,6 +8,7 @@ import {
   isSource,
   SOURCE_COOKIE,
   VISITOR_COOKIE,
+  CAMPAIGN_COOKIE,
 } from '@/lib/analytics/source';
 import { bumpSiteStat } from '@/lib/analytics/record';
 
@@ -74,6 +75,17 @@ export async function POST(req: NextRequest) {
     // The visit's source, for the pages after the first and for the lead form.
     // 30 minutes from the last page, the usual length of a visit.
     done.cookies.set(SOURCE_COOKIE, source, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: 30 * 60 });
+    // Which group and ad sent the visit. A fresh arrival from anywhere replaces
+    // it — an untagged one clears it — so a lead is never credited to an ad the
+    // shopper clicked in some earlier visit. Internal pages keep it alive.
+    if (c.source !== 'internal') {
+      done.cookies.set(CAMPAIGN_COOKIE, c.utmCampaign ? `${c.utmCampaign}|${c.utmContent ?? ''}` : '', {
+        httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: c.utmCampaign ? 30 * 60 : 0,
+      });
+    } else {
+      const cmp = req.cookies.get(CAMPAIGN_COOKIE)?.value;
+      if (cmp) done.cookies.set(CAMPAIGN_COOKIE, cmp, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: 30 * 60 });
+    }
 
     /* ---- which car, if any */
     const segs = path.split('/').filter(Boolean);
@@ -119,6 +131,7 @@ export async function POST(req: NextRequest) {
       utmSource: c.utmSource,
       utmMedium: c.utmMedium,
       utmCampaign: c.utmCampaign,
+      utmContent: c.utmContent,
     });
 
     if (vehicle) await bumpSiteStat(vehicle.id, vehicle.timezone, 'vdpViews');

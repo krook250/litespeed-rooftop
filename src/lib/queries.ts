@@ -589,6 +589,9 @@ export async function createLead(input: {
   smsConsentText?: string | null;
   /** The visit's source bucket from the `rt_src` cookie. Anything unrecognised is dropped. */
   source?: string | null;
+  /** Facebook group (ad set id) and ad id from the visit's campaign cookie. */
+  utmCampaign?: string | null;
+  utmContent?: string | null;
 }) {
   /*
    * Consent is only recorded when there is a number to consent about. A ticked
@@ -611,6 +614,8 @@ export async function createLead(input: {
       smsConsentAt: consented ? new Date() : null,
       smsConsentText: consented ? input.smsConsentText! : null,
       source: isSource(input.source) ? input.source : null,
+      utmCampaign: input.utmCampaign ?? null,
+      utmContent: input.utmContent ?? null,
     })
     .returning();
   const lead = rows[0]!;

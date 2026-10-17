@@ -300,7 +300,7 @@ export default async function OpsAccountPage({
             <OpsLotPanel
               key={lot.rooftopId}
               lot={lot}
-              groups={adCampaigns.get(lot.rooftopId)?.lot ?? { campaignId: null, groups: [], legacy: [] }}
+              groups={adCampaigns.get(lot.rooftopId)?.lot ?? { campaignId: null, groups: [], legacy: [], reach: null }}
               groupsError={adCampaigns.get(lot.rooftopId)?.error ?? null}
             />
           ))}

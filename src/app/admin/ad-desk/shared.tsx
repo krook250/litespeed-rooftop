@@ -22,7 +22,7 @@ import { requireGroupId } from '@/lib/auth';
 import { getRooftops } from '@/lib/queries';
 import { adDeskConfigured, loadConnection, tokenFor } from '@/lib/meta/connect';
 import { discoverAssets, type Discovery } from '@/lib/meta/assets';
-import { listLotGroups, type LotGroups } from '@/lib/meta/campaigns';
+import { listLotGroups, type LotGroups, type ReportWindow } from '@/lib/meta/campaigns';
 import type { AssetOption } from '@/components/ad-desk-panels';
 
 export type Rooftop = Awaited<ReturnType<typeof getRooftops>>[number];
@@ -131,6 +131,8 @@ export async function loadAdDesk({
 export async function loadLotGroups(
   data: AdDeskData,
   only?: string,
+  /** Per lot, so each reads its own calendar. Omitted: lifetime, no report fields. */
+  report?: (rooftopId: string) => ReportWindow,
 ): Promise<{ groups: Map<string, LotGroups>; failed: Set<string> }> {
   const groups = new Map<string, LotGroups>();
   const failed = new Set<string>();
@@ -145,7 +147,16 @@ export async function loadLotGroups(
   await Promise.all(
     withAccount.map(async (r) => {
       try {
-        groups.set(r.id, await listLotGroups(conn.token, data.assets.get(r.id)!.adAccountId!, r.name));
+        groups.set(
+          r.id,
+          await listLotGroups(
+            conn.token,
+            data.assets.get(r.id)!.adAccountId!,
+            r.name,
+            8,
+            report ? { report: true, window: report(r.id) } : {},
+          ),
+        );
       } catch {
         failed.add(r.id);
       }

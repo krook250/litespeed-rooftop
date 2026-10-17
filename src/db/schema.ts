@@ -1480,6 +1480,14 @@ export const leads = pgTable(
      * tracking existed, which is every lead before Oct 2026.
      */
     source: text(),
+    /**
+     * Which Facebook group (ad set id) and which ad sent the visit, from the
+     * `utm_campaign` / `utm_content` tags Rooftop puts on every ad link. Read
+     * from the visit's campaign cookie at submit. Null for anything that did
+     * not arrive through a tagged ad — including every lead before Oct 2026.
+     */
+    utmCampaign: text(),
+    utmContent: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('leads_rooftop_idx').on(t.rooftopId, t.createdAt)],
@@ -1509,6 +1517,8 @@ export const pageViews = pgTable(
     utmSource: text(),
     utmMedium: text(),
     utmCampaign: text(),
+    /** On Rooftop's own ads, the ad id. `utmCampaign` is the ad set (group) id. */
+    utmContent: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
-import { SOURCE_COOKIE } from '@/lib/analytics/source';
+import { CAMPAIGN_COOKIE, SOURCE_COOKIE, readCampaignCookie } from '@/lib/analytics/source';
 import { notFound } from 'next/navigation';
 import {
   createLead,
@@ -254,9 +254,12 @@ export default async function VehicleDetailPage({ params }: Params) {
       return { status: 'error', message: 'That email address does not look right.' };
     }
 
-    const source = (await cookies()).get(SOURCE_COOKIE)?.value ?? null;
+    const jar = await cookies();
+    const source = jar.get(SOURCE_COOKIE)?.value ?? null;
+    const { utmCampaign, utmContent } = readCampaignCookie(jar.get(CAMPAIGN_COOKIE)?.value);
     await createLead({
       vehicleId, storefrontId, rooftopId, name, email, phone, message, smsConsentText, source,
+      utmCampaign, utmContent,
     });
     return { status: 'ok', firstName: name.split(/\s+/)[0] };
   }

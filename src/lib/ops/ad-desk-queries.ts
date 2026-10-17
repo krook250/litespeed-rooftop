@@ -241,7 +241,7 @@ export async function opsLotCampaigns(
     for (const l of usable) {
       out.set(l.rooftopId, {
         rooftopId: l.rooftopId,
-        lot: { campaignId: null, groups: [], legacy: [] },
+        lot: { campaignId: null, groups: [], legacy: [], reach: null },
         error: 'Facebook is not connected for this dealer.',
       });
     }
@@ -256,7 +256,7 @@ export async function opsLotCampaigns(
       } catch (err) {
         out.set(l.rooftopId, {
           rooftopId: l.rooftopId,
-          lot: { campaignId: null, groups: [], legacy: [] },
+          lot: { campaignId: null, groups: [], legacy: [], reach: null },
           error: err instanceof Error ? err.message : 'Facebook could not be reached.',
         });
       }

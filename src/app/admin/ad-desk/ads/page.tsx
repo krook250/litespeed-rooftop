@@ -9,10 +9,21 @@
  * `ads/[rooftopId]/[bucket]`; what is left here is a row per group.
  */
 
-import { Badge, Card, CardHeader, EmptyState } from '@/components/ui';
+import Link from 'next/link';
+import { Badge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
+import { LineArea, NEUTRAL_INK, NEUTRAL_INK_SOFT } from '@/components/charts';
 import { GroupRow } from '@/components/ad-desk/group-row';
 import { LinkButton } from '@/components/link-pending';
-import { money } from '@/components/ad-desk/format';
+import { dollars, money } from '@/components/ad-desk/format';
+import {
+  RANGES,
+  RANGE_LABEL,
+  facebookSiteReport,
+  parseRange,
+  rangeWindow,
+  type FacebookSiteReport,
+  type Range,
+} from '@/lib/meta/ad-report';
 import { requireSection } from '@/lib/auth-guard';
 import { CAMPAIGN_BUCKETS } from '@/lib/meta/buckets';
 import { allAdCopyForRooftop } from '@/lib/meta/ad-copy';
@@ -23,8 +34,13 @@ import { blockerFor, loadAdDesk, loadLotGroups } from '../shared';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdsPage() {
+export default async function AdsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireSection('ad-desk');
+  const range = parseRange((await searchParams).range);
   const data = await loadAdDesk();
 
   if (!data.configured) {
@@ -44,7 +60,7 @@ export default async function AdsPage() {
   if (!data.connected) {
     return (
       <div className="mx-auto max-w-4xl space-y-5 p-6">
-        <Header />
+        <Header range={range} />
         <Card>
           <EmptyState
             title="Facebook is not connected yet"
@@ -60,7 +76,12 @@ export default async function AdsPage() {
     );
   }
 
-  const { groups: byRooftop, failed } = await loadLotGroups(data);
+  const tzOf = (id: string) => data.rooftops.find((r) => r.id === id)?.timezone ?? 'America/New_York';
+  const { groups: byRooftop, failed } = await loadLotGroups(
+    data,
+    undefined,
+    (id) => rangeWindow(range, tzOf(id)).window,
+  );
 
   const provisioned = data.rooftops.filter((r) => data.assets.get(r.id)?.catalogId);
   const copyByRooftop = new Map(
@@ -76,10 +97,32 @@ export default async function AdsPage() {
       provisioned.map(async (r) => [r.id, await adGroupsForRooftop(r.id)] as const),
     ),
   );
+  /*
+   * Our own half: visits and leads on the dealer's site. A failure here must
+   * not take the Facebook numbers down with it, so it degrades to "not shown".
+   */
+  const siteByRooftop = new Map<string, FacebookSiteReport | null>(
+    await Promise.all(
+      data.rooftops.map(async (r) => {
+        const lot = byRooftop.get(r.id);
+        if (!lot?.groups.length) return [r.id, null] as const;
+        const report = await facebookSiteReport({
+          rooftopId: r.id,
+          timeZone: r.timezone,
+          range,
+          adSetIds: lot.groups.map((g) => g.id),
+        }).catch((err) => {
+          console.error('[ad-desk] site report failed', err);
+          return null;
+        });
+        return [r.id, report] as const;
+      }),
+    ),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <Header />
+      <Header range={range} />
 
       {data.rooftops.map((r) => {
         const lot = byRooftop.get(r.id);
@@ -94,7 +137,24 @@ export default async function AdsPage() {
         const running = groups.filter((g) => g.effectiveStatus === 'ACTIVE');
         const perDay = running.reduce((n, g) => n + (g.dailyBudgetUsd ?? 0), 0);
         const spend = groups.reduce((n, g) => n + g.spend, 0);
-        const clicks = groups.reduce((n, g) => n + g.clicks, 0);
+        const clicks = groups.reduce((n, g) => n + g.linkClicks, 0);
+        const site = siteByRooftop.get(r.id) ?? null;
+        const perClick = clicks ? spend / clicks : null;
+        const perLead = site?.lot.leads ? spend / site.lot.leads : null;
+
+        // Every group's days added together, with the empty days filled in so a
+        // dark day reads as a dip rather than vanishing off the x-axis.
+        const byDay = new Map<string, { spend: number; clicks: number }>();
+        for (const day of rangeWindow(range, r.timezone).days) byDay.set(day, { spend: 0, clicks: 0 });
+        for (const g of groups) {
+          for (const d of g.daily) {
+            const cur = byDay.get(d.date) ?? { spend: 0, clicks: 0 };
+            byDay.set(d.date, { spend: cur.spend + d.spend, clicks: cur.clicks + d.linkClicks });
+          }
+        }
+        const trend = [...byDay.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([label, v]) => ({ label, value: v.clicks, secondary: Math.round(v.spend) }));
 
         return (
           <section key={r.id} className="space-y-3">
@@ -125,21 +185,58 @@ export default async function AdsPage() {
 
             {/* ------------------------------------------------- the strip */}
             {groups.length ? (
-              <div className="flex flex-wrap items-center gap-x-7 gap-y-3 rounded-xl border border-ink-200 bg-white px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${running.length ? 'bg-emerald-500' : 'bg-ink-300'}`}
-                  />
-                  <span className="text-sm font-medium text-ink-900">
-                    {running.length ? 'Running' : 'All stopped'}
+              <div className="rounded-xl border border-ink-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-ink-100 px-4 py-2.5 text-xs text-ink-600">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${running.length ? 'bg-emerald-500' : 'bg-ink-300'}`}
+                    />
+                    <span className="text-sm font-medium text-ink-900">
+                      {running.length ? 'Running' : 'All stopped'}
+                    </span>
                   </span>
+                  <span className="tabular-nums">
+                    {money(perDay)} a day across {running.length}{' '}
+                    {running.length === 1 ? 'group' : 'groups'}
+                  </span>
+                  {shelfCounts ? (
+                    <span className="tabular-nums">{shelfCounts.all} cars front-line and advertisable</span>
+                  ) : null}
                 </div>
-                <Figure value={money(perDay)} label={`a day, across ${running.length} ${running.length === 1 ? 'group' : 'groups'}`} />
-                {shelfCounts ? (
-                  <Figure value={String(shelfCounts.all)} label="cars front-line and advertisable" />
+
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-4 py-4 sm:grid-cols-4 lg:grid-cols-7">
+                  <Figure value={money(spend)} label="spent" />
+                  <Figure value={lot?.reach == null ? '—' : lot.reach.toLocaleString()} label="people reached" />
+                  <Figure value={clicks.toLocaleString()} label="clicks to a car" />
+                  <Figure value={perClick === null ? '—' : dollars(perClick)} label="per click" />
+                  <Figure value={site ? site.lot.visitors.toLocaleString() : '—'} label="site visitors from Facebook" />
+                  <Figure value={site ? site.lot.leads.toLocaleString() : '—'} label="leads from Facebook" />
+                  <Figure value={perLead === null ? '—' : money(perLead)} label="per lead" />
+                </div>
+
+                {trend.length > 1 ? (
+                  <div className="border-t border-ink-100 px-4 pb-3 pt-3">
+                    <LineArea
+                      id={`ads-trend-${r.id}`}
+                      points={trend}
+                      title={`Clicks and spend by day, ${RANGE_LABEL[range].toLowerCase()}`}
+                      seriesName="Clicks"
+                      secondaryName="Spend"
+                      color={NEUTRAL_INK}
+                      secondaryColor={NEUTRAL_INK_SOFT}
+                      height={170}
+                      formatX={(label) => dayLabel(label)}
+                    />
+                    <p className="mt-1.5 text-[11px] text-ink-500">
+                      Line: clicks to a car each day. Bars: what was spent that day.
+                    </p>
+                  </div>
                 ) : null}
-                <Figure value={money(spend)} label="spent" />
-                <Figure value={clicks.toLocaleString()} label="clicks" />
+
+                <p className="border-t border-ink-100 px-4 py-2 text-[11px] text-ink-500">
+                  {range === 'all' ? 'Since the first group started.' : `Last ${RANGE_LABEL[range]}, today included.`}{' '}
+                  Site visitors and leads from Facebook include shares and posts, not only these ads.
+                </p>
               </div>
             ) : null}
 
@@ -168,6 +265,11 @@ export default async function AdsPage() {
                           ? describeFilters(local.get(g.bucketKey)?.filters ?? {})
                           : ''
                       }
+                      rangeLabel={range === 'all' ? 'Since this group started' : `Last ${RANGE_LABEL[range]}`}
+                      site={site?.groups.get(g.id) ?? null}
+                      adSite={Object.fromEntries(
+                        g.ads.map((a) => [a.id, site?.ads.get(a.id) ?? { visitors: 0, leads: 0 }]),
+                      )}
                     />
                   ))}
               </div>
@@ -244,15 +346,40 @@ export default async function AdsPage() {
   );
 }
 
-function Header() {
+function Header({ range }: { range: Range }) {
   return (
-    <div>
-      <h1 className="text-lg font-semibold text-ink-900">Ads</h1>
-      <p className="mt-1 text-sm text-ink-600">
-        A group is one shelf of cars with its own budget, radius and ads.
-      </p>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-lg font-semibold text-ink-900">Ads</h1>
+        <p className="mt-1 text-sm text-ink-600">
+          A group is one shelf of cars with its own budget, radius and ads.
+        </p>
+      </div>
+      <div className="inline-flex rounded-lg border border-ink-200 bg-white p-0.5">
+        {RANGES.map((x) => (
+          <Link
+            key={x}
+            href={x === '7' ? '/admin/ad-desk/ads' : `/admin/ad-desk/ads?range=${x}`}
+            aria-current={x === range ? 'page' : undefined}
+            className={cn(
+              'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+              x === range ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100',
+            )}
+          >
+            {RANGE_LABEL[x]}
+          </Link>
+        ))}
+      </div>
     </div>
   );
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "2026-10-16" → "Oct 16". */
+function dayLabel(iso: string) {
+  const [, m, d] = iso.split('-');
+  return `${MONTHS[Number(m) - 1] ?? ''} ${Number(d)}`;
 }
 
 function Figure({ value, label }: { value: string; label: string }) {
