@@ -174,7 +174,16 @@ export async function getStorefrontByKey(key: string) {
   const tops = rooftopIds.length
     ? await db.select().from(t.rooftops).where(inArray(t.rooftops.id, rooftopIds))
     : [];
-  return { ...sf, rooftopIds, rooftops: tops };
+  // The legal entity behind the storefront, when the dealer has given us one
+  // (Settings → Texting & calls). Carrier review checks that the website, the
+  // opt-in and the terms name the same business the brand was registered as, and
+  // a dba-only site ("Malabar Truck and Trade") does not visibly match a brand
+  // registered as the LLC. See `src/lib/store/legal.ts`.
+  const reg = await db.query.messagingRegistrations.findFirst({
+    where: eq(t.messagingRegistrations.groupId, sf.groupId),
+    columns: { legalName: true },
+  });
+  return { ...sf, rooftopIds, rooftops: tops, legalName: reg?.legalName?.trim() || null };
 }
 
 /** Kept as the name every existing caller already uses. */

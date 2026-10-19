@@ -3,8 +3,9 @@ import { db } from '@/db';
 import { dealerGroups, messagingRegistrations, storefronts } from '@/db/schema';
 import { canonicalUrl } from '@/lib/store/seo';
 import { smsConsentLabel } from '@/lib/store/sms-consent';
+import { distinctLegalName, senderName } from '@/lib/store/legal';
 import { activeNumber } from './numbers';
-import { API, MESSAGING, PRIMARY_PROFILE, REGISTRATION_READY, TRUSTHUB, call, inboundUrl, joinService } from './twilio';
+import { API, MESSAGING, PRIMARY_PROFILE, REGISTRATION_READY, TRUSTHUB, call, inboundUrl, joinService, prettyNumber } from './twilio';
 
 /**
  * A dealer group's own carrier registration, so its number can text buyers.
@@ -86,8 +87,8 @@ const repAttributes = (r: Row) => ({
 
 /* ---- the campaign text ----------------------------------------------------- */
 
-/** The name buyers know: the storefront's, else the group's. */
-async function publicFace(groupId: string) {
+/** The name buyers know, the LLC behind it, and the public pages a reviewer opens. */
+async function publicFace(groupId: string, legalName: string | null) {
   const [group, sf] = await Promise.all([
     db.query.dealerGroups.findFirst({ where: eq(dealerGroups.id, groupId) }),
     db.query.storefronts.findFirst({ where: eq(storefronts.groupId, groupId) }),
@@ -95,29 +96,84 @@ async function publicFace(groupId: string) {
   const name = sf?.name || group?.name || '';
   return {
     name,
+    /** "Malabar Truck and Trade (MDF GLOBAL ENTERPRISES, LLC)": matches both the site and the brand. */
+    sender: senderName(name, legalName),
+    legal: distinctLegalName(name, legalName),
+    phone: prettyNumber(`+1${(sf?.phone ?? '').replace(/\D/g, '').slice(-10)}`),
     site: sf ? canonicalUrl(sf, APP_HOST, '') || `https://${APP_HOST}/s/${sf.slug}` : '',
     privacy: sf ? canonicalUrl(sf, APP_HOST, '/privacy') : '',
+    terms: sf ? canonicalUrl(sf, APP_HOST, '/terms') : '',
   };
 }
 
-/** The one auto-reply a buyer gets. The campaign's opt-in message and first sample match it. */
-export function autoReply(firstName: string, dealerName: string): string {
-  return `Hi ${firstName}, thanks for asking about a vehicle at ${dealerName}. We got your request and will be in touch soon. Reply STOP to opt out.`;
+type Face = Awaited<ReturnType<typeof publicFace>>;
+
+/**
+ * The confirmation a buyer gets first after opting in. Filed as the campaign's
+ * opt-in message, so it carries everything a double opt-in confirmation needs
+ * (30540): who, what, frequency, rates, HELP, STOP. The filing promises it:
+ * when buyer texting ships, the first text to a consented lead must be this.
+ */
+export function optInMessage(dealerName: string): string {
+  return `${dealerName}: thanks for your inquiry. We'll text you here about the vehicle you asked about. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`;
 }
 
-/** What the carriers read. Filed once; sent again in place if they turn it down. */
-async function campaignText(groupId: string): Promise<Record<string, string | string[]>> {
-  const f = await publicFace(groupId);
+/** The HELP reply: names the dealer and gives a phone that answers (30890). */
+const helpMessage = (f: Face) =>
+  `${f.name}: for help call ${f.phone}. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out.`;
+
+const optOutMessage = (f: Face) =>
+  `${f.name}: you're unsubscribed and won't get more texts from us. Reply START to resubscribe.`;
+
+/**
+ * What can't be filed. A campaign costs a vetting fee and a week, so it is never
+ * sent with a hole a reviewer will find: no public https Terms, Privacy or
+ * website, or no phone for HELP. Malabar's first campaign went out with no Terms
+ * URL and came back 30882.
+ */
+function campaignProblem(f: Face): string | null {
+  const https = (u: string) => /^https:\/\/[^/\s]+/.test(u);
+  if (!f.name) return 'no storefront name';
+  if (!https(f.site)) return `website is not https: "${f.site}"`;
+  if (!https(f.privacy)) return `privacy URL is not https: "${f.privacy}"`;
+  if (!https(f.terms)) return `terms URL is not https: "${f.terms}"`;
+  if (!f.phone) return 'no storefront phone for the HELP reply';
+  return null;
+}
+
+/** What the carriers read. Every sentence answers something on Twilio's rejection list. */
+function campaignText(f: Face, r: Row): Record<string, string | string[]> {
+  const who = f.legal ? `${f.legal}, doing business as ${f.name},` : `${f.name}`;
+  const where = [r.city, r.state].filter(Boolean).join(', ');
   return {
-    Description: `${f.name} is a used vehicle dealership. It replies to car shoppers who asked to hear from it. When someone sends an inquiry about a vehicle on ${f.name}'s website and ticks the text consent box, they get one text confirming the request was received, and ${f.name} may then text them one-to-one about that vehicle: availability, price, test drives and financing questions. No marketing blasts, no promotions, no purchased lists. Sent through Rooftop Auto, a platform operated by Litespeed Marketing LLC.`,
-    MessageFlow: `Opt-in is a web form. Every vehicle page on ${f.name}'s website (${f.site}) has an inquiry form, and below its contact fields is an unticked, optional checkbox reading: "${smsConsentLabel(f.name)}" A direct link to ${f.name}'s privacy policy sits inside that consent block. Submitting the form without ticking the box sends no texts. Privacy policy: ${f.privacy}`,
+    Description:
+      `${who} is an independent used vehicle dealership${where ? ` in ${where}` : ''}. ` +
+      `This campaign sends conversational, one-to-one text messages from the dealership's own sales staff to car shoppers ` +
+      `who asked about a specific vehicle on the dealership's website (${f.site}) and checked the optional text message consent box. ` +
+      `The dealership's first text to a shopper confirms the inquiry was received. After that, staff answer questions about that vehicle: whether it is ` +
+      `still available, its price, scheduling a test drive or visit, and financing questions. Messages are triggered by the ` +
+      `shopper's own inquiry and sent from the dealership's inventory and lead management software. ` +
+      `No marketing blasts, no promotions, no purchased, rented or shared lists, and no third-party lead generation.`,
+    MessageFlow:
+      `Consumers opt in on the dealership's own public website, ${f.site} (no login). Every vehicle detail page, reached by ` +
+      `clicking any vehicle on the home page, has a "Check availability" form with name, email, an optional phone field and a ` +
+      `message. Below the fields is an unchecked, optional checkbox the consumer must actively tick, reading: ` +
+      `"${smsConsentLabel(f.name, f.legal)}" Directly beside the checkbox are labeled links to the Text Messaging Terms ` +
+      `(${f.terms}) and the Privacy Policy (${f.privacy}). The form submits without the box checked, and anyone who does not ` +
+      `check it, or leaves the phone blank, is never texted. The time and exact consent wording are stored with each inquiry. ` +
+      `The dealership's first text to an opted-in consumer is this confirmation: "${optInMessage(f.name)}" ` +
+      `A consumer who has opted out can reply START to resubscribe.`,
     MessageSamples: [
-      autoReply('Sam', f.name),
-      `Hi Sam, it's ${f.name}. The 2019 Tacoma you asked about is still on the lot. Want to come see it today or tomorrow? Reply STOP to opt out.`,
+      `${f.name}: got your request on stock #[stock number]. [salesperson] will text you shortly about the [2020 Ford F-150]. Reply STOP to opt out.`,
+      `Hi [first name], it's [salesperson] at ${f.name}. The [2019 Toyota Tacoma] you asked about is still on the lot. Want to come see it [today] or [tomorrow]? Reply STOP to opt out.`,
+      `${f.name}: [first name], the [2017 Chevrolet Silverado 1500] is $[price] plus tax and fees. Happy to go over financing options when you stop by. Reply STOP to opt out.`,
     ],
     HasEmbeddedLinks: 'false',
     HasEmbeddedPhone: 'false',
+    AgeGated: 'false',
+    DirectLending: 'false',
     PrivacyPolicyUrl: f.privacy,
+    TermsAndConditionsUrl: f.terms,
   };
 }
 
@@ -274,6 +330,13 @@ async function checkBrand(groupId: string, r: Row): Promise<Patch | null> {
   }
   if (st !== 'APPROVED') return null;
 
+  const face = await publicFace(groupId, r.legalName);
+  const problem = campaignProblem(face);
+  if (problem) {
+    console.error('[registration] campaign not filed', groupId, problem);
+    return fix("Your business is approved, but texting can't be sent for approval yet. That part is ours to fix; we'll look at it and get back to you.");
+  }
+
   const service =
     r.messagingServiceSid ??
     (await sidOf(
@@ -288,9 +351,15 @@ async function checkBrand(groupId: string, r: Row): Promise<Patch | null> {
     call('POST', `${MESSAGING}/Services/${service}/Compliance/Usa2p`, {
       BrandRegistrationSid: r.brandSid!,
       UsAppToPersonUsecase: 'LOW_VOLUME',
-      ...(await campaignText(groupId)),
-      OptInMessage: autoReply('Sam', (await publicFace(groupId)).name),
-      OptInKeywords: 'START',
+      ...campaignText(face, r),
+      // Opt-in, opt-out and HELP can't be changed after filing (only a new
+      // campaign can), so they are filed explicitly rather than left to defaults.
+      OptInMessage: optInMessage(face.name),
+      OptInKeywords: ['START', 'UNSTOP'],
+      OptOutMessage: optOutMessage(face),
+      OptOutKeywords: ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'],
+      HelpMessage: helpMessage(face),
+      HelpKeywords: ['HELP', 'INFO'],
     }),
   );
   return { campaignSid: camp, step: 'CAMPAIGN', status: 'SUBMITTED', actionNeeded: null };
@@ -421,17 +490,28 @@ export async function sendRegistration(groupId: string, i: RegistrationInput): P
 
   await save(groupId, fields);
   const fresh = (await getRegistration(groupId))!;
-  await refreshFiled(fresh);
+  // A campaign refile leaves the approved profile and brand alone.
+  if (r.step !== 'CAMPAIGN') await refreshFiled(fresh);
   // A brand turned down is resubmitted in place; anything earlier runs again from where it stopped.
   if (r.step === 'BRAND' && r.brandSid) await call('POST', `${MESSAGING}/a2p/BrandRegistrations/${r.brandSid}`, {});
-  // A campaign turned down is corrected and resubmitted in place, same SID.
+  /*
+   * A campaign turned down is deleted and filed fresh, not edited in place.
+   * Twilio's in-place update cannot change the opt-in, opt-out or HELP
+   * messages, and those are part of what the carriers review. A new campaign is
+   * another vetting fee; a second rejection costs more. The brand is untouched
+   * and still approved, so stepping back to BRAND lets `checkBrand` file the new
+   * one on the next `advance`, through the same checks as the first.
+   */
   if (r.step === 'CAMPAIGN' && r.messagingServiceSid && r.campaignSid) {
-    const sent = await call('POST', `${MESSAGING}/Services/${r.messagingServiceSid}/Compliance/Usa2p/${r.campaignSid}`, {
-      ...(await campaignText(groupId)),
-      AgeGated: 'false',
-      DirectLending: 'false',
-    });
-    if (sent.error !== undefined) return sent.error;
+    const face = await publicFace(groupId, fresh.legalName);
+    const problem = campaignProblem(face);
+    if (problem) {
+      console.error('[registration] campaign not refiled', groupId, problem);
+      return "Texting can't be sent for approval yet. That part is ours to fix.";
+    }
+    const gone = await call('DELETE', `${MESSAGING}/Services/${r.messagingServiceSid}/Compliance/Usa2p/${r.campaignSid}`);
+    if (gone.error !== undefined && !/not found|20404/i.test(gone.error)) return gone.error;
+    await save(groupId, { campaignSid: null, step: 'BRAND' });
   }
   await save(groupId, {
     status: 'SUBMITTED',
@@ -440,8 +520,7 @@ export async function sendRegistration(groupId: string, i: RegistrationInput): P
     // Nothing was submitted for a profile that failed its check, so it is checked again.
     ...(r.step === 'PROFILE' ? { profileSubmitted: false, a2pSubmitted: false } : {}),
   });
-  // Twilio can still say FAILED for a moment after a resubmit, so a campaign isn't looked at straight away.
-  if (r.step !== 'CAMPAIGN') await advance(groupId);
+  await advance(groupId);
   return null;
 }
 

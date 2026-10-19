@@ -14,6 +14,7 @@ import { MetaPixelBase } from '@/components/store/meta-pixel';
 import { TrackView } from '@/components/store/track-view';
 import { DealerGoogleAnalytics } from '@/components/store/dealer-ga';
 import { parseGaId } from '@/lib/analytics/ga-id';
+import { operatedBy } from '@/lib/store/legal';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -249,6 +250,10 @@ export default async function StorefrontLayout({
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="text-sm font-semibold text-[var(--footer-text)]">{sf.name}</div>
+            {/* The registered LLC, so the site visibly matches the texting brand. See `@/lib/store/legal`. */}
+            {operatedBy(sf.name, sf.legalName) ? (
+              <div className="mt-1 text-xs text-[var(--footer-muted)]">{operatedBy(sf.name, sf.legalName)}</div>
+            ) : null}
             {/*
               The footer NAP. Prefers the lot's own address over the storefront's
               free-text line for the same reason the hours below prefer the
@@ -300,6 +305,10 @@ export default async function StorefrontLayout({
             <p className="mt-2">
               <Link href={`${base}/privacy`} className="underline hover:text-[var(--footer-text)]">
                 Privacy Policy
+              </Link>
+              {' · '}
+              <Link href={`${base}/terms`} className="underline hover:text-[var(--footer-text)]">
+                Text Messaging Terms
               </Link>
             </p>
             <p className="mt-2">

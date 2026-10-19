@@ -1,3 +1,5 @@
+import { senderName } from './legal';
+
 /**
  * The SMS opt-in disclosure shown on the storefront lead form.
  *
@@ -27,20 +29,28 @@
  * the text they were given, which is the entire point.
  */
 
-export const SMS_CONSENT_VERSION = 1;
+/*
+ * v2 (19 Oct 2026): names the legal entity beside the trade name, says what the
+ * texts are about, and the record carries the Terms URL. Malabar's first
+ * campaign was rejected (30882) with no Terms page anywhere.
+ */
+export const SMS_CONSENT_VERSION = 2;
 
 /**
  * The checkbox label. Written for a car buyer, not for a compliance reviewer —
- * but every phrase the reviewer needs is in it.
+ * but every phrase the reviewer needs is in it: who sends (matching the
+ * registered brand), what about, how often, rates, STOP, HELP, and that consent
+ * is optional.
  *
  * `dealerName` rather than "us": on the dealer's own domain this is their form,
  * their brand and their consent, and a disclosure that says "we" without ever
  * naming who is a disclosure that discloses nothing.
  */
-export function smsConsentLabel(dealerName: string): string {
+export function smsConsentLabel(dealerName: string, legalName?: string | null): string {
   return (
     `Text me about this vehicle. By checking this box I agree to receive text messages from ` +
-    `${dealerName} at the number provided, including messages sent by an automatic telephone ` +
+    `${senderName(dealerName, legalName)} at the number provided about my inquiry: availability, ` +
+    `pricing, test drives and financing, including messages sent by an automatic telephone ` +
     `dialing system. Consent is not a condition of purchase. Message frequency may vary. ` +
     `Message and data rates may apply. Reply STOP to opt out or HELP for help.`
   );
@@ -49,9 +59,14 @@ export function smsConsentLabel(dealerName: string): string {
 /**
  * What gets written to `leads.smsConsentText`.
  *
- * Includes the privacy URL as it was presented, because "there was a link" is
+ * Includes both URLs as they were presented, because "there was a link" is
  * half the requirement and "it went here" is the other half.
  */
-export function smsConsentRecord(dealerName: string, privacyUrl: string): string {
-  return `v${SMS_CONSENT_VERSION} | ${smsConsentLabel(dealerName)} | Privacy policy: ${privacyUrl}`;
+export function smsConsentRecord(
+  dealerName: string,
+  legalName: string | null,
+  privacyUrl: string,
+  termsUrl: string,
+): string {
+  return `v${SMS_CONSENT_VERSION} | ${smsConsentLabel(dealerName, legalName)} | Terms: ${termsUrl} | Privacy policy: ${privacyUrl}`;
 }

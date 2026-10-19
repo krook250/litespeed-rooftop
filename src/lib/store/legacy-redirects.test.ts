@@ -21,7 +21,7 @@ const MALABAR = 'malabartruckandtrade.com';
 /* ----------------------------------------------------- the loop protection */
 
 test('our own paths are not legacy URLs', () => {
-  for (const p of ['/', '/privacy', '/visit/main', '/123456', '/ABC123']) {
+  for (const p of ['/', '/privacy', '/terms', '/visit/main', '/123456', '/ABC123']) {
     assert.equal(legacyRedirect(p), null, p);
   }
 });
@@ -56,7 +56,7 @@ test('financing pages reach the application rather than the home page', () => {
 });
 
 test('their casing and trailing slashes are handled', () => {
-  assert.equal(legacyRedirect('/TermsAndConditions'), '/');
+  assert.equal(legacyRedirect('/TermsAndConditions'), '/terms');
   assert.equal(legacyRedirect('/About'), '/');
   assert.equal(legacyRedirect('/contact/'), '/');
 });

@@ -210,8 +210,11 @@ export default async function VehicleDetailPage({ params }: Params) {
    * answer to "where was the policy" a year later in an audit.
    */
   const storefrontName = storefront.name;
+  const legalName = storefront.legalName;
   const privacyHref = `${basePath}/privacy`;
   const absolutePrivacyUrl = `${origin}${basePath}/privacy`;
+  const termsHref = `${basePath}/terms`;
+  const absoluteTermsUrl = `${origin}${basePath}/terms`;
 
   /* Closed over by the action (and encrypted by Next), so it cannot be posted. See `lead-spam`. */
   const renderedAt = Date.now();
@@ -244,7 +247,7 @@ export default async function VehicleDetailPage({ params }: Params) {
      */
     const smsConsentText =
       formData.get('smsConsent') === 'yes'
-        ? smsConsentRecord(storefrontName, absolutePrivacyUrl)
+        ? smsConsentRecord(storefrontName, legalName, absolutePrivacyUrl, absoluteTermsUrl)
         : null;
 
     if (!name || !email) {
@@ -415,7 +418,9 @@ export default async function VehicleDetailPage({ params }: Params) {
                   stockNumber={vehicle.stockNumber}
                   dealerPhone={rooftop.phone}
                   dealerName={storefrontName}
+                  legalName={legalName}
                   privacyHref={privacyHref}
+                  termsHref={termsHref}
                   defaultMessage={`Is the ${title} (stock #${vehicle.stockNumber}) still available?`}
                 />
               </div>

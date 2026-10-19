@@ -22,7 +22,9 @@ export function LeadForm({
   stockNumber,
   dealerPhone,
   dealerName,
+  legalName,
   privacyHref,
+  termsHref,
   defaultMessage,
 }: {
   action: LeadAction;
@@ -30,8 +32,12 @@ export function LeadForm({
   dealerPhone: string;
   /** Named in the consent line — on the dealer's domain this is their consent, not ours. */
   dealerName: string;
+  /** The LLC behind the trade name, when it differs. Named beside it so the opt-in matches the registered brand. */
+  legalName: string | null;
   /** The storefront's own privacy policy. Must be a real, ungated link. */
   privacyHref: string;
+  /** The storefront's own texting terms. Same rule. */
+  termsHref: string;
   defaultMessage: string;
 }) {
   const [state, formAction, pending] = useActionState(action, INITIAL);
@@ -110,8 +116,9 @@ export function LeadForm({
             on this form anyway.
           - the literal word "may" appears in both the frequency and the rates
             sentence. See `@/lib/store/sms-consent`.
-          - the privacy link is here, in the opt-in area, and goes straight to
-            the policy with nothing in between.
+          - the Terms and Privacy links are here, in the opt-in area, labeled,
+            and go straight to the page with nothing in between (30549, 30550,
+            30564).
           - "Consent is not a condition of purchase" is stated.
 
         Do not move this below the button, do not collapse it behind a "details"
@@ -125,7 +132,16 @@ export function LeadForm({
           className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--line)] accent-[var(--brand)]"
         />
         <span className="text-[11px] leading-snug text-[var(--text-3)]">
-          {smsConsentLabel(dealerName)}{' '}
+          {smsConsentLabel(dealerName, legalName)}{' '}
+          <a
+            href={termsHref}
+            className="underline hover:text-[var(--text-2)]"
+            target="_blank"
+            rel="noopener"
+          >
+            Text Messaging Terms
+          </a>
+          {' · '}
           <a
             href={privacyHref}
             className="underline hover:text-[var(--text-2)]"
@@ -134,7 +150,6 @@ export function LeadForm({
           >
             Privacy Policy
           </a>
-          .
         </span>
       </label>
 

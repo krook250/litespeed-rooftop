@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getStorefrontByKey, storefrontBasePath } from '@/lib/queries';
+import { operatedBy } from '@/lib/store/legal';
 
 /**
  * The dealer's own privacy policy, generated per tenant.
@@ -69,6 +70,8 @@ export default async function StorePrivacyPage({ params }: Params) {
   const postal = primary
     ? `${primary.addressLine1}, ${primary.city}, ${primary.state} ${primary.postalCode}`
     : (sf.addressLine ?? null);
+  // Carrier review matches this page to the registered brand, which is the LLC.
+  const operator = operatedBy(sf.name, sf.legalName);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
@@ -82,12 +85,12 @@ export default async function StorePrivacyPage({ params }: Params) {
       <Section title="Who we are">
         <p>
           This website is operated by {sf.name}
-          {postal ? <>, {postal}</> : null}. You can reach us at{' '}
+          {postal ? <>, {postal}</> : null}.{operator ? <> {operator}</> : null} You can reach us at{' '}
           <a href={`tel:+1${sf.phone.replace(/\D/g, '')}`} className="underline">
             {sf.phone}
           </a>
-          . Our website and inventory software are provided by Rooftop Auto, a product of Litespeed
-          Marketing LLC, which processes this information on our behalf.
+          . Our website and inventory software are provided by Rooftop Auto, which processes this
+          information only on our behalf and does not use it for its own purposes.
         </p>
       </Section>
 
@@ -133,7 +136,11 @@ export default async function StorePrivacyPage({ params }: Params) {
           the vehicle you asked about and your visit. <strong>Message frequency may vary.</strong>{' '}
           <strong>Message and data rates may apply.</strong> Reply STOP at any time to stop
           receiving messages, or HELP for help. Consent to receive text messages is not a condition
-          of any purchase.
+          of any purchase. The full terms are in our{' '}
+          <a href={`${base === '/' ? '' : base}/terms`} className="underline">
+            Text Messaging Terms
+          </a>
+          .
         </p>
       </Section>
 
@@ -141,15 +148,16 @@ export default async function StorePrivacyPage({ params }: Params) {
         <p>
           Only the people who need to: our staff, the software that runs this website, and — if you
           apply for financing — the lender you applied to. We may also disclose information where the
-          law requires it.
+          law requires it. None of this includes your mobile number's text message opt-in or consent,
+          which is never shared.
         </p>
       </Section>
 
       <Section title="Your choices">
         <p>
           You can ask us what we hold about you, ask us to correct it, or ask us to delete it. Call
-          the number above or email the address on our contact page and we will take care of it. Ask
-          us to stop contacting you and we will stop.
+          the number above and we will take care of it. Ask us to stop contacting you and we will
+          stop.
         </p>
       </Section>
 
