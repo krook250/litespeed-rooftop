@@ -13,6 +13,8 @@ import Link from 'next/link';
 import { Badge, Card, CardHeader, EmptyState, cn } from '@/components/ui';
 import { LineArea, NEUTRAL_INK, NEUTRAL_INK_SOFT } from '@/components/charts';
 import { GroupRow } from '@/components/ad-desk/group-row';
+import { VideoGroups } from '@/components/ad-desk/video-groups';
+import { videoGroupsForRooftop } from '@/lib/meta/video-groups';
 import { LinkButton } from '@/components/link-pending';
 import { dollars, money } from '@/components/ad-desk/format';
 import {
@@ -84,6 +86,9 @@ export default async function AdsPage({
   );
 
   const provisioned = data.rooftops.filter((r) => data.assets.get(r.id)?.catalogId);
+  const videoCounts = new Map(
+    await Promise.all(data.rooftops.map(async (r) => [r.id, (await videoGroupsForRooftop(r.id)).length] as const)),
+  );
   const copyByRooftop = new Map(
     await Promise.all(
       provisioned.map(async (r) => [r.id, await allAdCopyForRooftop(r.id)] as const),
@@ -165,8 +170,8 @@ export default async function AdsPage({
                   {[r.city, r.state].filter(Boolean).join(', ')}
                 </p>
               </div>
-              {unbuilt.length && !blocker ? (
-                <LinkButton href={`/admin/ad-desk/ads/${r.id}/new`} variant="primary" size="sm">
+              {!blocker ? (
+                <LinkButton href={`/admin/ad-desk/ads/${r.id}/choose`} variant="primary" size="sm">
                   + New group
                 </LinkButton>
               ) : null}
@@ -273,19 +278,26 @@ export default async function AdsPage({
                     />
                   ))}
               </div>
-            ) : !blocker && !failed.has(r.id) ? (
+            ) : !blocker && !failed.has(r.id) && !videoCounts.get(r.id) ? (
               <Card>
                 <EmptyState
                   title="No ads running for this lot yet"
                   body="A group is one shelf of cars with its own budget, radius and ads. Build the first one and nothing spends until you start it."
                 />
                 <div className="flex justify-center pb-8">
-                  <LinkButton href={`/admin/ad-desk/ads/${r.id}/new`} variant="primary">
+                  <LinkButton href={`/admin/ad-desk/ads/${r.id}/choose`} variant="primary">
                     Build the first group
                   </LinkButton>
                 </div>
               </Card>
             ) : null}
+
+            <VideoGroups
+              rooftopId={r.id}
+              dealerGroupId={data.groupId}
+              window={rangeWindow(range, r.timezone).window}
+              rangeLabel={range === 'all' ? 'Since it started' : `Last ${RANGE_LABEL[range]}`}
+            />
 
             {/*
               Groups saved here but never built, and campaigns from the

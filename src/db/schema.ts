@@ -2526,3 +2526,63 @@ export const socialPostTargets = pgTable(
     index('social_post_targets_status_idx').on(t.status, t.updatedAt),
   ],
 );
+
+/* ------------------------------------------------------------- video ads */
+
+/**
+ * What a video group asks Facebook for. Decides the campaign objective, so the
+ * two goals live in two campaigns per lot (`videoCampaignName`).
+ *   CLICKS — people who watch and tap through to the car. OUTCOME_TRAFFIC / LINK_CLICKS.
+ *   VIEWS  — as many people as possible watch it. OUTCOME_AWARENESS / THRUPLAY.
+ */
+export const videoAdGoalEnum = pgEnum('video_ad_goal', ['CLICKS', 'VIEWS']);
+
+/**
+ * A Group whose ads are videos. Its own table rather than a `meta_ad_groups`
+ * row because a catalog ad set and a video ad set are different things at Meta
+ * — a plain video ad cannot sit in a catalog ad set — and the catalog groups
+ * are keyed by shelf, which a video group does not have.
+ *
+ * Meta's ids are written back after a build; null `adSetId` means saved here
+ * and nothing at Facebook yet.
+ */
+export const videoAdGroups = pgTable(
+  'video_ad_groups',
+  {
+    id: cuid().primaryKey(),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    goal: videoAdGoalEnum().notNull().default('CLICKS'),
+    dailyBudgetUsd: integer().notNull().default(20),
+    radiusMiles: integer().notNull().default(25),
+    campaignId: text(),
+    adSetId: text(),
+    builtAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('video_ad_groups_rooftop_idx').on(t.rooftopId)],
+);
+
+/** One ad in a video group: one video, its words, where the click goes. */
+export const videoAds = pgTable(
+  'video_ads',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => videoAdGroups.id, { onDelete: 'cascade' }),
+    videoId: text().references(() => videos.id, { onDelete: 'set null' }),
+    message: text().notNull().default(''),
+    headline: text().notNull().default(''),
+    callToAction: text().notNull().default('LEARN_MORE'),
+    /** A walkaround's VDP, or the storefront home page for anything else. */
+    link: text().notNull(),
+    /** The copy of the video in the dealer's ad account (`/act_x/advideos`). */
+    fbVideoId: text(),
+    creativeId: text(),
+    adId: text(),
+    sortOrder: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('video_ads_group_idx').on(t.groupId, t.sortOrder)],
+);

@@ -102,10 +102,10 @@ import { defaultAdCopy as defaultAdCopyFor } from './ad-copy-spec';
 const OBJECTIVES = ['OUTCOME_SALES', 'PRODUCT_CATALOG_SALES'] as const;
 
 /** "Update payment method." The only reason an Ad create fails on an otherwise good setup. */
-const AD_NEEDS_PAYMENT = 1359188;
+export const AD_NEEDS_PAYMENT = 1359188;
 
 /** "Select an Instagram account or a Facebook Page to represent your business on Instagram." */
-const AD_NO_INSTAGRAM = 1772103;
+export const AD_NO_INSTAGRAM = 1772103;
 
 /**
  * The Instagram identity to run this Page's ads under, creating one if needed.
@@ -145,7 +145,7 @@ const AD_NO_INSTAGRAM = 1772103;
  * campaign, which for a used-car lot still includes Marketplace — the placement
  * that actually matters here.
  */
-async function instagramIdForPage(token: string, pageId: string): Promise<string | null> {
+export async function instagramIdForPage(token: string, pageId: string): Promise<string | null> {
   // 1. Their real account, if the Page has one.
   try {
     const page = await graph<{
@@ -245,7 +245,7 @@ export type CampaignObjective = (typeof OBJECTIVES)[number];
  * drop the field and reintroduce exactly this 400. Meta's boolean parser accepts
  * `false` (its own v25.0 reference example sends `0`).
  */
-const ADSET_BUDGET_SHARING = 'false';
+export const ADSET_BUDGET_SHARING = 'false';
 
 export type SpecialAdCategory = 'NONE' | 'FINANCIAL_PRODUCTS_SERVICES';
 
@@ -300,7 +300,7 @@ export type ProductSetResult = { id: string; name: string; adopted: boolean };
  * so the account will routinely hold a deleted campaign with exactly the name we
  * are about to look for.
  */
-const DEAD_STATUSES = new Set(['DELETED', 'ARCHIVED']);
+export const DEAD_STATUSES = new Set(['DELETED', 'ARCHIVED']);
 
 /**
  * Find a live object on an edge by exact name, or null.
