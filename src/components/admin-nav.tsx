@@ -58,6 +58,7 @@ const LINKS: Item[] = [
     children: [
       { href: '/admin/website/content', label: 'Content' },
       { href: '/admin/website/design', label: 'Design' },
+      { href: '/admin/website/videos', label: 'Videos' },
       { href: '/admin/website/analytics', label: 'Analytics' },
     ],
   },

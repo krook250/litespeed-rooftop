@@ -2,6 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { cn } from '@/components/ui';
+import { VideoPlayer } from '@/components/video/player';
+import { clock, posterUrl } from '@/lib/video/urls';
 
 export type GalleryPhoto = { url: string; alt: string; tag: string };
 
@@ -28,18 +30,65 @@ function Arrow({ dir }: { dir: 'left' | 'right' }) {
   );
 }
 
-export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: string }) {
+export type GalleryVideo = { playbackId: string; aspectRatio: string | null; durationSec: number | null };
+
+function Play({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M8 5.5v13a.5.5 0 0 0 .77.42l10-6.5a.5.5 0 0 0 0-.84l-10-6.5A.5.5 0 0 0 8 5.5z" />
+    </svg>
+  );
+}
+
+/**
+ * The walkaround sits in the stage, not in a section further down: a shopper
+ * looking at photos is exactly the shopper who wants to see it move. It is the
+ * first thumbnail and a button on the stage, and it never autoplays.
+ */
+function WalkaroundStage({ video, title }: { video: GalleryVideo; title: string }) {
+  return (
+    <div className="flex aspect-[3/2] w-full items-center justify-center bg-black">
+      <VideoPlayer
+        playbackId={video.playbackId}
+        title={`${title} walkaround`}
+        aspectRatio={video.aspectRatio}
+        accentColor="var(--brand)"
+        className="h-full max-w-full"
+      />
+    </div>
+  );
+}
+
+export function Gallery({
+  photos,
+  title,
+  video,
+}: {
+  photos: GalleryPhoto[];
+  title: string;
+  video?: GalleryVideo | null;
+}) {
   const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
 
   const count = photos.length;
   const go = useCallback(
     (next: number) => {
       if (count === 0) return;
+      setPlaying(false);
       setIndex(((next % count) + count) % count);
     },
     [count],
   );
+
+  if (!count && video) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+        <WalkaroundStage video={video} title={title} />
+      </div>
+    );
+  }
 
   if (!count) {
     return (
@@ -76,15 +125,31 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
         }}
         className="relative overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper-2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
       >
-        <img
-          key={current.url}
-          src={current.url}
-          alt={current.alt || `${title} — photo ${index + 1} of ${count}`}
-          width={1200}
-          height={800}
-          className="aspect-[3/2] w-full object-cover"
-        />
+        {playing && video ? (
+          <WalkaroundStage video={video} title={title} />
+        ) : (
+          <img
+            key={current.url}
+            src={current.url}
+            alt={current.alt || `${title} — photo ${index + 1} of ${count}`}
+            width={1200}
+            height={800}
+            className="aspect-[3/2] w-full object-cover"
+          />
+        )}
 
+        {video && !playing ? (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md bg-[var(--scrim)]/80 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--scrim)]"
+          >
+            <Play className="h-3.5 w-3.5" />
+            Watch walkaround{clock(video.durationSec) ? ` · ${clock(video.durationSec)}` : ''}
+          </button>
+        ) : null}
+
+        {playing ? null : (<>
         <button
           type="button"
           onClick={() => go(index - 1)}
@@ -112,9 +177,36 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
             </span>
           ) : null}
         </div>
+        </>)}
       </div>
 
       <div className="scroll-thin mt-2 flex gap-2 overflow-x-auto pb-1">
+        {video ? (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            aria-label="Play the walkaround video"
+            aria-current={playing ? 'true' : undefined}
+            className={cn(
+              'relative shrink-0 overflow-hidden rounded-lg border-2 transition',
+              playing ? 'border-[var(--brand)]' : 'border-transparent opacity-90 hover:opacity-100',
+            )}
+          >
+            <img
+              src={posterUrl(video.playbackId, 240)}
+              alt=""
+              width={240}
+              height={160}
+              loading="lazy"
+              className="aspect-[3/2] w-24 bg-black object-cover sm:w-28"
+            />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="rounded-full bg-black/60 p-1.5 text-white">
+                <Play className="h-4 w-4" />
+              </span>
+            </span>
+          </button>
+        ) : null}
         {photos.map((p, i) => (
           <button
             key={p.url}
@@ -124,10 +216,10 @@ export function Gallery({ photos, title }: { photos: GalleryPhoto[]; title: stri
               stageRef.current?.focus();
             }}
             aria-label={`Show photo ${i + 1}: ${TAG_LABEL[p.tag] ?? 'photo'}`}
-            aria-current={i === index ? 'true' : undefined}
+            aria-current={i === index && !playing ? 'true' : undefined}
             className={cn(
               'shrink-0 overflow-hidden rounded-lg border-2 transition',
-              i === index
+              i === index && !playing
                 ? 'border-[var(--brand)]'
                 : 'border-transparent opacity-75 hover:opacity-100',
             )}

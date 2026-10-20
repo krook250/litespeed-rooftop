@@ -24,6 +24,8 @@ import { canonicalOrigin, storefrontLd, type SeoRooftop } from '@/lib/store/seo'
 import type { RawSearchParams } from '@/components/store/srp-filters';
 import { activePrice, usd } from '@/lib/domain';
 import { homeDescription, homeHeading, homeTitle, lineup } from '@/lib/store/home-meta';
+import { introVideo } from '@/lib/video/queries';
+import { VideoPlayer } from '@/components/video/player';
 
 /**
  * Title, description and H1 for the home page, from the lot's address and what
@@ -84,6 +86,10 @@ export default async function StorefrontSrp({
 
   const Layout = layoutFor(storefront.layout);
 
+  /* The owner's intro, on the unfiltered home page only — someone filtering for
+     trucks has already been sold on the lot. Never autoplays. */
+  const intro = unfiltered.activeFilterCount === 0 ? await introVideo(storefront.introVideoId) : null;
+
   /*
    * The `@graph` for the whole storefront: the brand as an `Organization`, then
    * one `AutoDealer` per physical lot beneath it. Built from the same rows the
@@ -101,6 +107,17 @@ export default async function StorefrontSrp({
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+      {intro ? (
+        <section className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
+          <VideoPlayer
+            playbackId={intro.playbackId}
+            title={`${storefront.name}`}
+            aspectRatio={intro.aspectRatio}
+            accentColor={storefront.brandColor}
+            className="mx-auto max-h-[70vh] max-w-3xl overflow-hidden rounded-xl bg-black"
+          />
+        </section>
+      ) : null}
       <Layout view={view} />
       <ShopByMake links={facetLinks(inventory).makes} basePath={basePath} />
       <StoreSections

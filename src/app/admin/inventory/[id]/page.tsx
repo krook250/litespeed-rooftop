@@ -55,6 +55,8 @@ import {
 import { VehicleForm } from '@/components/vehicle-form';
 import { PhotoTag } from '@/components/inventory/photo-tag';
 import { PhotoAdd } from '@/components/inventory/photo-add';
+import { WalkaroundCard } from '@/components/video/walkaround-card';
+import { walkaroundForAdmin } from '@/lib/video/queries';
 import { TRANSFER_REFUSAL_MESSAGE, type TransferRefusal } from '@/lib/transfers';
 
 export const dynamic = 'force-dynamic';
@@ -85,7 +87,7 @@ export default async function VehiclePage({
   const moveError = move ? TRANSFER_REFUSAL_MESSAGE[move as TransferRefusal] : undefined;
 
   const scope = await sessionScope();
-  const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers, meta] =
+  const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers, meta, walkaround] =
     await Promise.all([
       getSyncStatesForVehicle(scope, id),
       getChannels(),
@@ -97,6 +99,7 @@ export default async function VehiclePage({
       getOpenTransfer(scope, id),
       getTransferHistory(scope, id),
       metaStatusForVehicle(vehicle),
+      walkaroundForAdmin(id),
     ]);
 
   /*
@@ -415,6 +418,24 @@ export default async function VehiclePage({
                 </div>
               ))}
             </div>
+          </Card>
+
+          {/* -------------------------------------------------- walkaround */}
+          <Card>
+            <CardHeader
+              title="Walkaround video"
+              subtitle="Plays on the website listing. Post it to Facebook and Instagram or run it as an ad."
+            />
+            <WalkaroundCard
+              vehicleId={vehicle.id}
+              title={vehicleTitle(vehicle)}
+              initial={walkaround}
+              listingUrl={
+                ['PHOTOS_PENDING', 'FRONT_LINE_READY', 'PENDING_SALE'].includes(vehicle.status)
+                  ? `${vdpBase}/${vehicle.stockNumber.toLowerCase()}`
+                  : null
+              }
+            />
           </Card>
 
           {/* ------------------------------------ per-channel merchandising */}

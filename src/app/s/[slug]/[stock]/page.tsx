@@ -38,6 +38,7 @@ import {
   isRvBody,
 } from '@/lib/domain';
 import { Gallery } from '@/components/store/gallery';
+import { walkaroundForListing } from '@/lib/video/queries';
 import { SOLD_STATUSES, similarToSold } from '@/lib/store/sold';
 import { makePath } from '@/lib/store/facets';
 import { vdpDescription, vdpTitle } from '@/lib/store/vdp-meta';
@@ -190,7 +191,10 @@ export default async function VehicleDetailPage({ params }: Params) {
   const rooftop = vehicle.rooftop;
   const dealerTel = `tel:+1${rooftop.phone.replace(/\D/g, '')}`;
 
-  const inventory = await getLiveInventory({ rooftopIds: storefront.rooftopIds });
+  const [inventory, walkaround] = await Promise.all([
+    getLiveInventory({ rooftopIds: storefront.rooftopIds }),
+    walkaroundForListing(vehicle.id),
+  ]);
   const related = relatedUnits(inventory, vehicle);
   /* Same measure as the SRP, so a badge does not appear on the related strip
      while being suppressed on the page the buyer just came from. */
@@ -371,6 +375,7 @@ export default async function VehicleDetailPage({ params }: Params) {
           <Gallery
             photos={vehicle.photos.map((p) => ({ url: p.url, alt: p.alt, tag: p.tag }))}
             title={title}
+            video={walkaround}
           />
         </div>
 

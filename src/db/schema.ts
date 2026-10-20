@@ -22,6 +22,8 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
+  type AnyPgColumn,
   text,
   timestamp,
   uniqueIndex,
@@ -709,6 +711,12 @@ export const storefronts = pgTable('storefronts', {
    */
   brandColor: text().notNull().default('#3d8bff'),
   accentColor: text().notNull().default('#ffb020'),
+  /**
+   * The video at the top of the home page — the owner pointing at the camera.
+   * A `videos` row of the group's, picked on Website → Videos. Null means none,
+   * and then the home page has no video section at all.
+   */
+  introVideoId: text().references((): AnyPgColumn => videos.id, { onDelete: 'set null' }),
   isActive: boolean().notNull().default(true),
 });
 
@@ -2373,4 +2381,67 @@ export const metaAdGroups = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('meta_ad_groups_rooftop_bucket_idx').on(t.rooftopId, t.bucket)],
+);
+
+/* ------------------------------------------------------------------ videos */
+
+/**
+ * What a video is for. A walkaround belongs to one vehicle; the rest belong to
+ * the dealership and live in Website → Videos.
+ */
+export const videoKindEnum = pgEnum('video_kind', ['WALKAROUND', 'LOT', 'INTRO', 'OTHER']);
+
+/**
+ * UPLOADING → the browser is still sending it to Mux.
+ * PROCESSING → Mux has it and is encoding.
+ * READY → it plays. `mp4Name` may still be null for a minute after this; the
+ *         MP4 is what Facebook and Instagram fetch, the stream is what the
+ *         website plays.
+ */
+export const videoStatusEnum = pgEnum('video_status', ['UPLOADING', 'PROCESSING', 'READY', 'FAILED']);
+
+/**
+ * Dealer video, hosted at Mux.
+ *
+ * Mux and not Blob because a phone walkaround is 4K HEVC at 100–400MB, and
+ * Instagram refuses anything wider than 1920px or over 300MB. Mux encodes it
+ * once into a stream the website plays and an MP4 (`mp4Name`, ≤1080p) that Meta
+ * fetches for posts and ads. The file goes from the browser straight to Mux;
+ * it never passes through a Vercel function, which would reject it at 4.5MB.
+ *
+ * `id` is sent to Mux as the asset's `passthrough`, so every webhook can find
+ * its row without a lookup table.
+ */
+export const videos = pgTable(
+  'videos',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    /** The lot it was shot on, when it is a walkaround. */
+    rooftopId: text().references(() => rooftops.id, { onDelete: 'set null' }),
+    vehicleId: text().references(() => vehicles.id, { onDelete: 'cascade' }),
+    kind: videoKindEnum().notNull().default('OTHER'),
+    title: text().notNull().default(''),
+    status: videoStatusEnum().notNull().default('UPLOADING'),
+
+    muxUploadId: text().unique(),
+    muxAssetId: text().unique(),
+    /** Public playback id: `stream.mux.com/{id}.m3u8`, `image.mux.com/{id}/thumbnail.jpg`. */
+    playbackId: text(),
+    /** `1080p.mp4` or `highest.mp4` once Mux has written it. `stream.mux.com/{playbackId}/{mp4Name}`. */
+    mp4Name: text(),
+    durationSec: real(),
+    /** Mux's own string, `16:9`, `9:16`. */
+    aspectRatio: text(),
+    /** Last thing that went wrong, in words the dealer can read. */
+    error: text(),
+
+    createdBy: text().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('videos_group_created_idx').on(t.groupId, t.createdAt),
+    index('videos_vehicle_idx').on(t.vehicleId),
+  ],
 );

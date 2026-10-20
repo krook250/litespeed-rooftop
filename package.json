@@ -17,10 +17,11 @@
     "db:backfill-timezones": "tsx src/db/backfill-timezones.ts",
     "db:real-photos": "tsx src/db/real-photos.ts",
     "db:enqueue-photos": "tsx src/db/backfill-photo-ingests.ts",
-    "db:cleanup-placeholders": "tsx src/db/cleanup-placeholder-photos.ts",
     "db:cleanup-placeholders": "tsx src/db/cleanup-placeholder-photos.ts"
   },
   "dependencies": {
+    "@mux/mux-player-react": "^3.14.0",
+    "@mux/upchunk": "^3.5.0",
     "@twilio/twilio-compliance-embed": "^2.1.3",
     "@vercel/blob": "^2.7.0",
     "basic-ftp": "^6.2.0",
