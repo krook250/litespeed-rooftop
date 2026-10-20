@@ -29,6 +29,7 @@ export const SECTIONS = [
   'at-risk',
   'syndication',
   'ad-desk',
+  'social',
   'website',
   'lots',
   'reporting',
@@ -69,6 +70,9 @@ const MATRIX: Record<Section, readonly UserRole[]> = {
   reporting: ['OWNER', 'SALES_MANAGER', 'MARKETING'],
   syndication: ['OWNER', 'SALES_MANAGER', 'MARKETING'],
   'ad-desk': ['OWNER', 'MARKETING'],
+  // Posting to the dealer's own Page. Marketing surface, like the website, plus
+  // the sales manager — the person most likely to be told "post the new trucks".
+  social: ['OWNER', 'SALES_MANAGER', 'MARKETING'],
   website: ['OWNER', 'MARKETING'],
   lots: ['OWNER', 'SALES_MANAGER', 'LOT_PORTER'],
   settings: ['OWNER'],

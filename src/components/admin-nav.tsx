@@ -51,6 +51,7 @@ const LINKS: Item[] = [
       { href: '/admin/ad-desk/connect', label: 'Connect' },
     ],
   },
+  { href: '/admin/social', label: 'Social', section: 'social' },
   {
     href: '/admin/website',
     label: 'Website',

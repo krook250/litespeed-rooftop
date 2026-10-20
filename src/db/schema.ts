@@ -2445,3 +2445,84 @@ export const videos = pgTable(
     index('videos_vehicle_idx').on(t.vehicleId),
   ],
 );
+
+/* ------------------------------------------------------------------ social */
+
+/** What the post is built from. Decides the composer tab and the caption it starts with. */
+export const socialPostKindEnum = pgEnum('social_post_kind', ['VEHICLE', 'WALKAROUND', 'VIDEO', 'CUSTOM']);
+
+/**
+ * Who asked for it. MANUAL today; the auto-queue (random units, new arrivals,
+ * price drops) writes the others, so the queue and the history can say why a
+ * post exists without a second table.
+ */
+export const socialPostSourceEnum = pgEnum('social_post_source', ['MANUAL', 'AUTO_RANDOM', 'NEW_ARRIVAL', 'PRICE_DROP']);
+
+/** The post as a whole, read off its targets by `settlePost`. */
+export const socialPostStatusEnum = pgEnum('social_post_status', ['SCHEDULED', 'POSTING', 'POSTED', 'PARTIAL', 'FAILED', 'CANCELED']);
+
+export const socialPlatformEnum = pgEnum('social_platform', ['FACEBOOK', 'INSTAGRAM']);
+
+/**
+ * queued ──(due)──> processing ──> posted
+ *                       └──────────> failed
+ * Instagram video and carousels wait in `processing` across cron ticks while
+ * Meta builds the container.
+ */
+export const socialTargetStatusEnum = pgEnum('social_target_status', ['QUEUED', 'PROCESSING', 'POSTED', 'FAILED']);
+
+/**
+ * An organic post to a lot's Facebook Page and its Instagram. One row per post,
+ * one `social_post_targets` row per platform.
+ *
+ * Media is stored as what was picked at the time — photo URLs copied, the video
+ * by id — so a post scheduled for tomorrow goes out as composed even if the
+ * photos on the unit are reordered tonight.
+ */
+export const socialPosts = pgTable(
+  'social_posts',
+  {
+    id: cuid().primaryKey(),
+    groupId: text().notNull().references(() => dealerGroups.id, { onDelete: 'cascade' }),
+    rooftopId: text().notNull().references(() => rooftops.id, { onDelete: 'cascade' }),
+    kind: socialPostKindEnum().notNull(),
+    source: socialPostSourceEnum().notNull().default('MANUAL'),
+    vehicleId: text().references(() => vehicles.id, { onDelete: 'set null' }),
+    videoId: text().references(() => videos.id, { onDelete: 'set null' }),
+    /** Up to ten public image URLs, in order. Empty for a video post. */
+    photoUrls: jsonb().$type<string[]>().notNull().default([]),
+    caption: text().notNull().default(''),
+    /** Facebook only: a link attached to a text post. */
+    link: text(),
+    scheduledFor: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    status: socialPostStatusEnum().notNull().default('SCHEDULED'),
+    createdBy: text().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('social_posts_rooftop_sched_idx').on(t.rooftopId, t.scheduledFor),
+    index('social_posts_vehicle_idx').on(t.vehicleId),
+  ],
+);
+
+export const socialPostTargets = pgTable(
+  'social_post_targets',
+  {
+    id: cuid().primaryKey(),
+    postId: text().notNull().references(() => socialPosts.id, { onDelete: 'cascade' }),
+    platform: socialPlatformEnum().notNull(),
+    status: socialTargetStatusEnum().notNull().default('QUEUED'),
+    /** Instagram: the container being built. */
+    containerId: text(),
+    externalId: text(),
+    permalink: text(),
+    error: text(),
+    startedAt: timestamp({ withTimezone: true }),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('social_post_targets_post_platform_uq').on(t.postId, t.platform),
+    index('social_post_targets_status_idx').on(t.status, t.updatedAt),
+  ],
+);
