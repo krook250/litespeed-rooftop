@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
 import { decodeVin } from '@/lib/intake/vin-decode';
 import { expectedCheckDigit, normaliseVin } from '@/lib/intake/parse';
+import { field } from '@/lib/intake/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,20 @@ export async function GET(_req: Request, ctx: { params: Promise<{ vin: string }>
     vin: candidate.vin,
     repairedFrom: candidate.repairedFrom ?? null,
     cached: decoded.cached,
-    extraction: decoded.extraction,
+    // The VIN itself goes in the extraction too. vPIC's row has no VIN field, so
+    // without this the form's VIN box came back empty after a good decode — and
+    // a blank VIN on a car is minted as a fake one on save, with the right make
+    // and year, which is exactly what a financing company then rejects.
+    extraction: {
+      ...decoded.extraction,
+      vin: field(
+        candidate.vin,
+        'vin',
+        'high',
+        candidate.repairedFrom
+          ? `typed as ${candidate.repairedFrom}; I, O and Q are not VIN characters, so corrected to ${candidate.vin}`
+          : undefined,
+      ),
+    },
   });
 }
