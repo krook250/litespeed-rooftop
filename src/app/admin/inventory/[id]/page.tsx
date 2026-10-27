@@ -179,6 +179,12 @@ export default async function VehiclePage({
             >
               View on website ↗
             </a>
+            <Link
+              href={`/admin/inventory/${vehicle.id}/buyers-guide`}
+              className="ml-4 mt-1.5 inline-block text-xs font-semibold text-ink-700 underline-offset-2 hover:underline sm:hidden"
+            >
+              Buyers Guide
+            </Link>
             <div className="mt-2 sm:hidden">
               <FeatureToggle vehicleId={vehicle.id} featured={!!vehicle.featuredAt} />
             </div>
@@ -243,6 +249,12 @@ export default async function VehiclePage({
             >
               View VDP ↗
             </a>
+            <Link
+              href={`/admin/inventory/${vehicle.id}/buyers-guide`}
+              className="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
+            >
+              Print Buyers Guide
+            </Link>
           </div>
         </div>
       </header>
