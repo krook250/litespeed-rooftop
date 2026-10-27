@@ -13,7 +13,6 @@ import {
   retrySync,
   setChannelExclusion,
 } from '@/lib/sync-engine';
-import { buildVin } from '@/lib/vin';
 import { deriveStockNumber } from '@/lib/import/mapping';
 import { createHash } from 'node:crypto';
 import { del, put } from '@vercel/blob';
@@ -230,20 +229,10 @@ export async function saveVehicle(formData: FormData) {
     const rooftopId = str('rooftopId');
     const scope = await sessionScope();
     if (!scope.rooftopIds.includes(rooftopId)) return;
-    /* An RV does not get a synthesised VIN.
-     *
-     * `buildVin` returns a structurally valid string — real WMI, correct check
-     * digit — that no manufacturer ever issued. On a car that is a seed and demo
-     * convenience and the blank-VIN case is rare. On RV inventory it is the
-     * normal case: towables frequently have no VIN keyed at the dealership, and
-     * no marketplace publishes one, so a lot migrated off RV Trader arrives
-     * VIN-less by default. Minting fakes at that volume means syndicating
-     * seventeen characters that fail any decoder a shopper or a marketplace
-     * runs them through. Null is the honest answer and the column now allows it. */
-    const vin = str('vin')
-      || (base.vehicleType === 'AUTO'
-        ? buildVin(base.make, base.year, base.stockNumber || String(Date.now()))
-        : null);
+    /* A VIN is whatever the dealer entered, or nothing. Never generated: a
+     * made-up VIN with the right make and year decodes, syndicates, and lands
+     * on a finance company's paperwork as a car that does not exist. */
+    const vin = str('vin').toUpperCase().replace(/\s+/g, '') || null;
     const acquired = str('acquiredDate') ? new Date(str('acquiredDate')) : new Date();
     const inserted = await db
       .insert(t.vehicles)

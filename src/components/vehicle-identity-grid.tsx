@@ -72,7 +72,7 @@ export function VehicleIdentityGrid({
           one, so a mistyped VIN was read-only in the header forever. */}
       <Text
         name="vin"
-        label={v ? 'VIN' : rv ? 'VIN (optional)' : 'VIN (blank to generate)'}
+        label={v || !rv ? 'VIN' : 'VIN (optional)'}
         defaultValue={v ? (v.vin ?? '') : str(p, 'vin')}
         className="sm:col-span-2"
         scanned={!v && has('vin')}
