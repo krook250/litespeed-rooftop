@@ -77,10 +77,10 @@ export default async function VehiclePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ move?: string }>;
+  searchParams: Promise<{ move?: string; dupe?: string }>;
 }) {
   const { id } = await params;
-  const { move } = await searchParams;
+  const { move, dupe } = await searchParams;
   const vehicle = await getVehicleById(id);
   if (!vehicle) notFound();
 
@@ -144,6 +144,13 @@ export default async function VehiclePage({
       <Link href="/admin/inventory" className="text-xs font-medium text-ink-500 hover:text-ink-900">
         ← Inventory
       </Link>
+
+      {dupe ? (
+        <p className="mt-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
+          This VIN was already in your inventory, so nothing new was added — this is the existing
+          record. Update it here.
+        </p>
+      ) : null}
 
       <header className="mt-2 mb-4 sm:mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">

@@ -233,6 +233,23 @@ export async function saveVehicle(formData: FormData) {
      * made-up VIN with the right make and year decodes, syndicates, and lands
      * on a finance company's paperwork as a car that does not exist. */
     const vin = str('vin').toUpperCase().replace(/\s+/g, '') || null;
+    /* The VIN is unique across every lot. Re-adding a car that's already in
+     * the system used to hit the unique index and throw — the dealer saw
+     * "This page couldn't load" and had no idea why. Ours: open the record
+     * that's already there. Someone else's: say so, save nothing. */
+    if (vin) {
+      const held = await db
+        .select({ id: t.vehicles.id, rooftopId: t.vehicles.rooftopId })
+        .from(t.vehicles)
+        .where(eq(t.vehicles.vin, vin))
+        .limit(1);
+      if (held[0]) {
+        if (scope.rooftopIds.includes(held[0].rooftopId)) {
+          redirect(`/admin/inventory/${held[0].id}?dupe=1`);
+        }
+        redirect(`/admin/inventory/new?vinTaken=${encodeURIComponent(vin)}`);
+      }
+    }
     const acquired = str('acquiredDate') ? new Date(str('acquiredDate')) : new Date();
     const inserted = await db
       .insert(t.vehicles)

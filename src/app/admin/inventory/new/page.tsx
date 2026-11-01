@@ -6,7 +6,12 @@ import { availableReader } from '@/lib/intake/read-document';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewVehiclePage() {
+export default async function NewVehiclePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vinTaken?: string }>;
+}) {
+  const { vinTaken } = await searchParams;
   const rooftops = await getRooftops();
   // Checked on the server so the page can be honest about it before anyone
   // wastes a photo — an unconfigured environment says so up front rather than
@@ -23,6 +28,14 @@ export default async function NewVehiclePage() {
         Photograph the paperwork and the form fills itself in. The VIN decides the specs, so
         the only things worth checking are the mileage, the price and the title.
       </p>
+
+      {vinTaken ? (
+        <p className="mb-6 max-w-2xl rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-900 ring-1 ring-inset ring-red-600/20">
+          VIN <span className="font-mono">{vinTaken}</span> is already on another dealership&apos;s
+          inventory in Rooftop, so this vehicle wasn&apos;t saved. Check the VIN, or contact support
+          if the car is yours.
+        </p>
+      ) : null}
 
       {reader === 'none' ? (
         <p className="mb-6 max-w-2xl rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-inset ring-amber-600/20">
