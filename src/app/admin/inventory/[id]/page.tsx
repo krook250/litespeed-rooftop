@@ -77,10 +77,10 @@ export default async function VehiclePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ move?: string; dupe?: string }>;
+  searchParams: Promise<{ move?: string; dupe?: string; stockTaken?: string; stockNew?: string; stockNext?: string }>;
 }) {
   const { id } = await params;
-  const { move, dupe } = await searchParams;
+  const { move, dupe, stockTaken, stockNew, stockNext } = await searchParams;
   const vehicle = await getVehicleById(id);
   if (!vehicle) notFound();
 
@@ -149,6 +149,14 @@ export default async function VehiclePage({
         <p className="mt-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
           This VIN was already in your inventory, so nothing new was added — this is the existing
           record. Update it here.
+        </p>
+      ) : null}
+
+      {stockTaken ? (
+        <p className="mt-3 rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
+          {stockNew
+            ? `Stock ${stockTaken} was already used by another vehicle, so this one was saved as stock ${vehicle.stockNumber}. Change it below if you want a different number.`
+            : `Stock ${stockTaken} is already used by another vehicle, so the stock number stayed ${vehicle.stockNumber}. The next free number is ${stockNext}. Everything else saved.`}
         </p>
       ) : null}
 

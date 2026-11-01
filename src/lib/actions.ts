@@ -145,6 +145,35 @@ export async function updatePrice(formData: FormData) {
 
 const NUMERIC = ['year', 'mileage', 'price', 'cost', 'pack', 'reconCost', 'marketValue', 'doors', 'cylinders', 'mpgCity', 'mpgHwy', 'keysCount'] as const;
 
+/**
+ * Stock numbers are the dealer's URL for a car (`site/7`), so two units on one
+ * rooftop sharing one means one of them has no page. Returns the wanted number
+ * if no other unit on the rooftop holds it, otherwise the next free one:
+ * numeric stock numbers get one past the highest numeric on the lot, anything
+ * else gets `-2`, `-3`… Sold units count — their numbers stay theirs.
+ */
+async function nextFreeStock(rooftopId: string, wanted: string, exceptId?: string) {
+  const rows = await db
+    .select({ id: t.vehicles.id, stock: t.vehicles.stockNumber })
+    .from(t.vehicles)
+    .where(eq(t.vehicles.rooftopId, rooftopId));
+  const used = new Set(
+    rows.filter((r) => r.id !== exceptId).map((r) => r.stock.trim().toUpperCase()),
+  );
+  if (!wanted || !used.has(wanted.toUpperCase())) return { stock: wanted, taken: false };
+  if (/^\d+$/.test(wanted)) {
+    let n = Math.max(
+      Number(wanted),
+      ...rows.filter((r) => r.id !== exceptId && /^\d+$/.test(r.stock.trim())).map((r) => Number(r.stock.trim())),
+    ) + 1;
+    while (used.has(String(n))) n++;
+    return { stock: String(n), taken: true };
+  }
+  let i = 2;
+  while (used.has(`${wanted}-${i}`.toUpperCase())) i++;
+  return { stock: `${wanted}-${i}`, taken: true };
+}
+
 export async function saveVehicle(formData: FormData) {
   const id = String(formData.get('id') ?? '');
   const me = await requireSession();
@@ -251,10 +280,13 @@ export async function saveVehicle(formData: FormData) {
       }
     }
     const acquired = str('acquiredDate') ? new Date(str('acquiredDate')) : new Date();
+    const wantedStock = base.stockNumber;
+    const free = await nextFreeStock(rooftopId, wantedStock);
     const inserted = await db
       .insert(t.vehicles)
       .values({
         ...base,
+        stockNumber: free.stock,
         rooftopId,
         vin,
         acquiredDate: acquired,
@@ -315,7 +347,11 @@ export async function saveVehicle(formData: FormData) {
 
     await enqueueChange(v.id, 'CREATE', {}, `New unit added — ${v.year} ${v.make} ${v.model}`);
     refreshAll(v.id);
-    redirect(`/admin/inventory/${v.id}`);
+    redirect(
+      free.taken
+        ? `/admin/inventory/${v.id}?stockTaken=${encodeURIComponent(wantedStock)}&stockNew=1`
+        : `/admin/inventory/${v.id}`,
+    );
   }
 
   const before = await loadWritableVehicle(id);
@@ -337,6 +373,17 @@ export async function saveVehicle(formData: FormData) {
         .where(eq(t.vehicles.vin, vinIn))
         .limit(1);
       if (!taken[0] || taken[0].id === id) vin = vinIn;
+    }
+  }
+
+  /* Stock number on edit: one another unit on the lot already holds is
+   * refused — the old number stays and the page says which is free. */
+  let stockRefused: { wanted: string; next: string } | null = null;
+  if (base.stockNumber !== before.stockNumber) {
+    const free = await nextFreeStock(before.rooftopId, base.stockNumber, id);
+    if (free.taken) {
+      stockRefused = { wanted: base.stockNumber, next: free.stock };
+      base.stockNumber = before.stockNumber;
     }
   }
 
@@ -466,6 +513,11 @@ export async function saveVehicle(formData: FormData) {
   }
 
   refreshAll(id);
+  if (stockRefused) {
+    redirect(
+      `/admin/inventory/${id}?stockTaken=${encodeURIComponent(stockRefused.wanted)}&stockNext=${encodeURIComponent(stockRefused.next)}`,
+    );
+  }
 }
 
 export async function markFrontLineReady(formData: FormData) {
