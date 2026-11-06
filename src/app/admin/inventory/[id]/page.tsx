@@ -200,6 +200,12 @@ export default async function VehiclePage({
             >
               Buyers Guide
             </Link>
+            <Link
+              href={`/admin/inventory/${vehicle.id}/mirror-hanger`}
+              className="ml-4 mt-1.5 inline-block text-xs font-semibold text-ink-700 underline-offset-2 hover:underline sm:hidden"
+            >
+              Mirror Hanger
+            </Link>
             <div className="mt-2 sm:hidden">
               <FeatureToggle vehicleId={vehicle.id} featured={!!vehicle.featuredAt} />
             </div>
@@ -269,6 +275,12 @@ export default async function VehiclePage({
               className="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
             >
               Print Buyers Guide
+            </Link>
+            <Link
+              href={`/admin/inventory/${vehicle.id}/mirror-hanger`}
+              className="rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
+            >
+              Print Mirror Hanger
             </Link>
           </div>
         </div>
