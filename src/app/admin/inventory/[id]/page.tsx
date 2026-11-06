@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AgeBadge, Badge, Button, Card, CardHeader, cn } from '@/components/ui';
 import { SaveButton, SubmitButton } from '@/components/submit-button';
-import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
+import { Countdown, PriceQuickEdit } from '@/components/sync-bits';
+import { advanceDueSyncs } from '@/lib/sync-engine';
 import { LotStatusControl } from '@/components/inventory/lot-status';
 import { MarkSold } from '@/components/inventory/mark-sold';
 import { dealerSiteBase } from '@/lib/storefront-url';
@@ -87,6 +88,8 @@ export default async function VehiclePage({
   const moveError = move ? TRANSFER_REFUSAL_MESSAGE[move as TransferRefusal] : undefined;
 
   const scope = await sessionScope();
+  // Land anything whose ETA has passed before reading channel status.
+  await advanceDueSyncs();
   const [syncStates, channels, overrides, prices, traffic, group, rooftops, openTransfer, transfers, meta, walkaround] =
     await Promise.all([
       getSyncStatesForVehicle(scope, id),
@@ -242,8 +245,7 @@ export default async function VehiclePage({
             car — lot status and Mark sold — are pinned to the bottom of the
             screen (see the end of this component), and View VDP is a link under
             the title. */}
-        <div className="hidden flex-col items-end gap-2 sm:flex">
-          <SyncTicker />
+        <div className="hidden sm:block">
           <div className="flex flex-wrap items-center justify-end gap-2">
             {vehicle.status !== 'FRONT_LINE_READY' && vehicle.status !== 'PENDING_SALE' ? (
               <form action={markFrontLineReady}>

@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { AgeBadge, AgingBar, Badge, Card, CardHeader, EmptyState, Stat, cn } from '@/components/ui';
-import { SyncTicker } from '@/components/sync-bits';
 import { HomePreference } from '@/components/feed/home-preference';
 import { requireSession } from '@/lib/auth';
 import {
@@ -122,7 +121,6 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <HomePreference current={me.homeView} thisView="DASHBOARD" />
-          <SyncTicker />
         </div>
       </header>
 

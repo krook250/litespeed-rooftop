@@ -130,9 +130,8 @@ Every change writes a `sync_events` row. The activity log is append-only, which
 is what makes "I changed it here and it went everywhere" auditable rather than a
 magic trick.
 
-The sync worker is driven from the browser on the syndication screen (the
-"Sync worker running" pill, which you can pause mid-demo). In production that is
-a background worker, not a page poll.
+Queued syncs are landed (QUEUED/SYNCING -> LIVE) by `/api/cron/sync-advance`
+every minute, and by the inventory and syndication pages when they load.
 
 ---
 

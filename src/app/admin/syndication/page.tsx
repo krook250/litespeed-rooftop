@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, CardHeader, Badge, cn, EmptyState } from '@/components/ui';
-import { Countdown, PriceQuickEdit, SyncTicker } from '@/components/sync-bits';
+import { Countdown, PriceQuickEdit } from '@/components/sync-bits';
+import { advanceDueSyncs } from '@/lib/sync-engine';
 import { UnitSyncList, type SyncUnit } from '@/components/syndication/unit-sync-row';
 import {
   getChannels,
@@ -52,6 +53,8 @@ export default async function SyndicationPage({
 }) {
   await requireSection('syndication');
   const { rooftop: rooftopSlug } = await searchParams;
+  // Land anything whose ETA has passed before reading channel status.
+  await advanceDueSyncs();
 
   const [channels, connections, rooftops, events, metaCatalogs] = await Promise.all([
     getChannels(),
@@ -185,9 +188,6 @@ export default async function SyndicationPage({
             destination that is carrying the unit — instantly where the channel accepts a push,
             at the next fetch where the channel pulls a feed.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <SyncTicker />
         </div>
       </header>
 

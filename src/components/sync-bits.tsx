@@ -2,58 +2,8 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { tickSyncs, updatePrice } from '@/lib/actions';
+import { updatePrice } from '@/lib/actions';
 import { cn } from './ui';
-
-/* --------------------------------------------------------------- ticker */
-
-/**
- * Advances in-flight syncs on an interval. In production this is a worker;
- * here the screen drives it so a demo has something honest to watch.
- */
-export function SyncTicker({ intervalMs = 1500 }: { intervalMs?: number }) {
-  const router = useRouter();
-  const [running, setRunning] = useState(true);
-  const [lastLanded, setLastLanded] = useState(0);
-
-  useEffect(() => {
-    if (!running) return;
-    let alive = true;
-    const id = setInterval(async () => {
-      try {
-        const r = await tickSyncs();
-        if (!alive) return;
-        if (r?.landed) {
-          setLastLanded(r.landed);
-          router.refresh();
-        }
-      } catch {
-        /* demo poller — a dropped tick is not worth surfacing */
-      }
-    }, intervalMs);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [running, intervalMs, router]);
-
-  return (
-    <button
-      onClick={() => setRunning((r) => !r)}
-      className="inline-flex items-center gap-2 rounded-lg border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
-      title="The sync worker. Pause it if you want to talk over a screen without it moving."
-    >
-      <span
-        className={cn(
-          'h-2 w-2 rounded-full',
-          running ? 'bg-emerald-500 pulse-ring' : 'bg-ink-300',
-        )}
-      />
-      {running ? 'Sync worker running' : 'Sync worker paused'}
-      {lastLanded ? <span className="text-ink-400">· last landed {lastLanded}</span> : null}
-    </button>
-  );
-}
 
 /* ------------------------------------------------------------- countdown */
 
