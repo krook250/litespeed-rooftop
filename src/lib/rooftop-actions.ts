@@ -19,7 +19,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as t from '@/db/schema';
 import { requireSession } from '@/lib/auth';
@@ -85,8 +85,29 @@ export async function saveRooftopDetails(formData: FormData) {
     })
     .where(eq(t.rooftops.id, rooftopId));
 
+  await syncStorefrontPhone(rooftopId, str('phone', 40));
+
   // The lot's address and coordinates are on every feed row and every storefront
   // page, so this invalidates far more than the screen it was edited on.
   revalidatePath('/admin', 'layout');
   revalidatePath('/ops');
+}
+
+/**
+ * The storefront's phone follows the lot's. Signup creates the storefront with an
+ * empty phone and nothing else ever wrote it, so every site shipped with a dead
+ * Call button and `tel:+1` on its Terms page, and the texting campaign refused to
+ * refile without a HELP number. One lot: always mirror it. Several: fill it only
+ * while it is empty, so a group's main number is never overwritten by a second lot.
+ */
+async function syncStorefrontPhone(rooftopId: string, phone: string) {
+  if (!phone) return;
+  const lot = await db.query.rooftops.findFirst({ where: eq(t.rooftops.id, rooftopId) });
+  if (!lot) return;
+  const lots = await db.query.rooftops.findMany({ where: eq(t.rooftops.groupId, lot.groupId), columns: { id: true } });
+  const only = lots.length === 1;
+  await db
+    .update(t.storefronts)
+    .set({ phone })
+    .where(only ? eq(t.storefronts.groupId, lot.groupId) : and(eq(t.storefronts.groupId, lot.groupId), eq(t.storefronts.phone, '')));
 }
