@@ -88,7 +88,7 @@ const repAttributes = (r: Row) => ({
 /* ---- the campaign text ----------------------------------------------------- */
 
 /** The name buyers know, the LLC behind it, and the public pages a reviewer opens. */
-async function publicFace(groupId: string, legalName: string | null) {
+export async function publicFace(groupId: string, legalName: string | null) {
   const [group, sf] = await Promise.all([
     db.query.dealerGroups.findFirst({ where: eq(dealerGroups.id, groupId) }),
     db.query.storefronts.findFirst({ where: eq(storefronts.groupId, groupId) }),

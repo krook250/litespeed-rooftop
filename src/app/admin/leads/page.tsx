@@ -11,6 +11,7 @@
  * See `MarkLeadsSeen`.
  */
 
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { Card, EmptyState, cn } from '@/components/ui';
 import { getLeads, getRooftops, leadRecipientsFor } from '@/lib/queries';
@@ -179,6 +180,18 @@ export default async function LeadsPage() {
                     <a href={`mailto:${l.email}`} className="text-emerald-700 hover:underline">
                       {l.email}
                     </a>
+                    {l.phone ? (
+                      l.smsConsentAt ? (
+                        <Link
+                          href={`/admin/leads/${l.id}`}
+                          className="rounded-md bg-ink-900 px-2.5 py-0.5 text-xs font-semibold text-white hover:bg-ink-800"
+                        >
+                          {l.smsOptedOutAt ? 'Texts (opted out)' : 'Text'}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-ink-400">Didn&rsquo;t ask for texts</span>
+                      )
+                    ) : null}
                   </div>
 
                   <div className="mt-1.5 text-sm text-ink-700">

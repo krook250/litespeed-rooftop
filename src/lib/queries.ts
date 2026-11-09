@@ -661,6 +661,8 @@ export async function getLeads(limit = 500) {
       email: t.leads.email,
       phone: t.leads.phone,
       message: t.leads.message,
+      smsConsentAt: t.leads.smsConsentAt,
+      smsOptedOutAt: t.leads.smsOptedOutAt,
       rooftopId: t.leads.rooftopId,
       rooftopName: t.rooftops.name,
       vehicleId: t.vehicles.id,

@@ -1482,6 +1482,12 @@ export const leads = pgTable(
     smsConsentAt: timestamp({ withTimezone: true }),
     smsConsentText: text(),
     /**
+     * They replied STOP. Set on every lead in the group with the same phone, and
+     * cleared by START. Twilio also blocks the send on its side; this is so the
+     * screen says so instead of letting a salesperson type into a dead box.
+     */
+    smsOptedOutAt: timestamp({ withTimezone: true }),
+    /**
      * Where the shopper's visit came from — the same bucket `page_views.source`
      * uses (`facebook`, `search`, `google_ads`, `marketplace`, `direct`,
      * `other`). Read from the visit cookie at submit. Null on leads taken before
@@ -1499,6 +1505,30 @@ export const leads = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('leads_rooftop_idx').on(t.rooftopId, t.createdAt)],
+);
+
+/**
+ * Texts between a dealership and a lead, both directions, on the group's
+ * Rooftop number. Only ever written for a lead with `smsConsentAt` set; see
+ * `src/lib/messaging/lead-texts.ts`.
+ */
+export const leadMessages = pgTable(
+  'lead_messages',
+  {
+    id: cuid().primaryKey(),
+    leadId: text().notNull().references(() => leads.id, { onDelete: 'cascade' }),
+    /** OUT = dealership to buyer. IN = buyer to dealership. */
+    direction: text().notNull(),
+    body: text().notNull(),
+    /** Twilio's message SID (SM…). */
+    twilioSid: text(),
+    /** Null when it went out fine. Twilio's wording when it didn't. */
+    error: text(),
+    /** Who on staff sent it. Null for the automatic opt-in confirmation and for IN. */
+    sentBy: text().references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('lead_messages_lead_idx').on(t.leadId, t.createdAt)],
 );
 
 /**
