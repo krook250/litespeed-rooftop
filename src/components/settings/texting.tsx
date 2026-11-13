@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useTransition } from 'react';
 import {
   getNumberAction,
   searchNumbersAction,
   sendRegistrationAction,
+  setAutoReplyAction,
   setRingsAction,
   type ActionState,
   type SearchState,
@@ -259,5 +260,65 @@ export function RegistrationForm({
       <Err state={state} />
       <SubmitButton pendingLabel="Sending…">{again ? 'Send again' : 'Send for approval'}</SubmitButton>
     </form>
+  );
+}
+
+/* ---- auto-reply to new leads ------------------------------------------------- */
+
+function Switch({ on, disabled, onChange, label }: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${
+        on ? 'bg-emerald-600' : 'bg-ink-300'
+      }`}
+    >
+      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`} />
+    </button>
+  );
+}
+
+/** Two switches and the exact text. Lived on just.diy's Automations card first. */
+export function AutoReplySettings({ on, afterHours, sample }: { on: boolean; afterHours: boolean; sample: string }) {
+  const [s, setS] = useState({ on, afterHours });
+  const [, start] = useTransition();
+  const flip = (which: 'on' | 'afterHours', v: boolean) => {
+    setS((p) => ({ ...p, [which]: v }));
+    start(async () => {
+      await setAutoReplyAction(which, v);
+    });
+  };
+
+  return (
+    <div className="space-y-4 px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-ink-900">Auto-reply to new leads</p>
+          <p className="mt-0.5 text-xs text-ink-500">
+            A buyer who ticks the box to get texts hears back from your number right away. Then you take it from the lead.
+          </p>
+        </div>
+        <Switch on={s.on} onChange={(v) => flip('on', v)} label="Auto-reply to new leads" />
+      </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={`text-sm font-semibold ${s.on ? 'text-ink-900' : 'text-ink-400'}`}>Reply even after hours</p>
+          <p className="mt-0.5 text-xs text-ink-500">
+            Off: replies go out 8am to 8pm where the buyer is, and a lead that comes in overnight hears back at 8am. On: it goes
+            the moment they ask.
+          </p>
+        </div>
+        <Switch on={s.afterHours} disabled={!s.on} onChange={(v) => flip('afterHours', v)} label="Reply even after hours" />
+      </div>
+      <div className={s.on ? '' : 'opacity-50'}>
+        <p className="mb-1 text-xs font-medium text-ink-600">What they get</p>
+        <p className="rounded-2xl bg-ink-100 px-3.5 py-2 text-sm text-ink-900">{sample}</p>
+      </div>
+    </div>
   );
 }

@@ -5,7 +5,17 @@ import { useRouter } from 'next/navigation';
 import { Button, cn } from '@/components/ui';
 import { sendLeadTextAction } from '@/lib/messaging/lead-text-actions';
 
-type Msg = { id: string; out: boolean; body: string; error: string | null; at: string };
+type Msg = {
+  id: string;
+  out: boolean;
+  body: string;
+  status: 'queued' | 'sent' | 'failed' | 'skipped';
+  error: string | null;
+  auto: boolean;
+  /** "Goes out Sat 8:00 AM their time", for a queued text. */
+  due: string | null;
+  at: string;
+};
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -61,11 +71,24 @@ export function LeadThread({
         <Bubble out={false} label="From the form" at={formAt}>
           {formMessage || <span className="italic text-ink-400">No message, just their details.</span>}
         </Bubble>
-        {messages.map((m) => (
-          <Bubble key={m.id} out={m.out} at={m.at} error={m.error}>
-            {m.body}
-          </Bubble>
-        ))}
+        {messages.map((m) =>
+          m.status === 'skipped' ? (
+            <p key={m.id} className="text-center text-xs text-ink-500">
+              {m.auto ? 'Auto-reply' : 'Text'} not sent: {m.error} <span className="text-ink-400">· {when(m.at)}</span>
+            </p>
+          ) : (
+            <Bubble
+              key={m.id}
+              out={m.out}
+              at={m.at}
+              label={m.due ?? (m.auto ? 'Auto-reply' : undefined)}
+              queued={m.status === 'queued'}
+              error={m.status === 'failed' || (m.status === 'sent' && m.error) ? m.error : null}
+            >
+              {m.body}
+            </Bubble>
+          ),
+        )}
         <div ref={end} />
       </div>
 
@@ -107,12 +130,14 @@ function Bubble({
   out,
   at,
   label,
+  queued,
   error,
   children,
 }: {
   out: boolean;
   at: string;
   label?: string;
+  queued?: boolean;
   error?: string | null;
   children: React.ReactNode;
 }) {
@@ -122,6 +147,7 @@ function Bubble({
         className={cn(
           'max-w-[85%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-sm',
           out ? 'bg-ink-900 text-white' : 'bg-ink-100 text-ink-900',
+          queued && 'border border-dashed border-ink-400 bg-white text-ink-600',
           error && 'bg-red-50 text-red-900 ring-1 ring-red-200',
         )}
       >

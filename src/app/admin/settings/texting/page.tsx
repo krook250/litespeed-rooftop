@@ -5,9 +5,10 @@ import * as t from '@/db/schema';
 import { requireSection } from '@/lib/auth-guard';
 import { getGroup } from '@/lib/queries';
 import { Card, CardHeader } from '@/components/ui';
-import { NumberPicker, RegistrationForm, RingsEditor, type RegistrationDefaults } from '@/components/settings/texting';
+import { AutoReplySettings, NumberPicker, RegistrationForm, RingsEditor, type RegistrationDefaults } from '@/components/settings/texting';
+import { autoReplyText } from '@/lib/messaging/lead-texts';
 import { numberState } from '@/lib/messaging/numbers';
-import { BUSINESS_TYPES, POSITIONS, advanceIfStale, getRegistration } from '@/lib/messaging/registration';
+import { BUSINESS_TYPES, POSITIONS, advanceIfStale, getRegistration, publicFace } from '@/lib/messaging/registration';
 import { REGISTRATION_READY, TWILIO_READY, prettyNumber } from '@/lib/messaging/twilio';
 import { canonicalUrl } from '@/lib/store/seo';
 
@@ -49,6 +50,10 @@ export default async function TextingPage() {
     db.query.rooftops.findFirst({ where: eq(t.rooftops.groupId, me.groupId), orderBy: asc(t.rooftops.createdAt) }),
     db.query.storefronts.findFirst({ where: eq(t.storefronts.groupId, me.groupId) }),
   ]);
+
+  // A real unit from their lot for the preview, so it reads like their text.
+  const unit = await db.query.vehicles.findFirst({ where: eq(t.vehicles.rooftopId, lot?.id ?? '') });
+  const sampleVehicle = unit ? `${unit.year} ${unit.make} ${unit.model}` : null;
 
   const sent = !!reg?.step;
   const status = sent ? reg!.status : 'NOT_STARTED';
@@ -118,7 +123,15 @@ export default async function TextingPage() {
             <Row label="Buyer texts passed to your phone" on={ready} note={ready ? 'On' : 'Not open yet'} />
           </ul>
 
-          {ready ? null : (
+          {ready ? (
+            <div className="border-t border-ink-200">
+              <AutoReplySettings
+                on={reg!.autoReply}
+                afterHours={reg!.autoReplyAfterHours}
+                sample={autoReplyText('Jane', (await publicFace(me.groupId, null)).name, sampleVehicle)}
+              />
+            </div>
+          ) : (
             <div className="border-t border-ink-200">
               <div className="px-5 pt-5">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Texting your leads</h2>

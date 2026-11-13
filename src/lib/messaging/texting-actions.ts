@@ -96,3 +96,14 @@ export async function sendRegistrationAction(_prev: ActionState, fd: FormData): 
   revalidatePath('/admin/settings');
   return { ok: true, at: Date.now() };
 }
+
+/** The two auto-reply switches. Owner only, like the rest of this screen. */
+export async function setAutoReplyAction(which: 'on' | 'afterHours', value: boolean): Promise<{ ok: boolean }> {
+  const me = await owner();
+  await db
+    .update(t.messagingRegistrations)
+    .set(which === 'on' ? { autoReply: value } : { autoReplyAfterHours: value })
+    .where(eq(t.messagingRegistrations.groupId, me.groupId));
+  revalidatePath(PATH);
+  return { ok: true };
+}

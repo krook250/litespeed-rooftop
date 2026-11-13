@@ -638,6 +638,10 @@ export async function createLead(input: {
 
   await notifyNewLead(lead.id, input.rooftopId, input.vehicleId);
 
+  // The auto-reply. Loaded here so the storefront doesn't pull Twilio code into every page.
+  const { queueAutoReply } = await import('@/lib/messaging/lead-texts');
+  await queueAutoReply(lead.id);
+
   return lead;
 }
 

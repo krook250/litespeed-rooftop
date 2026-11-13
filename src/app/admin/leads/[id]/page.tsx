@@ -11,7 +11,7 @@ import { Card } from '@/components/ui';
 import { requireSection } from '@/lib/auth-guard';
 import { db } from '@/db';
 import * as t from '@/db/schema';
-import { blockedLine, canText, leadInGroup, threadFor } from '@/lib/messaging/lead-texts';
+import { blockedLine, buyerZone, canText, leadInGroup, threadFor } from '@/lib/messaging/lead-texts';
 import { getRegistration, optInMessage, publicFace } from '@/lib/messaging/registration';
 import { LeadThread } from '@/components/leads/lead-thread';
 
@@ -36,7 +36,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     getRegistration(me.groupId),
   ]);
   const face = await publicFace(me.groupId, reg?.legalName ?? null);
-  const sentBefore = messages.some((m) => m.direction === 'OUT' && !m.error);
+  const sentBefore = messages.some((m) => m.direction === 'OUT' && m.status === 'sent' && !m.error);
+  const zone = buyerZone(lead.phone, row.zone);
+  const theirTime = (d: Date) =>
+    d.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: zone });
   const title = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ` ${vehicle.trim}` : ''}` : null;
 
   return (
@@ -69,7 +72,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             id: m.id,
             out: m.direction === 'OUT',
             body: m.body,
+            status: m.status as 'queued' | 'sent' | 'failed' | 'skipped',
             error: m.error,
+            auto: m.auto,
+            due: m.status === 'queued' && m.sendAfter ? `Goes out ${theirTime(m.sendAfter)} their time` : null,
             at: m.createdAt.toISOString(),
           }))}
           blocked={state.ok ? null : blockedLine(state.why)}

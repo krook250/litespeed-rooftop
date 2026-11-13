@@ -1522,13 +1522,25 @@ export const leadMessages = pgTable(
     body: text().notNull(),
     /** Twilio's message SID (SM…). */
     twilioSid: text(),
-    /** Null when it went out fine. Twilio's wording when it didn't. */
+    /**
+     * queued = waiting for `sendAfter` (texting hours where the buyer is);
+     * sent = handed to Twilio; failed / skipped = see `error` for why.
+     */
+    status: text().notNull().default('sent'),
+    /** Why it failed or was skipped, in words for the thread. Null when it went out fine. */
     error: text(),
+    /** When a queued text may go out. */
+    sendAfter: timestamp({ withTimezone: true }),
+    /** Sent by Rooftop, not typed by staff: the auto-reply. */
+    auto: boolean().notNull().default(false),
     /** Who on staff sent it. Null for the automatic opt-in confirmation and for IN. */
     sentBy: text().references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('lead_messages_lead_idx').on(t.leadId, t.createdAt)],
+  (t) => [
+    index('lead_messages_lead_idx').on(t.leadId, t.createdAt),
+    index('lead_messages_due_idx').on(t.status, t.sendAfter),
+  ],
 );
 
 /**
@@ -1905,7 +1917,9 @@ export const messagingRegistrations = pgTable(
     campaignSid: text(),
 
     /** The one text a new lead gets, once texting is approved. Owner switches it. */
-    autoReply: boolean().notNull().default(false),
+    autoReply: boolean().notNull().default(true),
+    /** Off: the auto-reply waits for texting hours where the buyer is. On: it goes the moment they ask. */
+    autoReplyAfterHours: boolean().notNull().default(false),
 
     /** When the carriers got it. The clock we quote "a few days" against. */
     submittedAt: timestamp({ withTimezone: true }),
