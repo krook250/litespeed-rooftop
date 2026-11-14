@@ -257,6 +257,11 @@ export default async function VehicleDetailPage({ params }: Params) {
     if (!name || !email) {
       return { status: 'error', message: 'Name and email are required.' };
     }
+    // Required so every lead can at least be called back; texting is still only with the box ticked.
+    const digits = phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+    if (digits.length !== 10) {
+      return { status: 'error', message: 'Add a 10-digit phone number so we can reach you.' };
+    }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) {
       return { status: 'error', message: 'That email address does not look right.' };
     }
@@ -268,7 +273,7 @@ export default async function VehicleDetailPage({ params }: Params) {
       vehicleId, storefrontId, rooftopId, name, email, phone, message, smsConsentText, source,
       utmCampaign, utmContent,
     });
-    return { status: 'ok', firstName: name.split(/\s+/)[0] };
+    return { status: 'ok', firstName: name.split(/\s+/)[0], texting: Boolean(smsConsentText) };
   }
 
   const mpg =

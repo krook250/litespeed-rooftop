@@ -46,9 +46,22 @@ export const SMS_CONSENT_VERSION = 2;
  * their brand and their consent, and a disclosure that says "we" without ever
  * naming who is a disclosure that discloses nothing.
  */
+/**
+ * The bold first line of the label, shown at the size of a real choice so
+ * buyers actually read it and tick it. It is the first sentence of
+ * `smsConsentLabel`, so the words on screen and the words filed with the
+ * carriers stay identical.
+ */
+export const SMS_CONSENT_HEADLINE = 'Text me about this vehicle.';
+
+/** Everything after the headline: the small print under it. */
+export function smsConsentFinePrint(dealerName: string, legalName?: string | null): string {
+  return smsConsentLabel(dealerName, legalName).slice(SMS_CONSENT_HEADLINE.length).trim();
+}
+
 export function smsConsentLabel(dealerName: string, legalName?: string | null): string {
   return (
-    `Text me about this vehicle. By checking this box I agree to receive text messages from ` +
+    `${SMS_CONSENT_HEADLINE} By checking this box I agree to receive text messages from ` +
     `${senderName(dealerName, legalName)} at the number provided about my inquiry: availability, ` +
     `pricing, test drives and financing, including messages sent by an automatic telephone ` +
     `dialing system. Consent is not a condition of purchase. Message frequency may vary. ` +

@@ -1,12 +1,14 @@
 'use client';
 
 import { useActionState } from 'react';
-import { smsConsentLabel } from '@/lib/store/sms-consent';
+import { SMS_CONSENT_HEADLINE, smsConsentFinePrint } from '@/lib/store/sms-consent';
 
 export type LeadState = {
   status: 'idle' | 'ok' | 'error';
   message?: string;
   firstName?: string;
+  /** They ticked the box: the thanks says a text is coming. */
+  texting?: boolean;
 };
 
 export type LeadAction = (prev: LeadState, formData: FormData) => Promise<LeadState>;
@@ -50,7 +52,10 @@ export function LeadForm({
           {stockNumber}.
         </p>
         <p className="mt-1 text-sm text-emerald-900/80">
-          A salesperson will confirm availability and get back to you. Need an answer right now?
+          {state.texting
+            ? "We'll text you shortly to confirm it's still here. "
+            : 'A salesperson will call or email to confirm it is still here. '}
+          Need an answer right now?
           Call{' '}
           <a href={`tel:+1${dealerPhone.replace(/\D/g, '')}`} className="font-semibold underline">
             {dealerPhone}
@@ -83,6 +88,7 @@ export function LeadForm({
         <input
           name="phone"
           type="tel"
+          required
           autoComplete="tel"
           placeholder="Phone"
           aria-label="Phone"
@@ -112,8 +118,8 @@ export function LeadForm({
         each of them is a documented rejection cause:
 
           - the checkbox is UNCHECKED by default and never `required`. Consent
-            bundled into "submit this form" is not consent, and phone is optional
-            on this form anyway.
+            bundled into "submit this form" is not consent, and phone is required
+            here only so a buyer can be called back; texting stays their choice.
           - the literal word "may" appears in both the frequency and the rates
             sentence. See `@/lib/store/sms-consent`.
           - the Terms and Privacy links are here, in the opt-in area, labeled,
@@ -124,15 +130,16 @@ export function LeadForm({
         Do not move this below the button, do not collapse it behind a "details"
         toggle, and do not shorten the label to make the card tidier.
       */}
-      <label className="flex cursor-pointer items-start gap-2 pt-0.5">
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-[var(--line)] p-2.5 pt-2">
         <input
           type="checkbox"
           name="smsConsent"
           value="yes"
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--line)] accent-[var(--brand)]"
+          className="mt-0.5 h-5 w-5 shrink-0 rounded border-[var(--line)] accent-[var(--brand)]"
         />
         <span className="text-[11px] leading-snug text-[var(--text-3)]">
-          {smsConsentLabel(dealerName, legalName)}{' '}
+          <span className="mb-1 block text-sm font-semibold text-[var(--text)]">{SMS_CONSENT_HEADLINE.replace(/\.$/, '')}</span>
+          {smsConsentFinePrint(dealerName, legalName)}{' '}
           <a
             href={termsHref}
             className="underline hover:text-[var(--text-2)]"
@@ -165,7 +172,7 @@ export function LeadForm({
         {pending ? 'Sending…' : 'Check availability'}
       </button>
       <p className="text-[11px] leading-snug text-[var(--text-3)]">
-        We will only use this to answer your question on stock #{stockNumber}. No spam, no list.
+        Tick the box and we&rsquo;ll text you the answer. Your number is only used for stock #{stockNumber}. No spam, no list.
       </p>
     </form>
   );
