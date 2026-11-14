@@ -1,18 +1,14 @@
 /**
  * One lead: who they are, what they asked about, and the texts with them.
- * Opened from the Text button on Leads. See `src/lib/messaging/lead-texts.ts`
- * for every rule about who may be texted; this screen only reports them.
+ * The same thread opens in the chat bubble; see `src/lib/messaging/chat.ts`.
+ * Every rule about who may be texted lives in `src/lib/messaging/lead-texts.ts`.
  */
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { eq } from 'drizzle-orm';
 import { Card } from '@/components/ui';
 import { requireSection } from '@/lib/auth-guard';
-import { db } from '@/db';
-import * as t from '@/db/schema';
-import { blockedLine, buyerZone, canText, leadInGroup, threadFor } from '@/lib/messaging/lead-texts';
-import { getRegistration, optInMessage, publicFace } from '@/lib/messaging/registration';
+import { markRead, threadView } from '@/lib/messaging/chat';
 import { LeadThread } from '@/components/leads/lead-thread';
 
 export const dynamic = 'force-dynamic';
@@ -25,61 +21,39 @@ function telHref(phone: string): string {
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const me = await requireSection('leads');
-  const row = await leadInGroup(me.groupId, id);
-  if (!row) notFound();
-  const { lead } = row;
-
-  const [vehicle, messages, state, reg] = await Promise.all([
-    lead.vehicleId ? db.query.vehicles.findFirst({ where: eq(t.vehicles.id, lead.vehicleId) }) : null,
-    threadFor(lead.id),
-    canText(me.groupId, lead),
-    getRegistration(me.groupId),
-  ]);
-  const face = await publicFace(me.groupId, reg?.legalName ?? null);
-  const sentBefore = messages.some((m) => m.direction === 'OUT' && m.status === 'sent' && !m.error);
-  const zone = buyerZone(lead.phone, row.zone);
-  const theirTime = (d: Date) =>
-    d.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: zone });
-  const title = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ` ${vehicle.trim}` : ''}` : null;
+  const v = await threadView(me.groupId, id);
+  if (!v) notFound();
+  await markRead(me.groupId, id);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <Link href="/admin/leads" className="text-xs text-ink-500 hover:underline">
         ← Leads
       </Link>
-      <h1 className="mt-1 text-xl font-semibold tracking-tight text-ink-900">{lead.name}</h1>
+      <h1 className="mt-1 text-xl font-semibold tracking-tight text-ink-900">{v.name}</h1>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        {lead.phone ? (
-          <a href={telHref(lead.phone)} className="font-semibold text-emerald-700 hover:underline">
-            {lead.phone}
+        {v.phone ? (
+          <a href={telHref(v.phone)} className="font-semibold text-emerald-700 hover:underline">
+            {v.phone}
           </a>
         ) : null}
-        <a href={`mailto:${lead.email}`} className="text-emerald-700 hover:underline">
-          {lead.email}
+        <a href={`mailto:${v.email}`} className="text-emerald-700 hover:underline">
+          {v.email}
         </a>
       </div>
       <p className="mb-5 mt-1 text-sm text-ink-500">
-        {title ? `${title} · stock #${vehicle!.stockNumber} · ` : ''}
-        {lead.createdAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+        {v.vehicle ? `${v.vehicle} · stock #${v.stockNumber} · ` : ''}
+        {new Date(v.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
       </p>
 
       <Card>
         <LeadThread
-          leadId={lead.id}
-          formMessage={lead.message}
-          formAt={lead.createdAt.toISOString()}
-          messages={messages.map((m) => ({
-            id: m.id,
-            out: m.direction === 'OUT',
-            body: m.body,
-            status: m.status as 'queued' | 'sent' | 'failed' | 'skipped',
-            error: m.error,
-            auto: m.auto,
-            due: m.status === 'queued' && m.sendAfter ? `Goes out ${theirTime(m.sendAfter)} their time` : null,
-            at: m.createdAt.toISOString(),
-          }))}
-          blocked={state.ok ? null : blockedLine(state.why)}
-          firstNote={sentBefore ? null : optInMessage(face.name)}
+          leadId={v.leadId}
+          formMessage={v.formMessage}
+          formAt={v.createdAt}
+          messages={v.messages}
+          blocked={v.blocked}
+          firstNote={v.firstNote}
         />
       </Card>
     </div>

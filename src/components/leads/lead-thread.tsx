@@ -4,25 +4,15 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, cn } from '@/components/ui';
 import { sendLeadTextAction } from '@/lib/messaging/lead-text-actions';
-
-type Msg = {
-  id: string;
-  out: boolean;
-  body: string;
-  status: 'queued' | 'sent' | 'failed' | 'skipped';
-  error: string | null;
-  auto: boolean;
-  /** "Goes out Sat 8:00 AM their time", for a queued text. */
-  due: string | null;
-  at: string;
-};
+import type { ThreadMsg } from '@/lib/messaging/chat';
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /**
- * The thread with a lead, oldest at the top, and the box to text them.
- * Replies arrive by webhook; the page re-reads every 15 seconds while open.
+ * The thread with a lead, oldest at the top, and the box to text them. Used on
+ * the lead page and inside the chat bubble. Replies arrive by webhook; it
+ * re-reads every 15 seconds while open.
  */
 export function LeadThread({
   leadId,
@@ -31,26 +21,37 @@ export function LeadThread({
   messages,
   blocked,
   firstNote,
+  refresh,
+  fill = false,
 }: {
   leadId: string;
   formMessage: string;
   formAt: string;
-  messages: Msg[];
+  messages: ThreadMsg[];
   /** Why texting is off for this lead, or null when it is on. */
   blocked: string | null;
   /** The confirmation that goes out ahead of the first text, or null once sent. */
   firstNote: string | null;
+  /** Re-read the thread. Defaults to refreshing the page. */
+  refresh?: () => void;
+  /** Fill a fixed-height parent (the bubble) instead of capping at 60vh. */
+  fill?: boolean;
 }) {
   const router = useRouter();
+  const reload = refresh ?? (() => router.refresh());
+  const reloadRef = useRef(reload);
+  useEffect(() => {
+    reloadRef.current = reload;
+  });
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => router.refresh(), 15_000);
-    return () => clearInterval(t);
-  }, [router]);
+    const id = setInterval(() => reloadRef.current(), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
@@ -62,12 +63,12 @@ export function LeadThread({
       const r = await sendLeadTextAction(leadId, text);
       if (r.error) setError(r.error);
       else setText('');
-      router.refresh();
+      reloadRef.current();
     });
 
   return (
-    <div>
-      <div className="max-h-[60vh] space-y-3 overflow-y-auto px-5 py-4">
+    <div className={fill ? 'flex h-full min-h-0 flex-col' : undefined}>
+      <div className={cn('space-y-3 overflow-y-auto px-5 py-4', fill ? 'min-h-0 flex-1' : 'max-h-[60vh]')}>
         <Bubble out={false} label="From the form" at={formAt}>
           {formMessage || <span className="italic text-ink-400">No message, just their details.</span>}
         </Bubble>
@@ -106,12 +107,17 @@ export function LeadThread({
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && text.trim() && !pending) send();
+                // Enter sends with a mouse and keyboard; on a phone Enter is a new line and the button sends.
+                const desktop = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+                if (e.key === 'Enter' && !e.shiftKey && desktop) {
+                  e.preventDefault();
+                  if (text.trim() && !pending) send();
+                }
               }}
-              rows={3}
+              rows={fill ? 2 : 3}
               maxLength={1000}
               placeholder="Text them…"
-              className="w-full resize-y rounded-lg border border-ink-300 px-3 py-2 text-sm text-ink-900 focus:border-ink-500 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-ink-300 px-3 py-2 text-sm text-ink-900 focus:border-ink-500 focus:outline-none"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <span className="text-xs text-red-700">{error}</span>

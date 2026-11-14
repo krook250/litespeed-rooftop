@@ -1487,6 +1487,8 @@ export const leads = pgTable(
      * screen says so instead of letting a salesperson type into a dead box.
      */
     smsOptedOutAt: timestamp({ withTimezone: true }),
+    /** When anyone on staff last opened this lead's texts. A buyer reply after it is unread. */
+    textsReadAt: timestamp({ withTimezone: true }),
     /**
      * Where the shopper's visit came from — the same bucket `page_views.source`
      * uses (`facebook`, `search`, `google_ads`, `marketplace`, `direct`,

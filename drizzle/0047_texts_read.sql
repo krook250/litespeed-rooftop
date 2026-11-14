@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "textsReadAt" timestamp with time zone;

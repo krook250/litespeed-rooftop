@@ -8,7 +8,8 @@ import { RooftopWordmark } from '@/components/brand';
 import { PwaRegister } from '@/components/pwa-register';
 import { InstallButton } from '@/components/install-app';
 import { pwaMetadata, pwaViewport } from '@/lib/pwa';
-import { ROLE_LABEL, sectionsFor } from '@/lib/permissions';
+import { ROLE_LABEL, can, sectionsFor } from '@/lib/permissions';
+import { ChatBubble } from '@/components/leads/chat-bubble';
 import { TrialBanner } from '@/components/trial-banner';
 import { isStaff } from '@/lib/ops/guard';
 
@@ -120,6 +121,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <TrialBanner group={group} />
         {children}
       </div>
+      {/* Texting with leads from any screen. Renders nothing until texting is approved. */}
+      {can(user.role, 'leads') ? <ChatBubble /> : null}
     </div>
   );
 }

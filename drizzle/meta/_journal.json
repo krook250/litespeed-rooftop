@@ -330,6 +330,13 @@
       "when": 1794599792171,
       "tag": "0046_auto_reply",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794625742392,
+      "tag": "0047_texts_read",
+      "breakpoints": true
     }
   ]
 }
