@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/components/ui';
-import { chatInboxAction, chatThreadAction } from '@/lib/messaging/chat-actions';
 import type { Inbox, ThreadView } from '@/lib/messaging/chat';
 import { LeadThread } from './lead-thread';
 
@@ -32,11 +31,17 @@ export function ChatBubble() {
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [q, setQ] = useState('');
 
+  // Plain GETs, never server actions: see src/app/api/chat/inbox/route.ts.
   const loadInbox = useCallback(() => {
-    chatInboxAction().then(setBox, () => {});
+    fetch('/api/chat/inbox', { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<Inbox>) : null))
+      .then((d) => d && setBox(d), () => {});
   }, []);
   const loadThread = useCallback(() => {
-    if (leadId) chatThreadAction(leadId).then(setThread, () => {});
+    if (!leadId) return;
+    fetch(`/api/chat/thread?lead=${encodeURIComponent(leadId)}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<ThreadView>) : null))
+      .then((d) => d && setThread(d), () => {});
   }, [leadId]);
 
   // The badge stays current while the app is open; faster while the panel is.
