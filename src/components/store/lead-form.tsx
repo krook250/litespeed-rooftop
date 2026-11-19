@@ -53,7 +53,7 @@ export function LeadForm({
         </p>
         <p className="mt-1 text-sm text-emerald-900/80">
           {state.texting
-            ? "We'll text you shortly to confirm it's still here. "
+            ? "We'll text you shortly. Reply there with any questions. "
             : 'A salesperson will call or email to confirm it is still here. '}
           Need an answer right now?
           Call{' '}
