@@ -115,12 +115,12 @@ type Face = Awaited<ReturnType<typeof publicFace>>;
  * when buyer texting ships, the first text to a consented lead must be this.
  */
 export function optInMessage(dealerName: string): string {
-  return `${dealerName}: thanks for your inquiry. We'll text you here about the vehicle you asked about. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`;
+  return `${dealerName}: thanks for your inquiry. We'll text you here about the vehicle you asked about. Msg frequency may vary. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`;
 }
 
 /** The HELP reply: names the dealer and gives a phone that answers (30890). */
 const helpMessage = (f: Face) =>
-  `${f.name}: for help call ${f.phone}. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out.`;
+  `${f.name}: for help call ${f.phone}. Msg frequency may vary. Msg & data rates may apply. Reply STOP to opt out.`;
 
 const optOutMessage = (f: Face) =>
   `${f.name}: you're unsubscribed and won't get more texts from us. Reply START to resubscribe.`;

@@ -152,8 +152,10 @@ const firstName = (name: string) => {
  * promised, so it carries frequency, rates, HELP and STOP.
  */
 export function autoReplyText(first: string, dealer: string, vehicle: string | null): string {
-  const about = vehicle ? `asking about the ${vehicle} at ${dealer}` : `reaching out to ${dealer}`;
-  return `Hi ${first}, thanks for ${about}. We'll text you back shortly. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`;
+  const opener = vehicle
+    ? `Thanks for asking about the ${vehicle}. Any questions on it, or want to come take it for a drive?`
+    : `Thanks for reaching out. Anything we can help with, or want to come by the lot?`;
+  return `Hi ${first}, it's ${dealer}. ${opener} Msg frequency may vary. Msg & data rates may apply. Reply HELP for help, STOP to opt out.`;
 }
 
 const hourIn = (at: Date, zone: string) =>
